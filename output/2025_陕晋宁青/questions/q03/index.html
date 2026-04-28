@@ -34,6 +34,9 @@ function x_at(t){
 // ─────────────── Drawing ───────────────
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // Layout: scene top half, F-t and v-t side by side bottom half
   const sceneH = H*0.50;
   const graphY = sceneH + 12;
