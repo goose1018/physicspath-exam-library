@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2024 全国甲卷物理 · 动画讲义</title>
+<link rel="stylesheet" href="../_shared/q-shell.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 24px}
+  .filter-chip{padding:7px 14px;border-radius:999px;background:var(--ppath-card);
+    border:1px solid var(--ppath-line);font-size:13px;font-weight:700;cursor:pointer;
+    color:var(--ppath-fg-2);font:inherit;transition:.15s}
+  .filter-chip:hover{border-color:var(--ppath-fg-2)}
+  .filter-chip.active{background:var(--ppath-ink-green-800);color:var(--ppath-fg-on-ink);
+    border-color:var(--ppath-ink-green-800)}
+  .search{flex:1;min-width:200px;padding:10px 16px;border:1px solid var(--ppath-line);
+    background:var(--ppath-card);border-radius:999px;font:inherit;font-size:13.5px;
+    color:var(--ppath-fg-1);font-family:var(--ppath-font-sans)}
+  .search:focus{outline:0;border-color:var(--ppath-amber-600)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">2024 高考物理 · 真题动画讲义</p>
+      <h1>全国甲卷 · 物理</h1>
+      <p class="subtitle">12 道题全部上线，每题经过四关 agent 审核（题目识别 + 物理推导 + 代码审 + 视觉审跳过）。点开题目卡片查看动画 + 原题 + 官方答案。</p>
+    </div>
+    <div class="actions">
+      <span class="mode-pill"><span class="dot"></span>12 / 12 上线</span>
+    </div>
+  </header>
+
+  <div class="summary-bar">
+    <div><b>12</b>道题</div>
+    <div><b>12</b>已上线</div>
+    <div><b>3</b>道 B 级</div>
+    <div><b>5</b>个 FAIL 已修</div>
+  </div>
+
+  <div class="filters">
+    <input type="text" class="search" id="search" placeholder="搜索题号、考点、关键词…">
+    <button class="filter-chip active" data-filter="all">全部</button>
+    <button class="filter-chip" data-filter="单选">单选</button>
+    <button class="filter-chip" data-filter="多选">多选</button>
+    <button class="filter-chip" data-filter="实验">实验</button>
+    <button class="filter-chip" data-filter="计算">计算</button>
+    <button class="filter-chip" data-filter="B">B 级</button>
+  </div>
+
+  <section class="q-grid" id="grid"></section>
+</div>
+
+<script>
+const QUESTIONS = [
+  {id:'q01', num:1,  type:'单选', tier:'S', topic:'氘核聚变 · 反应方程平衡',  summary:'质量数+电荷数同时守恒，求 x、y 值。',                              answer:'C',     status:'done'},
+  {id:'q02', num:2,  type:'单选', tier:'A', topic:'滑轮+物块+砝码 · a-m 图',   summary:'P 物块受摩擦+绳跨滑轮，绘 a-m 双曲线渐近 g。',                  answer:'D',     status:'done'},
+  {id:'q03', num:3,  type:'单选', tier:'A', topic:'嫦娥六号 · 月球采样',        summary:'环月飞行 + 月面 g/6 + 月地转移三阶段对比。',                    answer:'D',     status:'done'},
+  {id:'q04', num:4,  type:'单选', tier:'B', topic:'大圆环上小环下滑',           summary:'机械能守恒 + 牛二，临界 cosθ=2/3 时 N=0，先减后增。',          answer:'C',     status:'done'},
+  {id:'q05', num:5,  type:'单选', tier:'A', topic:'两点电荷 · 等势线',          summary:'V=0 等势线推电荷正负与电荷量比 |q₁|=2|q₂|。',                  answer:'B',     status:'done'},
+  {id:'q06', num:6,  type:'多选', tier:'A', topic:'理想变压器 + 滑动变阻器',     summary:'U₂、R 联动调控 R₁ 热功率。ABCD 四工况自动循环 + 直方图。',     answer:'AC',    status:'done'},
+  {id:'q07', num:7,  type:'多选', tier:'A', topic:'蹦床运动员 · F-t 图',        summary:'上抛对称性 + 动量定理求 v=10 m/s 与平均力 3000 N。',           answer:'BD',    status:'done'},
+  {id:'q08', num:8,  type:'多选', tier:'B', topic:'滑轮+磁场+线框 · v-t 图',     summary:'数值积分 v(t)，A/C 模型可切换（m>M vs m=M）。',                answer:'AC',    status:'done'},
+  {id:'q09', num:9,  type:'实验', tier:'A', topic:'电梯+弹簧测力计 · 超失重',   summary:'静止 5.0 N → 上行减速失重，加速度 1.0 m/s²。',                  answer:'5.0/失重/1.0',   status:'done'},
+  {id:'q10', num:10, type:'实验', tier:'A', topic:'氧气传感器 · 定标',          summary:'分压式 + 内接电流表 + V-O₂% 定标曲线反查。',                   answer:'b端/1.40V/17%',  status:'done'},
+  {id:'q11', num:11, type:'计算', tier:'A', topic:'救护车 · 声速 · 鸣笛',        summary:'匀加速→匀速 + 声波传播，求 v=20 m/s 与停笛距离 680 m。',       answer:'v=20, x=680',    status:'done'},
+  {id:'q12', num:12, type:'计算', tier:'B', topic:'金属棒+磁场+电容',           summary:'恒力加速到 v₀ + 电容充电过渡，求 v、U_C、外力做功。',           answer:'v₀/2, BLv₀/4, CU_C²', status:'done'}
+];
+
+const STATUS_LABEL = {done:'已上线', progress:'制作中', todo:'待制作'};
+
+let curFilter = 'all', searchText = '';
+
+function render(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  QUESTIONS.forEach(q => {
+    const matchF = curFilter === 'all'
+      || (curFilter === 'B' && q.tier === 'B')
+      || q.type === curFilter;
+    const matchS = !searchText
+      || q.topic.toLowerCase().includes(searchText)
+      || q.summary.toLowerCase().includes(searchText)
+      || q.id.includes(searchText) || String(q.num) === searchText;
+    if(!(matchF && matchS)) return;
+
+    const card = document.createElement('a');
+    card.className = 'q-card' + (q.status==='done' ? '' : ' disabled');
+    if(q.status === 'done') card.href = `questions/${q.id}/index.html`;
+
+    const tierTag = q.tier==='B' ? `<span class="tag amber">B 级</span>` :
+                    q.tier==='A' ? `<span class="tag">动画</span>` :
+                                   `<span class="tag">静态</span>`;
+    const statusTag = q.status==='done' ? `<span class="tag success">已上线</span>` :
+                      `<span class="tag warning">待做</span>`;
+
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="q-num">${String(q.num).padStart(2,'0')}</div>
+        ${tierTag}
+      </div>
+      <div class="q-meta">
+        <span class="tag">${q.type}</span>
+        <span class="tag amber">答案 ${q.answer}</span>
+      </div>
+      <div class="q-topic">${q.topic}</div>
+      <div class="q-summary">${q.summary}</div>
+      <div class="q-foot">
+        ${statusTag}
+        ${q.status==='done' ? '<span style="color:var(--ppath-amber-600);font-weight:700">查看动画 →</span>' : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  if(window.lucide) lucide.createIcons();
+}
+
+document.getElementById('search').oninput = e => { searchText = e.target.value.toLowerCase(); render(); };
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    curFilter = chip.dataset.filter;
+    render();
+  };
+});
+
+render();
+</script>
+</body>
+</html>

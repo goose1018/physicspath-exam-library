@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 13 题 · 磁控法测电子比荷</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+let bRatio = 0.7;   // B/B₀
+
+// 36 个电子，方向均匀分布
+const electrons = Array.from({length:36}, (_,i)=>({
+  theta: (i+0.5)/36 * Math.PI,   // 0~π：θ=0 沿轴，θ=π/2 横向
+  phi: i*7.0
+}));
+
+function pos(e, t, B){
+  const vp = Math.sin(e.theta);
+  const vz = Math.cos(e.theta);
+  const r = vp/(2*B);          // 半径 ∝ sinθ /B
+  const omega = 2*B;
+  const cxOff = -r*Math.sin(e.phi);
+  const cyOff =  r*Math.cos(e.phi);
+  const ang = e.phi - omega*t + Math.PI/2;
+  const x = cxOff + r*Math.cos(ang);
+  const y = cyOff + r*Math.sin(ang);
+  const z = vz * t;
+  const willHit = (2*r) >= 1;   // 圆轨直径 ≥ R(=1)
+  return {x, y, z, r, vp, vz, willHit};
+}
+
+function evalState(t){ return {phase:1, t}; }
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 左：俯视图（垂直 B 平面），右：侧视图（沿轴向）
+  drawTopView(ctx, 14, 14, W*0.5-21, H-28, t);
+  drawSideView(ctx, W*0.5+7, 14, W*0.5-21, H-28, t);
+}
+
+function drawTopView(ctx, x, y, w, h, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else { ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); }
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('俯视图（垂直 B 平面）', x+12, y+18);
+
+  const cx = x + w/2, cy = y + h*0.55;
+  const Rpix = Math.min(w, h)*0.36;
+
+  // 圆筒（俯视：圆）
+  ctx.fillStyle = 'rgba(63,111,143,.06)';
+  ctx.beginPath(); ctx.arc(cx,cy,Rpix,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx,cy,Rpix,0,Math.PI*2); ctx.stroke();
+
+  // ⊗ 入纸面
+  ctx.strokeStyle = 'rgba(63,111,143,.5)'; ctx.lineWidth = 1;
+  for(let r1=0.30; r1<0.95; r1+=0.32){
+    for(let a=0; a<6; a++){
+      const xx = cx + Math.cos(a*Math.PI/3)*r1*Rpix;
+      const yy = cy + Math.sin(a*Math.PI/3)*r1*Rpix;
+      ctx.beginPath(); ctx.arc(xx, yy, 3, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(xx-2, yy-2); ctx.lineTo(xx+2, yy+2);
+      ctx.moveTo(xx+2, yy-2); ctx.lineTo(xx-2, yy+2);
+      ctx.stroke();
+    }
+  }
+
+  // O 中心
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '600 12px ui-monospace,monospace';
+  ctx.fillText('O', cx-12, cy-8);
+  ctx.font = 'italic 700 14px Georgia,serif';
+  ctx.fillText('R', cx+Rpix*.55, cy-8);
+  // R 半径线
+  ctx.strokeStyle = 'rgba(18,53,45,.3)'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx+Rpix, cy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 电子运动轨迹
+  electrons.forEach(e => {
+    const p = pos(e, t, bRatio);
+    const r = p.r;
+    const cxOff = -r*Math.sin(e.phi);
+    const cyOff =  r*Math.cos(e.phi);
+    // 圆轨道（淡）
+    ctx.strokeStyle = p.willHit ? 'rgba(180,68,46,.20)' : 'rgba(22,97,63,.16)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx + cxOff*Rpix, cy + cyOff*Rpix, r*Rpix, 0, Math.PI*2);
+    ctx.stroke();
+    // 当前点（仅在圆筒内显示）
+    const px = cx + p.x*Rpix, py = cy + p.y*Rpix;
+    if(Math.hypot(p.x, p.y) <= 1.005){
+      ctx.fillStyle = p.willHit ? '#b4442e' : '#16613f';
+      ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+function drawSideView(ctx, x, y, w, h, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else { ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); }
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('侧视图（沿轴向 · 螺旋上升）', x+12, y+18);
+
+  const cx = x + w/2;
+  const Rpix = Math.min(w*0.55, h*0.30);   // 圆筒画大一点
+  const yTop = y+30, yBot = y+h-22;
+  const cyTop = (yTop+yBot)/2;
+
+  // 圆筒（侧视：矩形）
+  ctx.fillStyle = 'rgba(63,111,143,.04)';
+  ctx.fillRect(cx-Rpix, yTop, 2*Rpix, yBot-yTop);
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx-Rpix, yTop); ctx.lineTo(cx-Rpix, yBot);
+  ctx.moveTo(cx+Rpix, yTop); ctx.lineTo(cx+Rpix, yBot);
+  ctx.stroke();
+
+  // 中心轴
+  ctx.strokeStyle = 'rgba(18,53,45,.3)'; ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, yTop); ctx.lineTo(cx, yBot); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 磁场方向箭头
+  ctx.strokeStyle = '#3f6f8f'; ctx.fillStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  [yTop+30, (yTop+yBot)/2, yBot-30].forEach(yv => {
+    PPath.arrow(ctx, cx-Rpix-22, yv+10, cx-Rpix-22, yv-10, '#3f6f8f', 1.5);
+  });
+  ctx.font = '600 11px ui-monospace,monospace'; ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('B', cx-Rpix-30, yTop+8);
+
+  // O 点
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(cx, cyTop, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '600 12px ui-monospace,monospace';
+  ctx.fillText('O · 电子源', cx+8, cyTop-6);
+
+  // 电子螺旋轨迹
+  const zScale = (yBot - yTop) * 0.4;
+  electrons.forEach(e => {
+    const p = pos(e, t, bRatio);
+    ctx.strokeStyle = p.willHit ? 'rgba(180,68,46,.45)' : 'rgba(22,97,63,.30)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    let started = false;
+    for(let i=0; i<=80; i++){
+      const tt = t * i / 80;
+      const pp = pos(e, tt, bRatio);
+      if(Math.hypot(pp.x, pp.y) > 1.005) break;
+      const px = cx + pp.x*Rpix;
+      const py = cyTop - pp.z*zScale;
+      if(py < yTop || py > yBot) break;
+      if(!started){ ctx.moveTo(px, py); started = true; }
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  });
+
+  // 击壁带
+  if(bRatio < 1){
+    const zMax = Math.sqrt(1-bRatio*bRatio)/bRatio * Math.PI/(2*bRatio);
+    ctx.fillStyle = 'rgba(180,68,46,.20)';
+    ctx.fillRect(cx-Rpix-2, cyTop-zMax*zScale, 4, zMax*zScale);
+    ctx.fillRect(cx+Rpix-2, cyTop-zMax*zScale, 4, zMax*zScale);
+    ctx.fillRect(cx-Rpix-2, cyTop, 4, zMax*zScale);
+    ctx.fillRect(cx+Rpix-2, cyTop, 4, zMax*zScale);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('击壁环带', cx+Rpix+8, cyTop);
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '10px ui-monospace,monospace';
+    ctx.fillText('±'+zMax.toFixed(2), cx+Rpix+8, cyTop+14);
+  }
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 13 题 · B 级 · 双 agent 审',
+  title: '磁控法测电子比荷',
+  subtitle: '圆筒（半径 R）轴线 O 处电子源以 v₀ 各向发射。沿轴加匀强磁场 B。临界 B₀ 时恰好不击壁。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 13 题 · 12 分',
+    image: '../../source/images/image163.png',
+    text: `电子比荷是描述电子性质的重要物理量。在标准理想二极管中利用磁控法可测得比荷，一般其电极结构为圆筒面与中心轴线构成的圆柱体系统，结构简化如图（a）所示，圆筒足够长。在 O 点有一电子源，向空间中各个方向发射速度大小为 <b>v₀</b> 的电子，某时刻起筒内加大小可调节且方向沿中心轴向下的匀强磁场，筒的横截面及轴截面示意图如图（b）所示。当磁感应强度大小调至 <b>B₀</b> 时，恰好没有电子落到筒壁上。不计电子间相互作用及其重力的影响。<b>（R、v₀、B₀ 均为已知量）</b>`,
+    subQuestions: [
+      '求电子的比荷 e/m；',
+      '当磁感应强度大小调至 B（B &lt; B₀）时，求筒壁上落有电子的区域面积 S。'
+    ],
+    officialAnswer: '(1) e/m = 2v₀/(B₀R)（最坏情况是 v⊥=v₀ 横向发射，圆轨直径 ≤ R 临界 r=R/2）　(2) S = πR²·√(B₀²−B²)/B（B<B₀ 时 sinθ ≥ B/B₀ 的电子击壁形成环带）'
+  },
+  deliv: {
+    title: '磁控法测电子比荷 · 圆筒磁场',
+    sub: '所有电子（球面发射）· e/m = 2v₀/(B₀R)  ·  S = πR²√(B₀²−B²)/B'
+  },
+  totalT: 4,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'临界条件 + 击壁面积', label_short:'核心',
+     formula_tex: String.raw`\dfrac{e}{m} = \dfrac{2v_0}{B_0 R},\quad S = \dfrac{\pi R^2 \sqrt{B_0^2 - B^2}}{B}`,
+     note:'最坏情况是横向发射（v⊥=v₀）：圆轨道直径 ≤ R，临界 r=R/2 → e/m = 2v₀/(B₀R)。当 B<B₀ 时部分电子 sinθ ≥ B/B₀ 击壁。'}
+  ],
+  stats: [
+    {label:'B / B₀',     fmt:()=>bRatio.toFixed(2)},
+    {label:'临界 θ_c',    fmt:()=>(Math.asin(Math.min(1,bRatio))*180/Math.PI).toFixed(1)+'°'},
+    {label:'击壁比例',    fmt:()=>{const tc=Math.asin(Math.min(1,bRatio))*180/Math.PI; return ((1-tc/90)*100).toFixed(0)+'%';}},
+    {label:'S/(πR²)',    fmt:()=>bRatio<1 ? (Math.sqrt(1-bRatio*bRatio)/bRatio).toFixed(2) : '0'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_tex: String.raw`\dfrac{e}{m} = \dfrac{2v_0}{B_0 R}`, note:'临界时 r=R/2，由 r = mv₀/(eB₀) 得'},
+    {label_text:'(2)', value_tex: String.raw`S = \dfrac{\pi R^2 \sqrt{B_0^2 - B^2}}{B}`, note:'B<B₀ 时部分电子击壁形成环带'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(22,97,63,.16)',border:'#16613f',type:'rect'}, text:'未击壁电子（蜷在筒内）'},
+    {swatch:{bg:'rgba(180,68,46,.45)',border:'#b4442e',type:'rect'}, text:'击壁电子（螺旋轨迹）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'},  text:'电子源 O'},
+    {swatch:{bg:'rgba(180,68,46,.20)',border:'#b4442e',type:'rect'}, text:'击壁环带（轴向 ±z）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '陕西卷-Q13-磁控法比荷'
+});
+
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div class="control-row" style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px">
+      <span>B / B₀</span>
+      <input id="bRatioSlider" type="range" min="0.3" max="1.2" step="0.02" value="0.7">
+      <span class="control-value" id="bV">0.70</span>
+    </div>
+    <div style="font-size:11px;color:var(--ppath-fg-3);margin-top:4px">B&lt;B₀ 部分击壁；B≥B₀ 全部蜷缩在筒内</div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.getElementById('bRatioSlider').oninput = e => {
+    bRatio = parseFloat(e.target.value);
+    document.getElementById('bV').textContent = bRatio.toFixed(2);
+  };
+});
+</script>
+</body>
+</html>

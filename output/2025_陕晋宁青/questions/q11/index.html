@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 11 题 · 多用电表 + 电路定位</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+let viewMode = 'circuit';   // 'circuit' / 'meter' / 'voltages'
+let testPair = '23';        // 测试哪两接线柱: '12','23','34','14','13','24'
+
+// 接线柱位置（4 个，圆排布）
+const POSTS = [
+  {id:1, name:'1', x:0.20, y:0.50},
+  {id:2, name:'2', x:0.40, y:0.50},
+  {id:3, name:'3', x:0.60, y:0.50},
+  {id:4, name:'4', x:0.80, y:0.50}
+];
+// 元件位置（最终答案）：E 在 2-3，C 在 1-4 (从外面绕回)，R₁=R(小) 在 1-2，R₂=R(大) 在 3-4
+const COMPONENTS = [
+  {type:'E',  pin:[2,3], label:'E'},
+  {type:'R1', pin:[1,2], label:'R₁'},
+  {type:'R2', pin:[3,4], label:'R₂'},
+  {type:'C',  pin:[1,4], label:'C'},
+];
+
+// 实测电压表
+const VOLT_DATA = [
+  {pair:'12', v:'U₁(小)', explain:'仅 R₁ 上的分压'},
+  {pair:'23', v:'U_max',  explain:'电源 E 的端电压（最大）'},
+  {pair:'34', v:'U₂(大)', explain:'仅 R₂ 上的分压'},
+  {pair:'14', v:'U_total',explain:'通过 C 路径电压'},
+  {pair:'13', v:'U₁+U_E',explain:'1-2 + 2-3 串联'},
+  {pair:'24', v:'U_E+U₂',explain:'2-3 + 3-4 串联'}
+];
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  if(viewMode === 'circuit') drawCircuit(ctx, W, H);
+  else if(viewMode === 'meter') drawMeter(ctx, W, H);
+  else drawVoltageTable(ctx, W, H);
+}
+
+function drawCircuit(ctx, W, H){
+  // 背板
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(W*0.05, H*0.15, W*0.90, H*0.70);
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  ctx.strokeRect(W*0.05, H*0.15, W*0.90, H*0.70);
+
+  // 接线柱
+  POSTS.forEach(p => {
+    const px = W*p.x, py = H*p.y;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c4b89e';
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText(p.name, px-5, py-14);
+  });
+
+  // 串联线（1→2→3→4）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2.5;
+  for(let i=0; i<3; i++){
+    const p1 = POSTS[i], p2 = POSTS[i+1];
+    ctx.beginPath();
+    ctx.moveTo(W*p1.x+8, H*p1.y);
+    ctx.lineTo(W*p2.x-8, H*p2.y);
+    ctx.stroke();
+  }
+  // 1-4 闭环（从下方绕过去）
+  ctx.beginPath();
+  ctx.moveTo(W*POSTS[0].x, H*POSTS[0].y+8);
+  ctx.lineTo(W*POSTS[0].x, H*0.78);
+  ctx.lineTo(W*POSTS[3].x, H*0.78);
+  ctx.lineTo(W*POSTS[3].x, H*POSTS[3].y+8);
+  ctx.stroke();
+
+  // 元件
+  drawElement(ctx, W*POSTS[0].x, W*POSTS[1].x, H*POSTS[0].y, 'R', '#c2611f', 'R₁ (小)');
+  drawElement(ctx, W*POSTS[2].x, W*POSTS[3].x, H*POSTS[2].y, 'R', '#3f6f8f', 'R₂ (大)');
+  drawElement(ctx, W*POSTS[1].x, W*POSTS[2].x, H*POSTS[1].y, 'E', '#16613f', 'E');
+  // 电容跨越 1-4 的下方路径（中间画在水平段）
+  drawCapacitor(ctx, (W*POSTS[0].x + W*POSTS[3].x)/2, H*0.78, '#a85219', 'C');
+
+  // 答案标注
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('E 在 2-3 之间', W*0.10, H*0.10);
+  ctx.fillText('C 在 1-4 之间', W*0.40, H*0.10);
+  ctx.fillText('R₁(小) 在 1-2 之间', W*0.10, H*0.93);
+  ctx.fillText('R₂(大) 在 3-4 之间', W*0.55, H*0.93);
+}
+
+function drawElement(ctx, x1, x2, y, kind, color, label){
+  const cx = (x1+x2)/2;
+  const w = 36, h = 18;
+  // 短折线代表元件位置
+  ctx.strokeStyle = color; ctx.lineWidth = 3;
+  if(kind === 'R'){
+    // 锯齿状电阻
+    ctx.beginPath();
+    const seg = 6;
+    for(let i=0; i<seg; i++){
+      const xx = cx-w/2 + i*w/seg + (w/seg)/2;
+      const yy = y + (i%2===0 ? -h/3 : h/3);
+      if(i===0) ctx.moveTo(cx-w/2, y);
+      ctx.lineTo(xx, yy);
+    }
+    ctx.lineTo(cx+w/2, y);
+    ctx.stroke();
+  } else if(kind === 'E'){
+    // 电源符号
+    ctx.beginPath();
+    ctx.moveTo(cx-12, y-12); ctx.lineTo(cx-12, y+12);
+    ctx.moveTo(cx-6, y-7); ctx.lineTo(cx-6, y+7);
+    ctx.moveTo(cx+2, y-12); ctx.lineTo(cx+2, y+12);
+    ctx.moveTo(cx+8, y-7); ctx.lineTo(cx+8, y+7);
+    ctx.stroke();
+    // 长板正极标注
+    ctx.fillStyle = color;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText('+', cx-18, y-16);
+    ctx.fillText('−', cx+12, y-16);
+  }
+  ctx.fillStyle = color;
+  ctx.font = '800 12px "Cambria Math",serif';
+  ctx.fillText(label, cx-12, y+30);
+}
+
+function drawCapacitor(ctx, cx, cy, color, label){
+  ctx.strokeStyle = color; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx-2, cy-12); ctx.lineTo(cx-2, cy+12);
+  ctx.moveTo(cx+2, cy-12); ctx.lineTo(cx+2, cy+12);
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '800 12px "Cambria Math",serif';
+  ctx.fillText(label, cx-6, cy+26);
+}
+
+function drawMeter(ctx, W, H){
+  // 多用电表盘面
+  const cx = W*0.5, cy = H*0.55;
+  const R = Math.min(W,H)*0.32;
+  ctx.fillStyle = '#1a1f1c';
+  ctx.beginPath(); ctx.arc(cx, cy, R+10, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fbfaf7';
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  // 弧形刻度
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R*0.78, Math.PI*1.15, Math.PI*1.85);
+  ctx.stroke();
+  for(let i=0; i<=10; i++){
+    const a = Math.PI*1.15 + (Math.PI*0.7)*(i/10);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a)*R*0.74, cy + Math.sin(a)*R*0.74);
+    ctx.lineTo(cx + Math.cos(a)*R*0.82, cy + Math.sin(a)*R*0.82);
+    ctx.stroke();
+  }
+  // 指针（指向中间）
+  const a = Math.PI*1.5;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(a)*R*0.7, cy + Math.sin(a)*R*0.7);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI*2); ctx.fill();
+
+  // 选择档位
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillStyle = '#5d6964';
+  ctx.fillText('Ω', cx-50, cy-R*0.5);
+  ctx.fillText('V', cx+50, cy-R*0.5);
+  ctx.fillText('mA', cx, cy+R*0.85);
+
+  // 答案步骤
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 测大阻值电阻 → B：②④③', W*0.06, H*0.10);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '500 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('② 选 ×100 档（更大阻值挡）→ ④ 短接调零 → ③ 测电阻', W*0.06, H*0.95);
+
+  // 表头改装为电压表
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2) 表头 → 电压表：串联大电阻', W*0.55, H*0.10);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '500 12px "Cambria Math",serif';
+  ctx.fillText('R_串 = U/I_g − R_g', W*0.55, H*0.16);
+}
+
+function drawVoltageTable(ctx, W, H){
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(W*0.06, H*0.10, W*0.88, H*0.80);
+  ctx.strokeStyle = '#eadfce';
+  ctx.strokeRect(W*0.06, H*0.10, W*0.88, H*0.80);
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 16px "Noto Sans SC",sans-serif';
+  ctx.fillText('电压表实测数据 → 反推元件位置', W*0.10, H*0.18);
+
+  const startY = H*0.27;
+  const rowH = 36;
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillStyle = '#5d6964';
+  ctx.fillText('接线柱', W*0.10, startY);
+  ctx.fillText('电压表读数', W*0.32, startY);
+  ctx.fillText('结论', W*0.62, startY);
+
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W*0.08, startY+8); ctx.lineTo(W*0.92, startY+8); ctx.stroke();
+
+  VOLT_DATA.forEach((d, i) => {
+    const y = startY + 28 + i*rowH;
+    const isHi = d.pair === testPair;
+    if(isHi){
+      ctx.fillStyle = 'rgba(194,97,31,.10)';
+      ctx.fillRect(W*0.08, y-18, W*0.84, 30);
+    }
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '800 13px "Cambria Math",serif';
+    ctx.fillText(d.pair, W*0.10, y);
+    ctx.fillStyle = isHi ? '#c2611f' : '#5d6964';
+    ctx.font = '700 13px "Cambria Math",serif';
+    ctx.fillText(d.v, W*0.32, y);
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '500 12px "Noto Sans SC",sans-serif';
+    ctx.fillText(d.explain, W*0.62, y);
+  });
+
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) E 在 2-3 ✓  ·  C 在 1-4 ✓  ·  R₁(小) 在 1-2 ✓', W*0.10, H*0.95);
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 11 题 · 9 分',
+  title: '多用电表 + 电路定位',
+  subtitle: '改装电压表 → 测各接线柱间电压 → 反推电源 E、电容 C、电阻位置。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 11 题 · 9 分',
+    image: '../../source/images/image135.png',
+    text: `常用的电压表和电流表都是由小量程的电流表（表头）改装而成的，与电源及相关元器件组装后可构成多功能、多量程的多用电表。`,
+    subQuestions: [
+      '(1) 某同学使用多用电表正确测量了一个 R 的电阻后，需要继续测量一个阻值大约是 100 R 的电阻。在用红、黑表笔接触这个电阻两端之前，请选出以下必要的操作步骤并排序：① 把选择开关旋转到"R×1"位置；② 把选择开关旋转到"R×100"位置；③ 将红表笔和黑表笔接触；④ 调节欧姆调零旋钮使指针指向欧姆零点。下列选项中正确的是______：A. ①③④；B. ②③④；C. ②④③；D. ①④③',
+      '(2) 若将一个内阻为 R_g、满偏电流为 I_g 的表头改装为量程 U 的电压表，需要___（串联/并联）一个___的电阻。',
+      '(3) 由一个直流电源 E、一个电容器 C、两个电阻 R₁、R₂（R₁ < R₂）组成的串联电路，利用改装好的电压表分别测量各接线柱之间的电压，根据数据可判断：直流电源 E 处于___之间，电容器 C 处于___之间，电阻 R₁ 处于___之间。'
+    ],
+    officialAnswer: '(1) B：②④③（先选大挡 → 短接调零 → 测电阻）　(2) 串联，R = U/I_g − R_g　(3) E 在 2-3，C 在 1-4，R₁(小) 在 1-2（电源端电压最大；电容串接位置接 1-2 与 3-4 时电压表为 0）'
+  },
+  deliv: {
+    title: '多用电表 + 电路定位',
+    sub: '答案：(1) B (2) 串联大电阻 (3) E:2-3, C:1-4, R₁(小):1-2'
+  },
+  totalT: 0.001,
+  evalState(t){ return {phase:1}; },
+  drawScene,
+  phases: [
+    {label:'三步推理', label_short:'核心',
+     formula_tex: String.raw`R_\text{串} = \dfrac{U}{I_g} - R_g,\quad U_{2{-}3} = U_E\;(\text{最大})`,
+     note:'电源 E 端电压最大 → 必在某两端；电容直流稳态等效断路 → 测得有读数说明电容串接；最小读数对应小电阻。'}
+  ],
+  stats: [
+    {label:'(1) 选档',  fmt:()=>'B：②④③'},
+    {label:'(2) 改装',  fmt:()=>'串联 R = (U/I_g − R_g)'},
+    {label:'(3a) E',     fmt:()=>'2-3 之间'},
+    {label:'(3b) C',     fmt:()=>'1-4 之间'},
+    {label:'(3c) R₁(小)',fmt:()=>'1-2 之间'},
+    {label:'(3d) R₂(大)',fmt:()=>'3-4 之间'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'B', note:'换大挡位 → 短接调零 → 测电阻'},
+    {label_text:'(2)', value_tex: String.raw`R_\text{串} = \dfrac{U}{I_g} - R_g`, note:'电压表 = 表头 + 大电阻串联'},
+    {label_text:'(3)', value_text:'E:2-3 / C:1-4 / R₁:1-2 / R₂:3-4', note:'由各接线柱电压反推'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'电源 E（在 2-3）'},
+    {swatch:{bg:'#a85219',border:'#a85219',type:'rect'}, text:'电容 C（在 1-4）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'R₁ 小阻（在 1-2）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'R₂ 大阻（在 3-4）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '陕西卷-Q11-多用电表'
+});
+
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px;font-size:12px;color:var(--ppath-fg-2)">
+      <span style="display:block;margin-bottom:6px">查看视图</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-pri" data-view="circuit" style="font-size:11px;padding:6px 8px;flex:1">电路</button>
+        <button class="btn" data-view="meter" style="font-size:11px;padding:6px 8px;flex:1">表头</button>
+        <button class="btn" data-view="voltages" style="font-size:11px;padding:6px 8px;flex:1">实测表</button>
+      </div>
+    </div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.querySelectorAll('[data-view]').forEach(b=>{
+    b.onclick = ()=>{
+      viewMode = b.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('btn-pri', x===b));
+    };
+  });
+});
+</script>
+</body>
+</html>

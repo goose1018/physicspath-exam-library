@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 9 题 · 弹性绳·滑块·斜杆</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+const m_mass = 1, theta_rod = 37*Math.PI/180, mu = 0.16, k_spring = 50, PQ = 0.6, g = 10;
+const sinT = Math.sin(theta_rod), cosT = Math.cos(theta_rod);
+const N_const = m_mass*g*cosT;
+const f_mag = mu * N_const;
+
+const STATE = { s: 0, v: 0 };
+let lastT = 0;
+
+function step(dt){
+  let s = STATE.s, v = STATE.v;
+  const L = Math.sqrt(PQ*PQ + s*s);
+  const T = Math.max(0, k_spring*(L - PQ));
+  const T_along = T * s / L;
+  const grav_along = m_mass * g * sinT;
+
+  // 阈值收紧到 0.001（之前 0.01 太粗，会在临界振荡）
+  const v_threshold = 0.001;
+  let acc;
+  if(Math.abs(v) < v_threshold){
+    // 静止判定：合力 < 静摩擦上限则保持静止
+    const net = grav_along - T_along;
+    if(Math.abs(net) <= f_mag + 1e-6){
+      STATE.v = 0;
+      return;
+    }
+    // 合力突破静摩擦：开始运动，方向由 net 决定
+    acc = net - Math.sign(net)*f_mag;
+  } else {
+    // 运动中：动摩擦反向
+    const friction = -Math.sign(v) * f_mag;
+    acc = grav_along - T_along + friction;
+  }
+  v += acc*dt;
+  // 速度过零保护：避免跨过零点产生振荡
+  if(Math.abs(v) < v_threshold && Math.abs(STATE.v) >= v_threshold){
+    v = 0;
+  }
+  s += v*dt;
+  if(s<0){ s=0; v=0; }
+  STATE.s = s; STATE.v = v;
+}
+
+function evalState(t){
+  if(t < lastT){ STATE.s=0; STATE.v=0; lastT=0; }
+  const sub = 12;
+  const dt = (t - lastT)/sub;
+  for(let k=0; k<sub; k++) step(dt);
+  lastT = t;
+  return {phase: 1, ...STATE};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  const scale = Math.min(W, H) * 0.16;
+  const Ox = W*0.20, Oy = H*0.20;
+  const ux = cosT, uy = sinT;
+  const npx = -sinT, npy = -cosT;
+
+  const slider_pos = STATE.s;
+
+  // 杆
+  const rodLen = 1.4;
+  const Mx = Ox + ux*rodLen*scale;
+  const My = Oy + uy*rodLen*scale;
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(Ox, Oy); ctx.lineTo(Mx, My); ctx.stroke();
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(Ox, Oy); ctx.lineTo(Mx, My); ctx.stroke();
+
+  // O / M 端点
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Ox, Oy, 5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(Mx, My, 5, 0, Math.PI*2); ctx.fill();
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillText('O', Ox-16, Oy-4);
+  ctx.fillText('M', Mx+8, My+10);
+
+  // 滑块位置
+  const Px = Ox + ux*slider_pos*scale;
+  const Py = Oy + uy*slider_pos*scale;
+  // 初始 P 位置 = O
+  const Qx = Ox + npx*PQ*scale;
+  const Qy = Oy + npy*PQ*scale;
+
+  // 滑轮 Q
+  ctx.strokeStyle = '#3f6f8f'; ctx.fillStyle = '#fffdf9'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(Qx, Qy, 11, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(Qx, Qy, 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('Q', Qx+15, Qy-7);
+
+  // 弹性绳
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(Ox, Oy);
+  ctx.lineTo(Qx, Qy);
+  ctx.lineTo(Px, Py);
+  ctx.stroke();
+
+  // 滑块
+  const sSize = 16;
+  ctx.save();
+  ctx.translate(Px, Py);
+  ctx.rotate(theta_rod);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(-sSize, -sSize, sSize*2, sSize*2);
+  ctx.fillStyle = '#c4b89e';
+  ctx.fillRect(-sSize+3, -sSize+3, sSize*2-6, 4);
+  ctx.restore();
+
+  // 力箭头
+  if(opts.showVec){
+    const farrow = (fx, fy, color, label) => {
+      const len = Math.hypot(fx, fy);
+      if(len < 0.01) return;
+      PPath.arrow(ctx, Px, Py, Px+fx, Py+fy, color, 2);
+      ctx.fillStyle = color;
+      ctx.font = '700 11px sans-serif';
+      ctx.fillText(label, Px+fx+4, Py+fy-2);
+    };
+    farrow(0, 40, '#b4442e', 'mg');
+    const dQx = Qx-Px, dQy = Qy-Py, dQ = Math.hypot(dQx, dQy);
+    const L = Math.sqrt(PQ*PQ + STATE.s*STATE.s);
+    const T_force = Math.max(0, k_spring*(L-PQ));
+    const T_scale = T_force * 1.2;
+    if(dQ > 0.01) farrow(dQx/dQ*T_scale, dQy/dQ*T_scale, '#16613f', 'T='+T_force.toFixed(0));
+    farrow(-npx*30, -npy*30, '#3f6f8f', 'N');
+    if(Math.abs(STATE.v) > 0.001){
+      farrow(-Math.sign(STATE.v)*ux*25, -Math.sign(STATE.v)*uy*25, '#c2611f', 'f');
+    }
+  }
+
+  // 位移标尺
+  if(STATE.s > 0.01){
+    const Pix = Ox + ux*STATE.s*scale;
+    const Piy = Oy + uy*STATE.s*scale;
+    ctx.strokeStyle = 'rgba(194,97,31,.5)'; ctx.setLineDash([4,4]); ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(Ox + npx*32, Oy + npy*32);
+    ctx.lineTo(Pix + npx*32, Piy + npy*32);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 12px ui-monospace,monospace';
+    const mx = (Ox+Pix)/2 + npx*44;
+    const my = (Oy+Piy)/2 + npy*44;
+    ctx.fillText('s = '+STATE.s.toFixed(3)+' m', mx-30, my+4);
+  }
+
+  // 角标 θ
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(Ox, Oy, 36, 0, theta_rod); ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('θ = 37°', Ox+44, Oy+18);
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 9 题 · 6 分 · B 级 · 双 agent 审',
+  title: '弹性绳 · 滑块 · 斜杆',
+  subtitle: '滑块沿斜杆下滑，受重力、摩擦、弹性绳张力。验证摩擦力与位移无关、最终位移为 0.5 m。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 9 题 · 6 分',
+    image: '../../source/images/image92.png',
+    text: `如图，与水平面成 <b>θ = 37°</b> 且固定于 O、M 两点硬直杆上套着一质量为 <b>m = 1 kg</b> 的滑块。弹性轻绳一端固定于 O 点，另一端跨过固定在 Q 处的光滑定滑轮与位于直杆上 P 点的滑块拴接，弹性轻绳原长为 OQ = 1 m，<b>PQ = 0.6 m</b> 且垂直于 OM。现将滑块无初速度释放，假设最大静摩擦力与滑动摩擦力相等。滑块与杆之间的动摩擦因数为 <b>μ = 0.16</b>，弹性轻绳上弹力 F 的大小与其伸长量 x 满足 <b>F = kx</b>，<b>k = 50 N/m</b>，<b>g = 10 m/s²</b>，<b>sin37°=0.6, cos37°=0.8</b>。则滑块（　　）`,
+    subQuestions: [
+      'A. 与杆之间滑动摩擦力大小始终为 1.28 N',
+      'B. 下滑与上滑过程中所受滑动摩擦力的冲量相同',
+      'C. 从释放到静止的位移大小为 0.5 m',
+      'D. 从释放到静止克服滑动摩擦力做功为某值'
+    ],
+    officialAnswer: 'AC · 关键几何巧合：弹性绳对滑块的法向分量 = k·PQ = 30 N 恒定 → 法向力 N = mg cosθ = 8 N → 摩擦力 f = μN = 1.28 N（恒定，A 对）。能量守恒解得位移 s = 0.5 m（C 对）。下滑/上滑摩擦方向相反 → 冲量不同（B 错）。'
+  },
+  deliv: {
+    title: '弹性绳·滑块·斜杆',
+    sub: 'm=1kg · θ=37° · μ=0.16 · k=50N/m · PQ=0.6m · 答案 AC'
+  },
+  totalT: 4,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'下滑·力学综合', label_short:'分析',
+     formula_tex: String.raw`N = mg\cos\theta - F_T\!\sin\!\alpha + F_T\!\dfrac{PQ}{L} = mg\cos\theta\;\Rightarrow\; f = \mu mg\cos\theta`,
+     note:'弹性绳对杆的法向分量 = k·PQ = 30N（恒定）→ 法向力 N = mg cosθ → 摩擦力恒为 μmg cosθ = 1.28 N。'}
+  ],
+  stats: [
+    {label:'位移 s',  fmt:s=>(s.s||0).toFixed(3)+' m'},
+    {label:'速度 v',  fmt:s=>(s.v||0).toFixed(3)+' m/s'},
+    {label:'绳张力 T',fmt:s=>{const L=Math.sqrt(PQ*PQ+(s.s||0)*(s.s||0));return Math.max(0,k_spring*(L-PQ)).toFixed(2)+' N';}},
+    {label:'支持力 N',fmt:()=>N_const.toFixed(2)+' N'},
+    {label:'摩擦力 f',fmt:()=>f_mag.toFixed(2)+' N'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_tex: String.raw`f = \mu mg\cos\theta = 1.28\;\text{N}`, note:'恒定 ✓'},
+    {label_text:'B 错', value_text:'冲量不同',     note:'方向相反'},
+    {label_text:'C 对', value_text:'s = 0.5 m',    note:'能量平衡解'},
+    {label_text:'D 错', value_text:'W_f 数值错',   note:'实际 0.64 J'}
+  ],
+  legend: [
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'斜杆 OM（θ=37°）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'弹性绳（k=50N/m）'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'滑块 m=1kg'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'},  text:'定滑轮 Q'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '陕西卷-Q9-弹性绳滑块'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 4 题 · 大圆环上小环下滑</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 大圆环半径 R=1，小环从顶端 (θ=0) 下滑到底端 (θ=π)
+// 由机械能守恒: ½mv² = mgR(1-cosθ) → v² = 2gR(1-cosθ)
+// 向心方向: N - mgcosθ = mv²/R → N = mg(3cosθ - 2)... 或反符号
+// 以圆心 O 在大圆环中心；顶点 A=(0, R)，最低点 (0, -R)
+// θ 从 0(顶端) 到 π(底端)，相对于圆心连线与"竖直向上"夹角
+// 高度变化 h = R - R cosθ = R(1 - cosθ)
+// v² = 2gR(1 - cosθ)
+// 法向力（指向圆心方向为正，即从小环指向圆心 O）:
+//   重力沿径向（从环→圆心）分量 = mg cosθ
+//   正向心力 = mv²/R
+//   N - mg cos θ = mv²/R
+// 但小环既可在内侧推大圆环（N指向圆心，环对圆推外侧）
+// 也可在外侧推大圆环（N背离圆心，环对圆推内侧）
+// 实际：当 v² < gR cosθ 时，重力径向分量足以维持向心，N 朝外（大圆环对小环朝外）
+// 即 N = mg cosθ - mv²/R = mg cosθ - 2mg(1-cosθ) = mg(3cosθ - 2)
+// 当 cosθ > 2/3 (θ < ~48°): N > 0 朝外（对环施加向内力）
+// 当 cosθ = 2/3: N = 0（解除接触）
+// 当 cosθ < 2/3: N 反向，朝向圆心（对环施加向外力）
+// 所以 |N| = |3cosθ - 2|·mg → 先减小后增大，C 正确
+
+const g = 10, R_ring = 1, m_ball = 1;
+const T_total = 4;
+
+function evalState(t){
+  // 让 θ 单调从 0 到 π，但物理上是加速运动 v²=2gR(1-cosθ)
+  // 简化：t∈[0,T] 映射 θ 从 0 到 π
+  const s = t / T_total;
+  const theta = s * Math.PI;
+  return {phase:1, theta, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  const theta = state.theta || 0;
+  // 主图：大圆环+小环+受力
+  drawRing(ctx, 0, 0, W*0.6, H, theta, t, opts);
+  // 右侧 N(θ) 图表
+  drawNGraph(ctx, W*0.6+10, 14, W*0.4-24, H-28, theta);
+}
+
+function drawRing(ctx, x, y, w, h, theta, t, opts){
+  const cx = x + w/2, cy = y + h/2;
+  const Rpix = Math.min(w, h)*0.36;
+
+  // 大圆环
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, Rpix, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, Rpix-3, 0, Math.PI*2); ctx.stroke();
+
+  // 圆心
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('O', cx+8, cy-4);
+
+  // 小环位置（从顶端开始，沿圆环下滑）
+  // θ=0 顶端 (cx, cy-Rpix)；θ=π 底端 (cx, cy+Rpix)
+  const sx = cx + Rpix * Math.sin(theta);
+  const sy = cy - Rpix * Math.cos(theta);
+
+  // 起点 Q（顶端）
+  ctx.fillStyle = '#94a09b';
+  ctx.beginPath(); ctx.arc(cx, cy-Rpix, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('Q (起点)', cx-25, cy-Rpix-12);
+
+  // 小环（已走轨迹）
+  ctx.strokeStyle = 'rgba(194,97,31,.3)'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, Rpix, -Math.PI/2, -Math.PI/2 + theta);
+  ctx.stroke();
+
+  // 小环本体
+  const grd = ctx.createRadialGradient(sx, sy, 1, sx, sy, 16);
+  grd.addColorStop(0, 'rgba(194,97,31,.5)');
+  grd.addColorStop(1, 'rgba(194,97,31,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(sx, sy, 16, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(sx, sy, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // 受力分析
+  if(opts.showVec){
+    // 重力（向下）
+    PPath.arrow(ctx, sx, sy, sx, sy+50, '#b4442e', 2.5);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 12px "Cambria Math",serif';
+    ctx.fillText('mg', sx+6, sy+45);
+    // 法向力 N（沿径向）
+    const cosT = Math.cos(theta);
+    const N_val = (3*cosT - 2) * m_ball * g;     // 正：朝外
+    const N_dir_x = sx - cx, N_dir_y = sy - cy;
+    const N_norm = Math.hypot(N_dir_x, N_dir_y);
+    const sign = N_val >= 0 ? 1 : -1;     // 正朝外，负朝内
+    const N_len = Math.min(60, Math.abs(N_val)*4 + 5);
+    const ex = sign * N_dir_x/N_norm * N_len;
+    const ey = sign * N_dir_y/N_norm * N_len;
+    PPath.arrow(ctx, sx, sy, sx+ex, sy+ey, '#3f6f8f', 2.5);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('N='+N_val.toFixed(1), sx+ex+5, sy+ey-3);
+  }
+
+  // 角度 θ 标记
+  ctx.strokeStyle = 'rgba(94,160,155,.4)'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 30, -Math.PI/2, -Math.PI/2 + theta);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('θ='+(theta*180/Math.PI).toFixed(0)+'°', cx-25, cy-12);
+
+  // 临界点 cos⁻¹(2/3) ≈ 48.2°
+  const critTheta = Math.acos(2/3);
+  const critX = cx + Rpix * Math.sin(critTheta);
+  const critY = cy - Rpix * Math.cos(critTheta);
+  ctx.strokeStyle = 'rgba(22,97,63,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(critX-8, critY-8); ctx.lineTo(critX+8, critY+8);
+  ctx.moveTo(critX+8, critY-8); ctx.lineTo(critX-8, critY+8);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('cosθ=2/3 · N=0', critX+12, critY);
+}
+
+function drawNGraph(ctx, x, y, w, h, theta){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else { ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); }
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('|N| 随 θ 变化（先减小后增大）', x+12, y+18);
+
+  const padL = 36, padR = 14, padT = 30, padB = 28;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT;
+  const X = th => x0 + th/Math.PI * cw;
+  const Y = N => y0+ch - Math.min(N, 4)/4 * ch;
+  // 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('θ', x0+cw+4, y0+ch+5);
+  ctx.fillText('|N|/mg', x0-4, y0-4);
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  ctx.fillText('0', x0-12, y0+ch+12);
+  ctx.fillText('π/2', X(Math.PI/2)-10, y0+ch+12);
+  ctx.fillText('π', X(Math.PI)-4, y0+ch+12);
+
+  // |N|/mg = |3cosθ - 2|
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for(let th=0; th<=Math.PI; th+=Math.PI/200){
+    const N = Math.abs(3*Math.cos(th) - 2);
+    if(th===0) ctx.moveTo(X(th), Y(N));
+    else ctx.lineTo(X(th), Y(N));
+  }
+  ctx.stroke();
+
+  // 临界点 N=0 处
+  const critTh = Math.acos(2/3);
+  ctx.strokeStyle = 'rgba(22,97,63,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(X(critTh), y0); ctx.lineTo(X(critTh), y0+ch);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 当前点
+  const Ncur = Math.abs(3*Math.cos(theta) - 2);
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(X(theta), Y(Ncur), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 答案标
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 C：先减小后增大 ✓', x+12, y+h-14);
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 4 题 · 6 分 · B 级',
+  title: '大圆环上小环下滑',
+  subtitle: '光滑大圆环固定在竖直平面内，质量 m 的小环从顶端 Q 自由下滑至底部。求小环对大圆环作用力大小的变化规律。',
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 4 题 · 6 分',
+    image: '../../source/images/image25.png',
+    text: `如图，一光滑大圆环固定在竖直平面内，质量为 <b>m</b> 的小环套在大圆环上，小环从静止开始由大圆环顶端经 <b>Q 点</b> 自由下滑至其底部，<b>Q</b> 为竖直线与大圆环的切点。则小环下滑过程中对大圆环的作用力大小（　　）`,
+    subQuestions: [
+      'A. 在 Q 点最大',
+      'B. 在 Q 点最小',
+      'C. 先减小后增大',
+      'D. 先增大后减小'
+    ],
+    officialAnswer: 'C · 由机械能守恒 v² = 2gR(1−cosθ)，向心方向 N − mg cosθ = mv²/R 联立得 N = mg(2−3cosθ)（朝向圆心为正）。临界 cosθ=2/3 (θ≈48°) 时 N=0；之前 |N| 由 mg 减到 0；之后由 0 增到 5mg。先减小后增大。'
+  },
+  deliv: {
+    title: '大圆环上小环下滑',
+    sub: '机械能守恒 + 牛顿第二定律 · 答案 C · 先减小后增大'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'下滑·力分析', label_short:'核心',
+     formula_tex: String.raw`v^2 = 2gR(1-\cos\theta),\quad N = mg(3\cos\theta - 2)`,
+     note:'机械能守恒 → 速度；向心方向牛二 → 法向力。临界 cosθ=2/3（θ≈48°）时 N=0 解除接触；之后 N 反向，|N| 重新增大。'}
+  ],
+  stats: [
+    {label:'夹角 θ',     fmt:s=>((s.theta||0)*180/Math.PI).toFixed(1)+'°'},
+    {label:'速度 v',     fmt:s=>Math.sqrt(2*g*R_ring*(1-Math.cos(s.theta||0))).toFixed(2)+' m/s'},
+    {label:'高度差',     fmt:s=>(R_ring*(1-Math.cos(s.theta||0))).toFixed(3)+' R'},
+    {label:'N 大小',    fmt:s=>(Math.abs(3*Math.cos(s.theta||0)-2)*m_ball*g).toFixed(2)+' N'},
+    {label:'N 方向',    fmt:s=>{const c=Math.cos(s.theta||0);return c>2/3?'朝外（环离心）':c<2/3?'朝内（环向心）':'解除接触';}}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'非 Q 最大', note:'Q 处 v=0, |N|=mg'},
+    {label_text:'B 错', value_text:'非 Q 最小', note:'临界点 N=0 才最小'},
+    {label_text:'C 对', value_tex: String.raw`|N| = mg|3\cos\theta-2|`, note:'cosθ=2/3 处 N=0，先减后增'},
+    {label_text:'D 错', value_text:'方向反了', note:'非"先增后减"'}
+  ],
+  legend: [
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'光滑大圆环'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'小环 m'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'重力 mg'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'法向力 N（双向变）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024甲卷-Q4-大圆环'
+});
+</script>
+</body>
+</html>

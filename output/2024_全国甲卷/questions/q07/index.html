@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 7 题 · 蹦床运动员·F-t 图</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理:
+// 体重 G_0=600N → 质量 m=60kg
+// t=t1 时落到蹦床 (设 t1=0)，蹦床压缩到最低点 t=t2，反弹离开蹦床 t=t3
+// t3-t1 = 与蹦床接触时间 Δt_contact
+// 运动员离开后做竖直上抛，再回到蹦床。空中时间 = 2*v_离开/g
+// 题目给出：从 t3 离开蹦床到 t4 再次落到蹦床经历 Δt_air = 2s （由图读出）
+// 由对称性：上升时间 1s，最大高度处时间 t = t3 + 1s
+// 离开速度 v = g*1 = 10 m/s（取 g=10）
+// 落到蹦床时速度 = -10 m/s
+// 平均作用力 F̄: 由动量定理，对接触过程 F̄·Δt_contact - mg·Δt_contact = 2mv
+// 设 Δt_contact = 0.5s，v = 10 m/s
+// (F̄ - 600)·0.5 = 2·60·10 = 1200
+// F̄ - 600 = 2400 → F̄ = 3000 N
+
+// 简化模型：让运动员上下蹦动
+const m_jumper = 60;
+const g = 10;
+const G_0 = m_jumper * g;     // 体重 600N
+const v_leave = 10;           // 离开速度
+const t_air = 2;              // 空中时间
+const t_contact = 0.5;        // 接触时间
+const T_period = t_air + t_contact;
+const T_total = 5;
+
+function evalState(t){
+  const tInPeriod = t % T_period;
+  let y, F, v, phase;
+  if(tInPeriod < t_air){
+    // 空中：上抛 + 下落
+    const ta = tInPeriod;
+    y = v_leave*ta - 0.5*g*ta*ta;
+    v = v_leave - g*ta;
+    F = 0;     // 空中蹦床对运动员力为 0
+    phase = ta < t_air/2 ? 1 : 2;     // 上升 / 下降
+  } else {
+    // 接触：半正弦力，让"平均=3000N"与动量定理一致
+    // 由 ∫F dt = mg·Δt + 2mv 与 ∫F_peak·sin(πt/Δt) dt = 2·F_peak·Δt/π
+    // 得 F_peak = π·(mg·Δt + 2mv)/(2·Δt) = 1500π ≈ 4712 N
+    const tc = tInPeriod - t_air;
+    const phase_c = tc / t_contact * Math.PI;     // 0..π
+    const F_peak = 1500 * Math.PI;     // ≈ 4712 N（峰值，使平均 = 3000 N 自洽）
+    F = F_peak * Math.sin(phase_c);
+    // 速度变化：从 -v_leave 到 +v_leave
+    v = -v_leave + (2*v_leave) * tc / t_contact;
+    y = -0.3 * Math.sin(phase_c);     // 蹦床压缩深度
+    phase = 3;
+  }
+  return {phase, y, v, F, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 左：运动员 + 蹦床
+  drawScene_jumper(ctx, 0, 0, W*0.4, H, state);
+  // 右：F-t 图
+  drawGraph_Ft(ctx, W*0.4+10, 14, W*0.6-24, H-28, state, t);
+}
+
+function drawScene_jumper(ctx, x, y, w, h, state){
+  // 蹦床位置 (中间)
+  const trampY = y + h*0.75;
+  const trampW = w*0.6;
+  const trampX = x + (w-trampW)/2;
+
+  // 蹦床支架
+  ctx.fillStyle = '#5d6964';
+  ctx.fillRect(trampX-8, trampY+10, 8, 60);
+  ctx.fillRect(trampX+trampW, trampY+10, 8, 60);
+
+  // 蹦床（变形）
+  const compress = state.phase === 3 ? Math.abs(state.y) * 50 : 0;
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(trampX, trampY);
+  ctx.quadraticCurveTo(trampX + trampW/2, trampY + compress, trampX + trampW, trampY);
+  ctx.stroke();
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+  for(let k=0; k<6; k++){
+    const px = trampX + (k+0.5)*trampW/6;
+    const py = trampY + Math.sin(((k+0.5)/6)*Math.PI)*compress;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px, trampY+10);
+    ctx.stroke();
+  }
+
+  // 运动员
+  const jumpY = state.phase === 3 ? trampY + compress*0.3 : trampY - state.y*30;
+  const jumpX = trampX + trampW/2;
+  drawPerson(ctx, jumpX, jumpY, state);
+
+  // 力箭头 F (蹦床对运动员)
+  if(opts.showVec && state.F > 1){
+    const fScale = state.F / 5000 * 60;     // 按峰值 ~5000 缩放
+    PPath.arrow(ctx, jumpX, jumpY+30, jumpX, jumpY+30-fScale, '#3f6f8f', 3);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('F = '+state.F.toFixed(0)+'N', jumpX+8, jumpY+10);
+  }
+  // 重力箭头 G
+  if(opts.showVec){
+    PPath.arrow(ctx, jumpX-3, jumpY-15, jumpX-3, jumpY-15+30, '#b4442e', 2);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('G='+G_0+'N', jumpX-50, jumpY+5);
+  }
+
+  // 状态
+  const phaseText = ['上升', '下降', '接触·受力'][state.phase-1];
+  const phaseColor = ['#16613f', '#c2611f', '#3f6f8f'][state.phase-1];
+  ctx.fillStyle = phaseColor;
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseText, x+15, y+24);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText('m=60kg, g=10 m/s²', x+15, y+44);
+  ctx.fillText('v = '+state.v.toFixed(1)+' m/s', x+15, y+62);
+  if(state.phase === 1 || state.phase === 2){
+    const h_max = v_leave*v_leave/(2*g);
+    ctx.fillText('最高 h = v²/(2g) = '+h_max+' m', x+15, y+80);
+  }
+}
+
+function drawPerson(ctx, x, y, state){
+  // 简笔人形
+  const compressed = state.phase === 3;
+  const headY = compressed ? y-30 : y-40;
+  const torsoBottom = compressed ? y-5 : y-15;
+
+  // 头
+  ctx.fillStyle = '#fdf3e6';
+  ctx.beginPath(); ctx.arc(x, headY, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5; ctx.stroke();
+  // 身体
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, headY+8); ctx.lineTo(x, torsoBottom); ctx.stroke();
+  // 手
+  ctx.strokeStyle = '#fdf3e6'; ctx.lineWidth = 3;
+  if(state.phase === 1){
+    // 上升张开
+    ctx.beginPath();
+    ctx.moveTo(x, headY+12); ctx.lineTo(x-12, headY+5);
+    ctx.moveTo(x, headY+12); ctx.lineTo(x+12, headY+5);
+    ctx.stroke();
+  } else if(state.phase === 2){
+    // 下降向下
+    ctx.beginPath();
+    ctx.moveTo(x, headY+12); ctx.lineTo(x-10, headY+22);
+    ctx.moveTo(x, headY+12); ctx.lineTo(x+10, headY+22);
+    ctx.stroke();
+  } else {
+    // 接触弯曲
+    ctx.beginPath();
+    ctx.moveTo(x, headY+12); ctx.lineTo(x-8, headY+5);
+    ctx.moveTo(x, headY+12); ctx.lineTo(x+8, headY+5);
+    ctx.stroke();
+  }
+  // 腿
+  ctx.strokeStyle = '#12352d'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, torsoBottom); ctx.lineTo(x-6, y);
+  ctx.moveTo(x, torsoBottom); ctx.lineTo(x+6, y);
+  ctx.stroke();
+}
+
+function drawGraph_Ft(ctx, x, y, w, h, state, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('F − t 图（F 为对蹦床作用力 = 蹦床对人作用力·牛三）', x+12, y+18);
+
+  const padL = 38, padR = 14, padT = 28, padB = 28;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT;
+  const X = tv => x0 + (tv % T_period)/T_period * cw;
+  const F_peak = 1500 * Math.PI;     // ≈ 4712 N
+  const Y = fv => y0+ch - fv/5500 * ch;
+
+  // 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch);
+  ctx.moveTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('t / s', x0+cw+4, y0+ch+5);
+  ctx.fillText('F / N', x0-12, y0-4);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  // 刻度
+  for(let tv=0.5; tv<=T_period; tv+=0.5){
+    ctx.fillText(tv.toFixed(1), X(tv)-8, y0+ch+12);
+  }
+  ctx.fillText('600', x0-26, Y(G_0)+3);
+  ctx.fillText('3000', x0-30, Y(3000)+3);
+  ctx.fillText('4712', x0-30, Y(F_peak)+3);
+
+  // mg 参考线
+  ctx.strokeStyle = 'rgba(180,68,46,.4)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(x0, Y(G_0)); ctx.lineTo(x0+cw, Y(G_0)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText('G=mg=600N', x0+cw-90, Y(G_0)-3);
+
+  // F-t 曲线（一个完整周期）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let tv=0; tv<=T_period; tv+=0.02){
+    const tInPer = tv;
+    let F;
+    if(tInPer < t_air) F = 0;
+    else {
+      const tc = tInPer - t_air;
+      F = F_peak * Math.sin(tc/t_contact * Math.PI);
+    }
+    if(tv===0) ctx.moveTo(X(tv), Y(F));
+    else ctx.lineTo(X(tv), Y(F));
+  }
+  ctx.stroke();
+
+  // 当前点
+  ctx.fillStyle = '#c2611f';
+  const tInP = t % T_period;
+  ctx.beginPath(); ctx.arc(X(tInP), Y(state.F), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 阶段标记区域
+  ctx.fillStyle = 'rgba(63,111,143,.08)';
+  ctx.fillRect(X(t_air), y0, X(T_period)-X(t_air), ch);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('接触 0.5s', X(t_air)+10, y0+30);
+  ctx.fillText('空中 2s', x0+30, y0+30);
+
+  // 平均力计算
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('F̄·Δt − mg·Δt = 2mv → F̄ = 3000 N', x+12, y+h-12);
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '蹦床运动员 · F-t 图',
+  subtitle: '运动员体重 G₀，蹦下时刻 t=t₁（接触蹦床），过最低点反弹后在 t=t₃ 离开。F-t 图给出。判断各时刻力学量。',
+  deliv: {
+    title: '蹦床运动员 · F-t 图',
+    sub: '动量定理 + 上抛对称性 · 答案 BD'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 7 题 · 6 分',
+    image: '../../source/images/image56.png',
+    text: `蹦床运动中，体重为 <b>G₀ = 600 N</b> 的运动员在 t = t₁ 时刚好落到蹦床上，对蹦床作用力大小 F 与时间 t 的关系如图所示。假设运动过程中运动员身体始终保持竖直，在其不与蹦床接触时蹦床水平。忽略空气阻力，重力加速度大小取 <b>g = 10 m/s²</b>。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. t = t₂ 时，运动员的重力势能最大',
+      'B. t = t₃ 时，运动员的速度大小为 10 m/s',
+      'C. t = t₄ 时，运动员恰好运动到最大高度处',
+      'D. 运动员每次与蹦床接触到离开过程中对蹦床的平均作用力大小为 3000 N'
+    ],
+    officialAnswer: 'BD · A 错（t₂ 是蹦床形变最大、运动员最低，重力势能最小不是最大）。B 对（t₃ 离开时由动量定理 + 抛体对称性得 v = g·1s = 10 m/s）。C 错（运动员上升 1s 才到最高点，t₄ 时为再次落到蹦床的时刻不是最高点）。D 对（动量定理 F̄·Δt − mg·Δt = 2m·v → F̄ = 3000 N）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 上升', label_short:'阶段 1',
+     formula_tex: String.raw`v(t) = v_0 - gt,\quad v_0 = g\!\cdot\!1\,\text{s} = 10\,\text{m/s}`,
+     note:'离开蹦床后做竖直上抛。由对称性上升时间 1s，最大高度 h = v²/(2g) = 5 m。重力势能在最高点最大。'},
+    {label:'阶段 2 · 下降', label_short:'阶段 2',
+     formula_tex: String.raw`v(t) = -gt,\quad v_\text{落} = -10\,\text{m/s}`,
+     note:'最高点自由下落，落到蹦床时速度 −10 m/s。'},
+    {label:'阶段 3 · 接触受力', label_short:'阶段 3',
+     formula_tex: String.raw`\bar{F}\!\cdot\!\Delta t - mg\!\cdot\!\Delta t = 2mv \;\Rightarrow\; \bar{F} = 3000\,\text{N}`,
+     note:'接触 Δt=0.5s。动量定理：合力冲量 = 动量变化（−mv → +mv）。F̄ 即蹦床对人的平均作用力，由牛三 = 人对蹦床的平均作用力 = 3000 N。'}
+  ],
+  stats: [
+    {label:'体重 G₀',     fmt:()=>'600 N (m=60 kg)'},
+    {label:'离开速度 v',  fmt:()=>'10 m/s'},
+    {label:'空中时间',    fmt:()=>'2 s'},
+    {label:'接触时间 Δt', fmt:()=>'0.5 s'},
+    {label:'最大高度 h',  fmt:()=>'5 m'},
+    {label:'F̄ (D 答案)', fmt:()=>'3000 N'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'非 t₂',  note:'t₂ 最低点，势能最小'},
+    {label_text:'B 对', value_text:'v=10m/s', note:'g·1s=10'},
+    {label_text:'C 错', value_text:'非 t₄',  note:'t₄ 是再次落床'},
+    {label_text:'D 对', value_text:'F̄=3000N', note:'动量定理'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'运动员（m=60kg）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'F 接触作用力'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'重力 G=mg'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024甲卷-Q7-蹦床'
+});
+</script>
+</body>
+</html>

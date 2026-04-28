@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 1 题 · 静电场电场线分布</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  .options-grid{padding:18px;display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .opt{background:#fffdf9;border:2px solid var(--ppath-line);border-radius:18px;
+    overflow:hidden;position:relative;aspect-ratio:1/1;transition:.2s}
+  .opt.correct{border-color:var(--ppath-success-700);box-shadow:0 8px 28px rgba(22,97,63,.18)}
+  .opt.wrong{border-color:var(--ppath-danger-700);opacity:.85}
+  .opt h3{position:absolute;top:10px;left:14px;margin:0;
+    font-family:var(--ppath-font-display);font-size:22px;font-weight:900;color:var(--ppath-fg-1)}
+  .opt .verdict{position:absolute;top:10px;right:14px;padding:4px 10px;border-radius:999px;
+    font-size:11px;font-weight:900}
+  .opt.correct .verdict{background:var(--ppath-success-100);color:var(--ppath-success-700)}
+  .opt.wrong .verdict{background:var(--ppath-danger-100);color:var(--ppath-danger-700)}
+  .opt .reason{position:absolute;bottom:0;left:0;right:0;padding:10px 14px;
+    background:linear-gradient(transparent,rgba(255,253,249,.95) 30%);
+    font-size:12.5px;color:var(--ppath-fg-2);line-height:1.5}
+  .opt canvas{position:absolute;inset:0;width:100%;height:100%}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">单选 · 第 1 题 · 4 分 · <a href="../../index.html">← 返回 陕晋宁青卷</a></p>
+      <h1>静电场电场线分布</h1>
+      <p class="subtitle">判断四幅静电场电场线分布图哪幅可能正确。三大原则：不相交、不闭合、平行须等间距。</p>
+    </div>
+    <div class="actions">
+      <span class="mode-pill"><span class="dot"></span>静态对比</span>
+      <span class="tag amber">答案 B</span>
+    </div>
+  </header>
+
+  <div class="orig-card">
+    <div class="orig-head">
+      <span class="orig-tag">原题</span>
+      <span class="orig-meta">2025 陕晋宁青卷 · 第 1 题 · 4 分</span>
+    </div>
+    <div class="orig-body" style="grid-template-columns:1fr">
+      <div class="orig-text">
+        某同学绘制了四幅静电场的电场线分布图，其中可能正确的是（　　）
+      </div>
+      <div class="orig-ans"><b>官方答案：</b>B · 静电场电场线三大原则：① 不相交（每点电场方向唯一）；② 不闭合（区别于磁感线）；③ 平行直线须等间距（匀强场）。仅 B 同时满足三条规则。</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <main class="stage-card">
+      <div class="deliverable">
+        <div class="deliv-head">
+          <div>
+            <div class="deliv-title">静电场电场线分布</div>
+            <div class="deliv-sub">A 相交 · B 平行 · C 闭合 · D 不等距 — 仅 B 同时满足三大原则</div>
+          </div>
+          <div class="phase-pill">仅 B 正确</div>
+        </div>
+        <div class="options-grid">
+          <div class="opt wrong"><h3>A</h3><span class="verdict">✗ 相交</span>
+            <canvas id="cvA"></canvas>
+            <div class="reason">两条电场线相交 — 在交点处场方向不唯一，违反规则</div></div>
+          <div class="opt correct"><h3>B</h3><span class="verdict">✓ 正确</span>
+            <canvas id="cvB"></canvas>
+            <div class="reason">两条平行直线、不相交、不闭合、等间距 — 满足所有规则</div></div>
+          <div class="opt wrong"><h3>C</h3><span class="verdict">✗ 闭合</span>
+            <canvas id="cvC"></canvas>
+            <div class="reason">电场线闭合成环 — 静电场电场线不闭合（闭合的是磁感线）</div></div>
+          <div class="opt wrong"><h3>D</h3><span class="verdict">✗ 不等距</span>
+            <canvas id="cvD"></canvas>
+            <div class="reason">平行电场线却疏密不均 — 平行直线代表匀强场，须等间距</div></div>
+        </div>
+        <div class="annot">
+          <div class="annot-bar"></div>
+          <div class="annot-body">
+            <span class="annot-stage">三大原则</span>
+            <div class="annot-formula" id="annotFormula"></div>
+            <div class="annot-note">每点电场方向唯一 → 不相交；从正电荷出发到负电荷或无穷远 → 不闭合；平行直线 = 匀强场 → 等间距。</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="side-panel">
+      <div class="side-card">
+        <h2>三大原则</h2>
+        <div class="stats">
+          <div class="stat"><span>① 不相交</span><span>方向唯一</span></div>
+          <div class="stat"><span>② 不闭合</span><span>区别于磁感线</span></div>
+          <div class="stat"><span>③ 平行等距</span><span>匀强场</span></div>
+        </div>
+      </div>
+      <div class="side-card">
+        <h2>选项分析</h2>
+        <div class="stats">
+          <div class="stat"><span>A</span><span style="color:var(--ppath-danger-700)">相交 ✗</span></div>
+          <div class="stat"><span>B</span><span style="color:var(--ppath-success-700)">正确 ✓</span></div>
+          <div class="stat"><span>C</span><span style="color:var(--ppath-danger-700)">闭合 ✗</span></div>
+          <div class="stat"><span>D</span><span style="color:var(--ppath-danger-700)">不等距 ✗</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const dpr = Math.max(1, devicePixelRatio||1);
+function fit(c){
+  const r = c.getBoundingClientRect();
+  c.width=r.width*dpr; c.height=r.height*dpr;
+  const x = c.getContext('2d');
+  x.setTransform(dpr,0,0,dpr,0,0);
+  return {x, W:r.width, H:r.height};
+}
+function arrow(ctx, x1, y1, x2, y2, color, w){
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=w||1.6;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const a=Math.atan2(y2-y1,x2-x1);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-8*Math.cos(a-.32),y2-8*Math.sin(a-.32));
+  ctx.lineTo(x2-8*Math.cos(a+.32),y2-8*Math.sin(a+.32));
+  ctx.closePath(); ctx.fill();
+}
+function drawA(){
+  const {x,W,H}=fit(document.getElementById('cvA'));
+  x.clearRect(0,0,W,H);
+  arrow(x, W*.15, H*.85, W*.85, H*.15, '#c2611f');
+  arrow(x, W*.15, H*.15, W*.85, H*.85, '#c2611f');
+  x.fillStyle='rgba(155,34,38,.85)';
+  x.beginPath(); x.arc(W*.5, H*.5, 8, 0, Math.PI*2); x.fill();
+  x.font='800 14px sans-serif'; x.fillStyle='#9b2226';
+  x.fillText('?', W*.5-3, H*.5+5);
+}
+function drawB(){
+  const {x,W,H}=fit(document.getElementById('cvB'));
+  x.clearRect(0,0,W,H);
+  arrow(x, W*.12, H*.40, W*.88, H*.40, '#16613f', 2);
+  arrow(x, W*.12, H*.65, W*.88, H*.65, '#16613f', 2);
+}
+function drawC(){
+  const {x,W,H}=fit(document.getElementById('cvC'));
+  x.clearRect(0,0,W,H);
+  const cx=W*.5, cy=H*.55, r=Math.min(W,H)*.32;
+  x.strokeStyle='#c2611f'; x.lineWidth=2;
+  x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
+  [0, Math.PI/2, Math.PI, 3*Math.PI/2].forEach(a=>{
+    const px = cx+r*Math.cos(a), py = cy+r*Math.sin(a);
+    const tx = -Math.sin(a), ty = Math.cos(a);
+    x.fillStyle='#c2611f';
+    x.beginPath();
+    x.moveTo(px+tx*8, py+ty*8);
+    x.lineTo(px+tx*-2-ty*5, py+ty*-2+tx*5);
+    x.lineTo(px+tx*-2+ty*5, py+ty*-2-tx*5);
+    x.closePath(); x.fill();
+  });
+}
+function drawD(){
+  const {x,W,H}=fit(document.getElementById('cvD'));
+  x.clearRect(0,0,W,H);
+  [0.20, 0.36, 0.58, 0.85].forEach(yf=>{
+    arrow(x, W*.12, H*yf, W*.88, H*yf, '#c2611f', 1.6);
+  });
+}
+function drawAll(){drawA();drawB();drawC();drawD();}
+
+// LaTeX — 使用纯英文/数学符号避免 KaTeX 中文 ① 圆圈渲染偏移
+window.addEventListener('load', ()=>{
+  if(window.katex){
+    katex.render(
+      String.raw`E\text{-line rules:} \;\; \nexists\,\text{intersection} \;|\; \text{open (non-closed)} \;|\; \text{parallel} \Rightarrow \text{equal-spacing}`,
+      document.getElementById('annotFormula'),
+      {throwOnError:false, displayMode:false, output:'html'});
+  }
+  if(window.lucide) lucide.createIcons();
+});
+window.addEventListener('resize', drawAll);
+drawAll();
+</script>
+</body>
+</html>

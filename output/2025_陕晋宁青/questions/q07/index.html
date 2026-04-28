@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 7 题 · 横波·振动图求波形</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+const T_period = 1;
+let direction = 'ab';   // 'ab' 或 'ba' 或 'both'
+
+function ya(t){ return Math.sin(2*Math.PI*(t/T_period - 1/4)); }
+function yb_ab(t){ return Math.sin(2*Math.PI*(t/T_period - 5/12)); }
+function yb_ba(t){ return Math.sin(2*Math.PI*(t/T_period + 7/12)); }
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 上半：波形图
+  drawWavePane(ctx, 14, 14, W-28, H*0.55-20, t);
+  // 下半：a + b 振动图
+  const aw = (W-42)/2, ay = H*0.55+8, ah = H-ay-14;
+  drawVibPane(ctx, 14, ay, aw, ah, t, 'a', '#c2611f');
+  drawVibPane(ctx, 14+aw+14, ay, aw, ah, t, 'b', '#3f6f8f');
+}
+
+function pane(ctx, x, y, w, h, title){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else { ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); }
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(title, x+12, y+18);
+}
+
+function drawWavePane(ctx, x, y, w, h, t){
+  pane(ctx, x, y, w, h, '波形图（蓝=a→b 传播；红=b→a 传播）');
+  const padL = 38, padR = 14, padT = 26, padB = 22;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const x0 = x + padL, y0 = y + padT;
+  const xMin = -0.18, xMax = 1.18;
+  const X = v => x0 + (v-xMin)/(xMax-xMin)*cw;
+  const Y = v => y0 + ch/2 - v*ch*0.4;
+
+  // 网格
+  ctx.strokeStyle = 'rgba(18,53,45,.04)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let v=0; v<=1.001; v+=0.25){ ctx.moveTo(X(v),y0); ctx.lineTo(X(v),y0+ch); }
+  for(let k=-1; k<=1; k+=0.5){ ctx.moveTo(x0,Y(k)); ctx.lineTo(x0+cw,Y(k)); }
+  ctx.stroke();
+  // 0 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(x0, Y(0)); ctx.lineTo(x0+cw, Y(0));
+  ctx.stroke();
+  // 标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('x/λ', x0+cw+4, Y(0)+5);
+  ctx.fillText('y', x0-2, y0-4);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  ctx.fillText('a', X(0)-6, Y(0)+14);
+  ctx.fillText('5/12 (ab)', X(5/12)-22, Y(0)+14);
+  ctx.fillText('7/12 (ba)', X(7/12)-22, Y(0)-6);
+  ctx.fillText('λ', X(1)-4, Y(0)+14);
+
+  function plotWave(sign, color){
+    ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for(let i=0; i<=400; i++){
+      const xv = -0.18 + i*1.36/400;
+      const yv = Math.sin(2*Math.PI*(t/T_period - sign*xv));
+      if(i===0) ctx.moveTo(X(xv), Y(yv));
+      else ctx.lineTo(X(xv), Y(yv));
+    }
+    ctx.stroke();
+  }
+  if(direction==='ab' || direction==='both') plotWave(+1, '#3f6f8f');
+  if(direction==='ba' || direction==='both') plotWave(-1, '#b4442e');
+
+  // 关键点
+  function dot(xv, yv, color){
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(X(xv), Y(yv), 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  dot(0, ya(t), '#c2611f');
+  if(direction==='ab' || direction==='both') dot(5/12, yb_ab(t), '#3f6f8f');
+  if(direction==='ba' || direction==='both') dot(7/12, yb_ba(t), '#b4442e');
+}
+
+function drawVibPane(ctx, x, y, w, h, t, label, color){
+  pane(ctx, x, y, w, h, label+' 点振动图');
+  const padL = 28, padR = 10, padT = 22, padB = 18;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const x0 = x + padL, y0 = y + padT;
+  const X = v => x0 + v/1.5 * cw;
+  const Y = v => y0 + ch/2 - v*ch*0.4;
+  // 0 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, Y(0)); ctx.lineTo(x0+cw, Y(0));
+  ctx.stroke();
+  // 完整曲线
+  const fn = label==='a' ? ya : (direction==='ba' ? yb_ba : yb_ab);
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for(let i=0; i<=160; i++){
+    const tt = i*1.5/160;
+    if(i===0) ctx.moveTo(X(tt), Y(fn(tt)));
+    else ctx.lineTo(X(tt), Y(fn(tt)));
+  }
+  ctx.stroke();
+  // 当前点
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(X(t), Y(fn(t)), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  // T/4 虚线
+  ctx.strokeStyle = 'rgba(194,97,31,.5)'; ctx.setLineDash([3,3]); ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(X(0.25), y0); ctx.lineTo(X(0.25), y0+ch); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  ctx.fillText('T/4', X(0.25)+2, y0+10);
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '横波 · 振动图求波形',
+  subtitle: '简谐横波在介质中沿直线传播，已知质点 a、b 的振动图，求 t = T/4 时的波形。a→b 与 b→a 两种传播方向给出不同结果。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 7 题 · 6 分',
+    image: '../../source/images/image57.png',
+    text: `一列简谐横波在介质中沿直线传播，其波长大于 <b>ab</b>，<b>a、b</b> 为介质中平衡位置相距 <b>d</b> 的两质点，其振动图像如图所示。则 <b>t = T/4</b> 时的波形图可能为（　　）`,
+    officialAnswer: 'AD · 当波由 a→b 传播时，b 滞后 a，由相位关系得 d = 5λ/12（对应 D）。当波由 b→a 传播时，a 滞后 b，d = 7λ/12（对应 A）。t=T/4 时 a 在平衡位置、b 在波谷，两种方向各对应一种波形。'
+  },
+  deliv: {
+    title: '横波 · 振动图求波形',
+    sub: '波长 > ab 距离 · 答案 AD · A 对应 b→a 传播 · D 对应 a→b 传播'
+  },
+  totalT: 1.5,
+  speedFactor: 0.5,
+  evalState(t){ return {phase: 1, t}; },
+  drawScene,
+  phases: [
+    {label:'双向传播分析', label_short:'核心',
+     formula_tex: String.raw`\Delta\varphi = 2\pi \dfrac{x_{ab}}{\lambda},\quad y(x,t) = A\sin\!\left(2\pi\!\left(\dfrac{t}{T} - \dfrac{x}{\lambda}\right)\right)`,
+     note:'a→b 传播：b 相位滞后 a，由图得 x_ab = 5λ/12。b→a 传播：a 相位滞后 b，x_ab = 7λ/12。'}
+  ],
+  stats: [
+    {label:'时间 t',  fmt:(s,t)=>(t/T_period).toFixed(2)+' T'},
+    {label:'a 位移', fmt:(s,t)=>ya(t).toFixed(2)+' A'},
+    {label:'b 位移', fmt:(s,t)=>(direction==='ba'?yb_ba(t):yb_ab(t)).toFixed(2)+' A'},
+    {label:'传播方向', fmt:()=>direction==='ab'?'a → b':direction==='ba'?'b → a':'双向叠加'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'b → a 传播', note:'x_ab = 7λ/12'},
+    {label_text:'B 错', value_text:'相位错', note:'不符合题图'},
+    {label_text:'C 错', value_text:'方向错', note:'不符合 a 在平衡位置 b 在波谷'},
+    {label_text:'D 对', value_text:'a → b 传播', note:'x_ab = 5λ/12'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'a → b 传播波形'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'b → a 传播波形'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'a 点（x = 0）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'b 点'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:false},
+  fileName: '陕西卷-Q7-横波振动'
+});
+
+// 切换方向
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px;font-size:12px;color:var(--ppath-fg-2)">
+      <span style="display:block;margin-bottom:6px">传播方向</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-pri" data-dir="ab" style="font-size:11.5px;padding:6px 10px;flex:1">a → b</button>
+        <button class="btn" data-dir="ba" style="font-size:11.5px;padding:6px 10px;flex:1">b → a</button>
+        <button class="btn" data-dir="both" style="font-size:11.5px;padding:6px 10px;flex:1">叠加</button>
+      </div>
+    </div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.querySelectorAll('[data-dir]').forEach(b=>{
+    b.onclick = ()=>{
+      direction = b.dataset.dir;
+      document.querySelectorAll('[data-dir]').forEach(x=>x.classList.toggle('btn-pri', x===b));
+    };
+  });
+});
+</script>
+</body>
+</html>

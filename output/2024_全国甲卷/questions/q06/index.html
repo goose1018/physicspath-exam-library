@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 6 题 · 理想变压器 + 滑动变阻器</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理:
+// 副线圈两端电压 U_2 ∝ N_2 (T 触头位置)
+// R 与 R₁ 串联接副线圈，R 与 R₁ 串联后总电阻 R_total = R + R₁
+// 电流 I = U_2 / R_total
+// R₁ 上电压 U_R1 = I·R₁ = U_2·R₁/(R+R₁)
+// R₁ 上热功率 P_R1 = U_R1²/R₁ = U_2²·R₁/(R+R₁)²
+//
+// 选项分析（保持 U_原 不变）:
+// A. T 不动 (U_2 不变), R 滑片向 f (R 减小): R_total 减小, I 增大, P_R1 = I²R₁ 增大 ✓
+// B. T 向 b (副圈匝数减少 → U_2 减小), R 不变: I 减小, P_R1 减小 ✗
+// C. T 向 a (副圈匝数增加 → U_2 增大), R 向 f (R 减小): U_2 大且 R_total 小, I 大幅增大, P_R1 增大 ✓
+// D. T 向 b (U_2 减小), R 向 e (R 增大): I 双向减小, P_R1 减小 ✗
+// 答案 AC
+
+const T_total = 8;
+let T_pos = 0.5;   // T 触头位置 0=b端(匝少) ~ 1=a端(匝多)
+let R_pos = 0.5;   // 滑变 R 位置 0=e端(R大) ~ 1=f端(R小)
+
+const N_max = 100;     // 副线圈最大匝数 (T at a)
+const N_min = 50;      // 最小匝数 (T at b)
+const R_max_val = 20;  // R 最大值
+const R_min_val = 0;   // R 最小值
+const R0 = 2;          // R₀ 定值电阻（与 R、R₁ 串联，题目原图含此电阻）
+const R1 = 4;          // R₁ 定值电阻
+const U_primary = 100; // 原线圈电压（恒定）
+const N_primary = 100; // 原线圈匝数
+
+function getU2(){
+  const N_2 = N_min + T_pos*(N_max-N_min);
+  return U_primary * (N_2 / N_primary);
+}
+function getR(){
+  return R_max_val + R_pos*(R_min_val-R_max_val);   // R_pos=1时 R=0；R_pos=0时 R=20
+}
+function getCurrent(){ return getU2() / (getR() + R0 + R1); }   // 三阻串联
+function getP_R1(){ const I = getCurrent(); return I*I*R1; }
+
+function evalState(t){
+  // 自动演示：分四段切换 ABCD
+  const seg = Math.floor(t / 2) % 4;
+  if(seg === 0){ T_pos = 0.5; R_pos = 1.0; }    // A: T 中, R→f
+  else if(seg === 1){ T_pos = 0.0; R_pos = 0.5; }  // B: T→b, R 中
+  else if(seg === 2){ T_pos = 1.0; R_pos = 1.0; }  // C: T→a, R→f
+  else { T_pos = 0.0; R_pos = 0.0; }              // D: T→b, R→e
+  return {phase: seg+1, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  const phase = state.phase;
+  const phaseName = ['A · T不动 R→f', 'B · T→b R不变', 'C · T→a R→f', 'D · T→b R→e'][phase-1];
+  const phaseColor = ['#16613f', '#b4442e', '#16613f', '#b4442e'][phase-1];
+  const phaseRight = ['✓', '✗', '✓', '✗'][phase-1];
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('当前演示：', 18, 24);
+  ctx.fillStyle = phaseColor;
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseName + ' ' + phaseRight, 90, 24);
+
+  // 电路图
+  drawCircuit(ctx, 0, 30, W, H*0.55);
+
+  // 数值显示
+  const U2 = getU2(), R_now = getR(), I = getCurrent(), P = getP_R1();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px ui-monospace,monospace';
+  let yy = H*0.65;
+  ctx.fillText('副线圈电压 U₂ = '+U2.toFixed(1)+' V', 18, yy);
+  ctx.fillText('滑动变阻 R = '+R_now.toFixed(1)+' Ω', 18, yy+18);
+  ctx.fillText('总电阻 R+R₀+R₁ = '+(R_now+R0+R1).toFixed(1)+' Ω', 18, yy+36);
+  ctx.fillText('回路电流 I = U₂/(R+R₀+R₁) = '+I.toFixed(2)+' A', 18, yy+54);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px ui-monospace,monospace';
+  ctx.fillText('R₁ 热功率 P = I²R₁ = '+P.toFixed(2)+' W', 18, yy+78);
+
+  // P 直方图（对比）
+  drawBars(ctx, W*0.5, H*0.65-10, W*0.45, H*0.32, phase);
+}
+
+function drawCircuit(ctx, x, y, w, h){
+  // 原线圈（左）
+  const primaryX = x + w*0.18, coreY = y + h*0.55;
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let k=0; k<8; k++){
+    const yy = coreY - 60 + k*15;
+    ctx.arc(primaryX-10, yy, 8, Math.PI*0.5, Math.PI*1.5);
+  }
+  ctx.stroke();
+  // 标
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('原线圈', primaryX-30, coreY-80);
+  ctx.fillText('U_原（不变）', primaryX-44, coreY+50);
+
+  // 铁芯
+  ctx.fillStyle = '#94a09b';
+  ctx.fillRect(primaryX, coreY-70, 80, 4);
+  ctx.fillRect(primaryX, coreY+50, 80, 4);
+  ctx.fillRect(primaryX, coreY-70, 4, 124);
+  ctx.fillRect(primaryX+76, coreY-70, 4, 124);
+
+  // 副线圈
+  const secondaryX = primaryX + 80 + 30;
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let k=0; k<8; k++){
+    const yy = coreY - 60 + k*15;
+    ctx.arc(secondaryX+10, yy, 8, -Math.PI*0.5, Math.PI*0.5);
+  }
+  ctx.stroke();
+  // T 触头滑动条
+  const tY = coreY + 50 - T_pos*100;
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(secondaryX+30, tY, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(secondaryX+18, tY); ctx.lineTo(secondaryX+42, tY); ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('T', secondaryX+45, tY+4);
+  ctx.fillText('a', secondaryX+45, coreY-50);
+  ctx.fillText('b', secondaryX+45, coreY+45);
+  ctx.fillText('副线圈', secondaryX+0, coreY-80);
+
+  // 电路引出（副线圈底部出来）
+  const wireY1 = coreY+70, wireY2 = wireY1+50;
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(secondaryX+10, coreY+60); ctx.lineTo(secondaryX+10, wireY1);
+  ctx.lineTo(secondaryX+150, wireY1);
+  ctx.stroke();
+  // 滑动变阻 R
+  const Rx = secondaryX + 100, Ry = wireY1;
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(Rx-25, Ry-5); ctx.lineTo(Rx-25, Ry+5);
+  ctx.lineTo(Rx+25, Ry+5); ctx.lineTo(Rx+25, Ry-5);
+  ctx.lineTo(Rx-25, Ry-5);
+  ctx.stroke();
+  // 滑片位置
+  const sliderX = Rx - 25 + R_pos*50;
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath();
+  ctx.moveTo(sliderX, Ry-15); ctx.lineTo(sliderX-5, Ry-8); ctx.lineTo(sliderX+5, Ry-8);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('R', Rx-5, Ry-22);
+  ctx.fillText('e', Rx-30, Ry+18);
+  ctx.fillText('f', Rx+25, Ry+18);
+  // R₀ 定值电阻
+  const R0x = Rx + 60, R0y = wireY1;
+  ctx.strokeStyle = '#a85219'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(R0x-12, R0y-5); ctx.lineTo(R0x-12, R0y+5);
+  ctx.lineTo(R0x+12, R0y+5); ctx.lineTo(R0x+12, R0y-5);
+  ctx.lineTo(R0x-12, R0y-5);
+  ctx.stroke();
+  ctx.fillStyle = '#a85219';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('R₀', R0x-8, R0y-10);
+
+  // R₁ 定值电阻
+  const R1x = Rx + 110, R1y = wireY1;
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(R1x-15, R1y-5); ctx.lineTo(R1x-15, R1y+5);
+  ctx.lineTo(R1x+15, R1y+5); ctx.lineTo(R1x+15, R1y-5);
+  ctx.lineTo(R1x-15, R1y-5);
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('R₁', R1x-9, R1y-12);
+
+  // 回路下方
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(R1x+15, wireY1); ctx.lineTo(R1x+50, wireY1);
+  ctx.lineTo(R1x+50, wireY2);
+  ctx.lineTo(secondaryX+10, wireY2);
+  ctx.lineTo(secondaryX+10, coreY+70);
+  ctx.stroke();
+
+  // 闭合 (回到 T 触头)
+  ctx.beginPath();
+  ctx.moveTo(secondaryX+30, tY); ctx.lineTo(secondaryX+30, wireY2-20); ctx.lineTo(secondaryX+30, wireY2);
+  ctx.stroke();
+
+  // 开关 S
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  const Sx = secondaryX + 60, Sy = wireY2;
+  ctx.beginPath();
+  ctx.moveTo(Sx-10, Sy); ctx.lineTo(Sx+10, Sy-3);
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px sans-serif';
+  ctx.fillText('S', Sx-4, Sy-10);
+
+  // 电流方向箭头
+  const I = getCurrent();
+  if(I > 0.01){
+    ctx.fillStyle = '#c2611f';
+    const arrowSize = Math.min(12, 4 + I*3);
+    PPath.arrow(ctx, R1x-30, wireY1, R1x-30+arrowSize, wireY1, '#c2611f', 2);
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('I = '+I.toFixed(2)+'A', R1x-30, wireY1-8);
+  }
+}
+
+function drawBars(ctx, x, y, w, h){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('R₁ 热功率对比 P_R₁ = I²R₁', x+12, y+18);
+
+  // 计算 ABCD 四种情况下的 P
+  const cases = [
+    {label:'A · T不动 R→f', T:0.5, R:1.0, color:'#16613f'},
+    {label:'B · T→b 不变',  T:0.0, R:0.5, color:'#b4442e'},
+    {label:'C · T→a R→f',   T:1.0, R:1.0, color:'#16613f'},
+    {label:'D · T→b R→e',   T:0.0, R:0.0, color:'#b4442e'}
+  ];
+  // 基线: T=0.5, R=0.5 (起始状态)
+  const T_save = T_pos, R_save = R_pos;
+  T_pos = 0.5; R_pos = 0.5;
+  const P_base = getP_R1();
+  T_pos = T_save; R_pos = R_save;
+
+  const P_vals = cases.map(c => {
+    const t_save = T_pos, r_save = R_pos;
+    T_pos = c.T; R_pos = c.R;
+    const p = getP_R1();
+    T_pos = t_save; R_pos = r_save;
+    return p;
+  });
+  const Pmax = Math.max(...P_vals, P_base);
+
+  // 基线
+  const padL = 10, padT = 30;
+  const barW = (w - 20 - 4*8) / 5;
+  const baseY = y + h - 26;
+  const maxBar = h - padT - 32;
+
+  // 基线柱
+  ctx.fillStyle = 'rgba(94,160,155,.4)';
+  let bx = x + padL;
+  ctx.fillRect(bx, baseY - (P_base/Pmax)*maxBar, barW, (P_base/Pmax)*maxBar);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('基线', bx+barW/2-12, baseY+12);
+
+  // 各情况柱
+  cases.forEach((c, i) => {
+    bx = x + padL + (i+1)*(barW+8);
+    const barH = (P_vals[i]/Pmax)*maxBar;
+    ctx.fillStyle = c.color;
+    ctx.fillRect(bx, baseY - barH, barW, barH);
+    // 数值
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '700 9px ui-monospace,monospace';
+    ctx.fillText(P_vals[i].toFixed(1), bx+2, baseY - barH - 4);
+    // 标签
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '700 9px "Noto Sans SC",sans-serif';
+    ctx.fillText(['A','B','C','D'][i], bx+barW/2-4, baseY+12);
+    // ✓✗
+    ctx.fillStyle = c.color;
+    ctx.font = '900 12px sans-serif';
+    ctx.fillText(['✓','✗','✓','✗'][i], bx+barW/2-4, baseY+24);
+  });
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '理想变压器 + 滑动变阻器',
+  subtitle: '副线圈匝数可通过 T 触头调节，副回路有滑动变阻 R 和定值电阻 R₁。原线圈电压不变，求"提高 R₁ 热功率"的操作。',
+  deliv: {
+    title: '理想变压器 + 滑动变阻器',
+    sub: 'P_R₁ = I²R₁ ∝ U₂²·R₁/(R+R₁)² · 答案 AC'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 6 题 · 6 分',
+    image: '../../source/images/image51.png',
+    text: `如图，理想变压器的副线圈接入电路的匝数可通过滑动触头 <b>T</b> 调节，副线圈回路接有滑动变阻器 <b>R</b>、定值电阻 <b>R₀</b> 和 <b>R₁</b>、开关 S。S 处于闭合状态，在原线圈电压不变的情况下，为提高 <b>R₁</b> 的热功率，可以（　　）`,
+    subQuestions: [
+      'A. 保持 T 不动，滑动变阻器 R 的滑片向 f 端滑动',
+      'B. 将 T 向 b 端移动，滑动变阻器 R 的滑片位置不变',
+      'C. 将 T 向 a 端移动，滑动变阻器 R 的滑片向 f 端滑动',
+      'D. 将 T 向 b 端移动，滑动变阻器 R 的滑片向 e 端滑动'
+    ],
+    officialAnswer: 'AC · A：U₂ 不变，R 减小 → I 增大 → P_R₁=I²R₁ 增大 ✓。B：T 向 b 副圈匝数减少 → U₂ 减小 → I 减小 → P_R₁ 减小 ✗。C：T 向 a 副圈匝数增加 → U₂ 增大 + R 减小 → I 双向增大 → P_R₁ 大幅增大 ✓。D：T 向 b + R 增大 → I 双向减小 → P_R₁ 减小 ✗。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'A · T不动 R→f ✓', label_short:'A',
+     formula_tex: String.raw`R\downarrow \;\Rightarrow\; I = \dfrac{U_2}{R+R_1}\uparrow \;\Rightarrow\; P_{R_1} = I^2 R_1\uparrow`,
+     note:'T 不动 → U₂ 不变；R 滑向 f → R 减小 → 总电阻减小 → 电流增大 → R₁ 热功率增大。'},
+    {label:'B · T→b 不变 ✗', label_short:'B',
+     formula_tex: String.raw`U_2\downarrow,\; R=\text{const} \;\Rightarrow\; I\downarrow \;\Rightarrow\; P_{R_1}\downarrow`,
+     note:'T 向 b → 副圈匝数减少 → U₂ 减小；R 不变 → 电流减小 → R₁ 热功率减小。错误。'},
+    {label:'C · T→a R→f ✓', label_short:'C',
+     formula_tex: String.raw`U_2\uparrow,\; R\downarrow \;\Rightarrow\; I\uparrow\uparrow \;\Rightarrow\; P_{R_1}\uparrow\uparrow`,
+     note:'T 向 a → 副圈匝数增加 → U₂ 增大；R 减小。U₂ 大且总电阻小 → 电流大幅增大 → R₁ 热功率大幅增大。'},
+    {label:'D · T→b R→e ✗', label_short:'D',
+     formula_tex: String.raw`U_2\downarrow,\; R\uparrow \;\Rightarrow\; I\downarrow\downarrow \;\Rightarrow\; P_{R_1}\downarrow`,
+     note:'T 向 b → U₂ 减小；R 滑向 e → R 增大。两个变化都使电流减小 → R₁ 热功率大幅减小。错误。'}
+  ],
+  stats: [
+    {label:'U_原 (恒定)',  fmt:()=>U_primary+' V'},
+    {label:'U₂',           fmt:()=>getU2().toFixed(1)+' V'},
+    {label:'R',            fmt:()=>getR().toFixed(1)+' Ω'},
+    {label:'R₁',           fmt:()=>R1+' Ω (定值)'},
+    {label:'I',            fmt:()=>getCurrent().toFixed(2)+' A'},
+    {label:'P_R₁',         fmt:()=>getP_R1().toFixed(2)+' W'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'P↑',  note:'R↓ → I↑ → P↑'},
+    {label_text:'B 错', value_text:'P↓',  note:'U₂↓ → I↓'},
+    {label_text:'C 对', value_text:'P↑↑', note:'U₂↑+R↓ 双增'},
+    {label_text:'D 错', value_text:'P↓↓', note:'U₂↓+R↑ 双减'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'滑动变阻 R'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'R₁ 定值电阻'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'T 触头 / R 滑片'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024甲卷-Q6-变压器'
+});
+</script>
+</body>
+</html>

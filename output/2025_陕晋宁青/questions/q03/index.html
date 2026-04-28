@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 题 · F-t 图判断 v-t 图</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─────────────── Physics ───────────────
+const m_mass = 20;
+const T_total = 3;
+function F_at(t){ return t<1 ? 20 : t<2 ? 0 : -20; }
+function a_at(t){ return F_at(t)/m_mass; }
+function v_at(t){
+  if(t<=1) return t;
+  if(t<=2) return 1;
+  if(t<=3) return 1 - (t-2);
+  return 0;
+}
+function x_at(t){
+  if(t<=1) return 0.5*t*t;
+  if(t<=2) return 0.5 + (t-1);
+  if(t<=3){ const dt=t-2; return 1.5 + dt - 0.5*dt*dt; }
+  return 2;
+}
+
+// ─────────────── Drawing ───────────────
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // Layout: scene top half, F-t and v-t side by side bottom half
+  const sceneH = H*0.50;
+  const graphY = sceneH + 12;
+  const graphH = H - graphY - 8;
+  const graphW = (W - 36) / 2;
+  drawScene_top(ctx, 0, 0, W, sceneH, t);
+  drawGraph(ctx, 12, graphY, graphW, graphH, t, 'F');
+  drawGraph(ctx, 24+graphW, graphY, graphW, graphH, t, 'v');
+}
+
+function drawScene_top(ctx, x, y, w, h, t){
+  // 轨道
+  const trackY = y + h*0.78;
+  const trackX0 = x + w*0.06, trackX1 = x + w*0.94;
+  ctx.fillStyle = 'rgba(18,53,45,.04)';
+  ctx.fillRect(trackX0, trackY+18, trackX1-trackX0, 5);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(trackX0,trackY); ctx.lineTo(trackX1,trackY); ctx.stroke();
+  ctx.strokeStyle = '#c4b89e'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#94a09b'; ctx.font='10px ui-monospace,monospace';
+  for(let i=0;i<=5;i++){
+    const px = trackX0 + (trackX1-trackX0)*(i/5);
+    ctx.beginPath(); ctx.moveTo(px,trackY); ctx.lineTo(px,trackY+5); ctx.stroke();
+    ctx.fillText(`${(i*0.4).toFixed(1)} m`, px-14, trackY+18);
+  }
+
+  // 机器人位置
+  const xp = x_at(t);
+  const xPix = trackX0 + (xp/2)*(trackX1-trackX0)*0.95;
+  drawRobot(ctx, xPix, trackY-1, t);
+
+  // 阶段说明（彩色）
+  const phase = t<1?1:t<2?2:3;
+  const phaseLbl = ['加速 a = +1 m/s²', '匀速 a = 0', '减速 a = −1 m/s²'][phase-1];
+  const phaseClr = ['#c2611f', '#16613f', '#3f6f8f'][phase-1];
+  ctx.fillStyle = phaseClr;
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLbl, x + 18, y + 22);
+
+  // 力箭头
+  if(F_at(t)!==0){
+    const fLen = (F_at(t)/20) * 60;
+    PPath.arrow(ctx, xPix, trackY-32, xPix+fLen, trackY-32, '#b4442e', 2.5);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 12px ui-monospace,monospace';
+    const lbl = 'F = ' + F_at(t).toFixed(0) + ' N';
+    ctx.fillText(lbl, xPix + fLen + (fLen>0?6:-50), trackY-36);
+  }
+  // 速度箭头
+  if(v_at(t) > 0.01){
+    const vLen = v_at(t) * 50;
+    PPath.arrow(ctx, xPix, trackY-12, xPix+vLen, trackY-12, '#3f6f8f', 2);
+    ctx.fillStyle = '#3f6f8f'; ctx.font='600 11px ui-monospace,monospace';
+    ctx.fillText('v = ' + v_at(t).toFixed(2) + ' m/s', xPix+vLen+6, trackY-9);
+  }
+}
+
+function drawRobot(ctx, x, y, t){
+  const w=46, h=30;
+  ctx.fillStyle = '#12352d'; ctx.fillRect(x-w/2, y-h, w, h);
+  ctx.fillStyle = '#c2611f'; ctx.fillRect(x-w/2+4, y-h-5, w-8, 5);
+  ctx.fillStyle = '#fdf3e6'; ctx.fillRect(x-12, y-h+5, 24, 12);
+  ctx.fillStyle = '#16613f'; ctx.fillRect(x-10, y-h+7, 20*Math.min(1,v_at(t)), 8);
+  ctx.fillStyle = '#5d6964';
+  ctx.beginPath(); ctx.arc(x-w/2+8, y, 6, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+w/2-8, y, 6, 0, Math.PI*2); ctx.fill();
+  const wRot = x*0.3;
+  [{cx:x-w/2+8},{cx:x+w/2-8}].forEach(({cx})=>{
+    ctx.strokeStyle = '#c4b89e'; ctx.lineWidth=1.4;
+    for(let k=0;k<2;k++){
+      const a = wRot + k*Math.PI/2;
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a)*5, y+Math.sin(a)*5);
+      ctx.lineTo(cx-Math.cos(a)*5, y-Math.sin(a)*5);
+      ctx.stroke();
+    }
+  });
+}
+
+function drawGraph(ctx, gx, gy, gw, gh, t, kind){
+  // 背景卡片
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 12); ctx.fill(); ctx.stroke();}
+  else { ctx.fillRect(gx,gy,gw,gh); ctx.strokeRect(gx,gy,gw,gh); }
+
+  // 标题
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(kind === 'F' ? 'F − t 图（已知）' : 'v − t 图（推导）', gx+12, gy+18);
+
+  // axes inside
+  const padL = 32, padR = 14, padT = 26, padB = 22;
+  const cw = gw - padL - padR, ch = gh - padT - padB;
+  const x0 = gx + padL, y0 = gy + padT;
+  const yMin = kind==='F' ? -25 : 0, yMax = kind==='F' ? 25 : 1.4;
+  const xMin = 0, xMax = 3.4;
+  const X = v => x0 + (v-xMin)/(xMax-xMin) * cw;
+  const Y = v => y0 + ch - (v-yMin)/(yMax-yMin) * ch;
+
+  // 网格
+  ctx.strokeStyle = 'rgba(18,53,45,.04)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let v=Math.ceil(xMin); v<=Math.floor(xMax); v++){ ctx.moveTo(X(v),y0); ctx.lineTo(X(v),y0+ch);}
+  for(let v=Math.ceil(yMin); v<=Math.floor(yMax); v++){ ctx.moveTo(x0,Y(v)); ctx.lineTo(x0+cw,Y(v));}
+  ctx.stroke();
+  // 0 axes
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(x0, Y(0)); ctx.lineTo(x0+cw, Y(0));
+  ctx.moveTo(X(0), y0); ctx.lineTo(X(0), y0+ch);
+  ctx.stroke();
+  // 标记
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('t', x0+cw+4, Y(0)+5);
+  ctx.fillText(kind, X(0)-4, y0-4);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  for(let v=1; v<=3; v++) ctx.fillText(v+'s', X(v)-7, Y(0)+12);
+  if(kind==='F'){
+    ctx.fillText('+20', X(0)-26, Y(20)+3);
+    ctx.fillText('−20', X(0)-26, Y(-20)+3);
+  } else {
+    ctx.fillText('1.0', X(0)-22, Y(1)+3);
+  }
+
+  // 完整曲线（淡色）
+  ctx.strokeStyle = kind==='F' ? 'rgba(180,68,46,.25)' : 'rgba(63,111,143,.22)';
+  ctx.lineWidth = 1.5; ctx.setLineDash([3,4]);
+  ctx.beginPath();
+  if(kind==='F'){
+    ctx.moveTo(X(0),Y(20)); ctx.lineTo(X(1),Y(20)); ctx.lineTo(X(1),Y(0));
+    ctx.lineTo(X(2),Y(0)); ctx.lineTo(X(2),Y(-20)); ctx.lineTo(X(3),Y(-20));
+  } else {
+    ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(1),Y(1)); ctx.lineTo(X(2),Y(1)); ctx.lineTo(X(3),Y(0));
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // 已走过部分 (实色)
+  ctx.lineWidth = 2.6; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle = kind==='F' ? '#b4442e' : '#3f6f8f';
+  ctx.beginPath();
+  if(kind==='F'){
+    const tt = Math.min(t, 3);
+    ctx.moveTo(X(0), Y(20));
+    if(tt<=1) ctx.lineTo(X(tt), Y(20));
+    else { ctx.lineTo(X(1),Y(20)); ctx.lineTo(X(1),Y(0));
+      if(tt<=2) ctx.lineTo(X(tt),Y(0));
+      else { ctx.lineTo(X(2),Y(0)); ctx.lineTo(X(2),Y(-20));
+        ctx.lineTo(X(Math.min(tt,3)),Y(-20));
+      }
+    }
+  } else {
+    const samples = 60;
+    ctx.moveTo(X(0), Y(0));
+    for(let i=1;i<=samples;i++){
+      const tt = t*i/samples;
+      ctx.lineTo(X(tt), Y(v_at(tt)));
+    }
+  }
+  ctx.stroke();
+
+  // 当前点
+  const yC = kind==='F' ? F_at(t) : v_at(t);
+  ctx.fillStyle = kind==='F' ? '#b4442e' : '#3f6f8f';
+  ctx.beginPath(); ctx.arc(X(t), Y(yC), 4.5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.stroke();
+
+  // v-t 图: 阴影=位移
+  if(kind==='v'){
+    ctx.fillStyle = 'rgba(22,97,63,.15)';
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(0));
+    const samples = 60;
+    for(let i=0;i<=samples;i++){
+      const tt = t*i/samples;
+      ctx.lineTo(X(tt), Y(v_at(tt)));
+    }
+    ctx.lineTo(X(t), Y(0));
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+// ─────────────── Configure question ───────────────
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 4 分',
+  title: 'F-t 图判断 v-t 图',
+  subtitle: '20 kg 分拣机器人沿水平直线运动，合力 F 随时间分段变化。机器人、F-t 图、v-t 图三者实时同步演示。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 3 题 · 4 分',
+    image: '../../source/images/image7.png',
+    text: `某智能物流系统中，质量为 <b>20 kg</b> 的分拣机器人沿水平直线轨道运动，受到的合力沿轨道方向，合力 <b>F</b> 随时间 <b>t</b> 的变化如图所示。则下列图像可能正确的是（　　）`,
+    officialAnswer: 'A · v-t 图为等腰梯形（0 → 1 → 1 → 0 m/s）。由 a = F/m，三段恒力 → 三段直线，对称于 t = 1.5 s。'
+  },
+  deliv: {
+    title: 'F-t 图判断 v-t 图',
+    sub: '机器人 m = 20 kg · 三段运动：加速 → 匀速 → 减速 · 答案 A · 等腰梯形 v-t 图'
+  },
+  totalT: T_total,
+  speedFactor: 0.55,
+  evalState(t){
+    return {phase: t<1?1:t<2?2:3, t};
+  },
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 加速', label_short:'阶段 1',
+     formula_tex: String.raw`F = +20\;\text{N},\quad a = \dfrac{F}{m} = +1\;\text{m/s}^2`,
+     note:'F=+20N 恒力 → 匀加速。0~1s 速度从 0 线性升到 1 m/s。'},
+    {label:'阶段 2 · 匀速', label_short:'阶段 2',
+     formula_tex: String.raw`F = 0,\quad a = 0,\quad v = 1\;\text{m/s}`,
+     note:'合力为零 → 匀速直线。1~2s 速度保持 1 m/s。'},
+    {label:'阶段 3 · 减速', label_short:'阶段 3',
+     formula_tex: String.raw`F = -20\;\text{N},\quad a = -1\;\text{m/s}^2`,
+     note:'反向恒力 → 匀减速到零。2~3s 速度从 1 线性降到 0 m/s。'}
+  ],
+  stats: [
+    {label:'时间 t',     fmt: (s,t)=>t.toFixed(2)+' s'},
+    {label:'合力 F',     fmt: (s,t)=>(F_at(t)>=0?'+':'')+F_at(t).toFixed(0)+' N'},
+    {label:'加速度 a',   fmt: (s,t)=>(a_at(t)>=0?'+':'')+a_at(t).toFixed(2)+' m/s²'},
+    {label:'速度 v',     fmt: (s,t)=>v_at(t).toFixed(3)+' m/s'},
+    {label:'位移 x',     fmt: (s,t)=>x_at(t).toFixed(3)+' m'}
+  ],
+  conclusions: [
+    {label_text:'核心', value_tex: String.raw`a = \dfrac{F}{m}`, note:'恒力恒加速度 → 三段直线 v-t'},
+    {label_text:'答案', value_text:'A · 等腰梯形 v-t', note:'对称于 t=1.5s'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'F-t 图（已知）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'v-t 图（推导）'},
+    {swatch:{bg:'rgba(22,97,63,.20)',border:'#16613f',type:'rect'}, text:'位移 = v-t 下面积'}
+  ],
+  timeline: [
+    {name:'0~1 s 加速', sub:'F=+20N · a=+1 m/s²'},
+    {name:'1~2 s 匀速', sub:'F=0 · v=1 m/s'},
+    {name:'2~3 s 减速', sub:'F=−20N · a=−1 m/s²'}
+  ],
+  fileName: '陕西卷-Q3-F-t判断v-t'
+});
+</script>
+</body>
+</html>

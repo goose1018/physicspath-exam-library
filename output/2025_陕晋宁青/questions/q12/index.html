@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 12 题 · 卡车气体 · 热一律</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+const V1=1, p1=1, T1=300, V2=1.2, p2=1.4, T2=420;
+const N_particles = 50;
+const particles = Array.from({length:N_particles}, ()=>({
+  x: Math.random(), y: Math.random(),
+  vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2
+}));
+
+function evalState(t){
+  const T_total = 6;
+  const s = Math.min(1, t / T_total);
+  return {phase: s<0.5?1:2, s};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  const s = state.s || 0;
+  // 左：P-V 图，右：轮胎模拟
+  drawPV(ctx, 14, 14, W*0.5-21, H-28, s);
+  drawTire(ctx, W*0.5+7, 14, W*0.5-21, H-28, s, t);
+}
+
+function drawPV(ctx, x, y, w, h, s){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else { ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); }
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('P − V 图（线性变化 · 阴影=气体对外做功）', x+12, y+18);
+
+  const padL=44, padR=14, padT=30, padB=30;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT;
+  const X = v => x0 + (v-0.6)/(1.4-0.6) * cw;
+  const Y = p => y0+ch - (p-0.4)/(1.6-0.4) * ch;
+
+  // 网格
+  ctx.strokeStyle = 'rgba(18,53,45,.05)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let v=0.6; v<=1.4; v+=0.2){ ctx.moveTo(X(v), y0); ctx.lineTo(X(v), y0+ch); }
+  for(let p=0.4; p<=1.6; p+=0.3){ ctx.moveTo(x0, Y(p)); ctx.lineTo(x0+cw, Y(p)); }
+  ctx.stroke();
+
+  // 轴
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('V', x0+cw+6, y0+ch+5);
+  ctx.fillText('p', x0-12, y0-2);
+
+  // 当前点
+  const Vc = V1 + s*(V2-V1);
+  const Pc = p1 + s*(p2-p1);
+
+  // 阴影 (做功面积)
+  ctx.fillStyle = 'rgba(22,97,63,.18)';
+  ctx.beginPath();
+  ctx.moveTo(X(V1), Y(0.4));
+  ctx.lineTo(X(V1), Y(p1));
+  ctx.lineTo(X(Vc), Y(Pc));
+  ctx.lineTo(X(Vc), Y(0.4));
+  ctx.closePath(); ctx.fill();
+
+  // 完整 PV 直线（淡）
+  ctx.strokeStyle = 'rgba(63,111,143,.30)'; ctx.lineWidth = 1.6; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(X(V1), Y(p1)); ctx.lineTo(X(V2), Y(p2)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 已走过部分（实色）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.moveTo(X(V1), Y(p1)); ctx.lineTo(X(Vc), Y(Pc)); ctx.stroke();
+
+  // 端点
+  ctx.fillStyle = '#16613f'; ctx.beginPath(); ctx.arc(X(V1),Y(p1),5,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+  ctx.fillStyle = '#c2611f'; ctx.beginPath(); ctx.arc(X(V2),Y(p2),5,0,Math.PI*2); ctx.fill();
+  ctx.stroke();
+  // 当前点
+  ctx.fillStyle = '#3f6f8f'; ctx.beginPath(); ctx.arc(X(Vc),Y(Pc),6,0,Math.PI*2); ctx.fill();
+  ctx.stroke();
+
+  // 标签
+  ctx.fillStyle = '#16613f'; ctx.font = '700 12px ui-monospace,monospace';
+  ctx.fillText('① (V₁,p₁)', X(V1)+8, Y(p1)-4);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('② (V₂,p₂)', X(V2)-50, Y(p2)+18);
+  ctx.fillStyle = '#16613f'; ctx.font = '900 12px sans-serif';
+  ctx.fillText("W' = 面积", (X(V1)+X(Vc))/2-30, (Y(0.4)+Y(p1))/2);
+}
+
+function drawTire(ctx, x, y, w, h, s, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else { ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); }
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('轮胎气体（粒子模拟 · 体积膨胀 · 温度升高）', x+12, y+18);
+
+  const cx = x + w/2, cy = y + h*0.55;
+  const sizeFrac = V1 + s*(V2-V1);
+  const Rout = Math.min(w, h)*0.35 * Math.cbrt(sizeFrac);
+  const Rin = Rout*0.55;
+  const T_now = T1 + s*(T2-T1);
+
+  // 轮胎外形
+  const grd = ctx.createRadialGradient(cx, cy, Rin*0.6, cx, cy, Rout);
+  grd.addColorStop(0, '#1d1d1f');
+  grd.addColorStop(1, '#0a0e1a');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(cx, cy, Rout, 0, Math.PI*2); ctx.fill();
+  // 内圈
+  ctx.fillStyle = '#fffdf9';
+  ctx.beginPath(); ctx.arc(cx, cy, Rin, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(cx, cy, Rin, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = '#5d6964';
+  ctx.beginPath(); ctx.arc(cx, cy, Rout, 0, Math.PI*2); ctx.stroke();
+  // 胎纹
+  ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1;
+  for(let k=0; k<24; k++){
+    const a = k*Math.PI/12;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(a)*(Rout-3), cy+Math.sin(a)*(Rout-3));
+    ctx.lineTo(cx+Math.cos(a)*(Rout+0.3), cy+Math.sin(a)*(Rout+0.3));
+    ctx.stroke();
+  }
+
+  // 粒子（在环形区域内运动）
+  const speedMul = Math.sqrt(T_now/T1);
+  particles.forEach(p => {
+    p.y += p.vx*0.005*speedMul;
+    p.x += p.vy*0.003*speedMul;
+    if(p.x<0){p.x=0; p.vy*=-1;} if(p.x>1){p.x=1; p.vy*=-1;}
+    if(p.y<0) p.y+=1; if(p.y>1) p.y-=1;
+
+    const r = Rin + p.x*(Rout-Rin)*0.95;
+    const a = p.y*Math.PI*2;
+    const px = cx + r*Math.cos(a);
+    const py = cy + r*Math.sin(a);
+    const trail = 4 + speedMul*4;
+    ctx.strokeStyle = 'rgba(255,180,120,.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px - p.vx*trail, py - p.vy*trail);
+    ctx.lineTo(px, py);
+    ctx.stroke();
+    ctx.fillStyle = '#ffb86b';
+    ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2); ctx.fill();
+  });
+
+  // HUD
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px ui-monospace,monospace';
+  ctx.fillText('T = '+(T1 + s*(T2-T1)).toFixed(0)+' K',  x+14, y+h-50);
+  ctx.fillText('p = '+(p1 + s*(p2-p1)).toFixed(2)+' p₀',  x+14, y+h-32);
+  ctx.fillText('V = '+(V1 + s*(V2-V1)).toFixed(2)+' V₀',  x+14, y+h-14);
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 12 题 · 10 分',
+  title: '卡车气体 · 热力学第一定律',
+  subtitle: '轮胎内气体 P-V 线性变化，由理想气体状态方程求终态压强；P-V 图下面积 = 气体对外做功，由热一律求内能变化。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 12 题 · 10 分',
+    image: '../../source/images/image150.png',
+    text: `某种卡车轮胎的标准胎压范围为 <b>180~250 kPa</b>。卡车行驶过程中，一般胎内气体的温度会升高，体积及压强也会增大。若某一行驶过程中胎内气体压强 <b>p</b> 随体积 <b>V</b> 线性变化如图所示，温度为 <b>T₁</b> 时，体积和压强分别为 <b>V₁、p₁</b>；当胎内气体温度升高到 <b>T₂</b> 时，体积增大到 <b>V₂</b>。气体可视为理想气体。`,
+    subQuestions: [
+      '求此时胎内气体的压强 p₂；',
+      '若该过程中胎内气体吸收的热量为 Q，求胎内气体的内能增加量 ΔU。'
+    ],
+    officialAnswer: '(1) p₂ = p₁·T₂·V₁/(T₁·V₂)（理想气体状态方程 p₁V₁/T₁ = p₂V₂/T₂）　(2) ΔU = Q − W′ ；其中 W′ = ½(p₁+p₂)(V₂−V₁) 是 P-V 图下面积（气体对外做的功）'
+  },
+  deliv: {
+    title: '卡车气体 · 热一律',
+    sub: '理想气体 · 答案：(1) p₂ = 状态方程解出 (2) ΔU = Q − W ′'
+  },
+  totalT: 6,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 升温膨胀', label_short:'阶段 1',
+     formula_tex: String.raw`\dfrac{p_1 V_1}{T_1} = \dfrac{p_2 V_2}{T_2}`,
+     note:'理想气体状态方程：由初末两态 (V₁,p₁,T₁) 与 (V₂,p₂,T₂) 求 p₂。'},
+    {label:'阶段 2 · 热一律应用', label_short:'阶段 2',
+     formula_tex: String.raw`W' = \tfrac{1}{2}(p_1+p_2)(V_2-V_1),\quad \Delta U = Q + W = Q - W'`,
+     note:'P-V 图下梯形面积 = 气体对外做功 W′；外界对气体做功 W = −W′；ΔU = Q + W。'}
+  ],
+  stats: [
+    {label:'体积 V', fmt:s=>(V1+(s.s||0)*(V2-V1)).toFixed(2)+' V₁'},
+    {label:'压强 p', fmt:s=>(p1+(s.s||0)*(p2-p1)).toFixed(2)+' p₁'},
+    {label:'温度 T', fmt:s=>(T1+(s.s||0)*(T2-T1)).toFixed(0)+' K'},
+    {label:"对外 W'",fmt:s=>{const Vc=V1+(s.s||0)*(V2-V1),Pc=p1+(s.s||0)*(p2-p1);return '+'+(0.5*(p1+Pc)*(Vc-V1)).toFixed(3);}},
+    {label:'外界 W', fmt:s=>{const Vc=V1+(s.s||0)*(V2-V1),Pc=p1+(s.s||0)*(p2-p1);return (-0.5*(p1+Pc)*(Vc-V1)).toFixed(3);}}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_tex: String.raw`p_2 = \dfrac{p_1 V_1 T_2}{V_2 T_1}`, note:'理想气体状态方程'},
+    {label_text:'(2)', value_tex: String.raw`\Delta U = Q - W'`, note:'W′ = ½(p₁+p₂)(V₂−V₁) 梯形面积'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(63,111,143,.10)',border:'#3f6f8f',type:'rect'}, text:'P-V 直线（① → ②）'},
+    {swatch:{bg:'rgba(22,97,63,.18)',border:'#16613f',type:'rect'},   text:"做功 W' = 面积"},
+    {swatch:{bg:'#ffb86b',border:'#ffb86b',type:'dot'}, text:'气体粒子（速度 ∝ √T）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '陕西卷-Q12-卡车气体'
+});
+</script>
+</body>
+</html>

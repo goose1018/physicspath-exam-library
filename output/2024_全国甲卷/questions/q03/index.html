@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 题 · 嫦娥六号·月球采样</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+const T_total = 10;
+
+function evalState(t){
+  // 三个阶段：环月飞行 → 月球采样（重力对比）→ 返地
+  let phase = 1;
+  if(t < 4) phase = 1;
+  else if(t < 7) phase = 2;
+  else phase = 3;
+  return {phase, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 深色太空背景
+  const grd = ctx.createRadialGradient(W*.5, H*.5, 50, W*.5, H*.5, Math.max(W,H)*.7);
+  grd.addColorStop(0, '#1a1f2e'); grd.addColorStop(1, '#0a0e1a');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  // 星空
+  ctx.fillStyle = 'rgba(255,255,255,.6)';
+  for(let i=0; i<50; i++){
+    const sx = (i*73 % W);
+    const sy = ((i*131 + i*i*7) % H);
+    const a = 0.2 + 0.6*Math.sin(t + i);
+    ctx.globalAlpha = Math.max(0.1, a);
+    ctx.fillRect(sx, sy, 1.4, 1.4);
+  }
+  ctx.globalAlpha = 1;
+
+  // 月球
+  const moonX = W*0.32, moonY = H*0.50;
+  const Rmoon = Math.min(W,H)*0.14;
+  const mg = ctx.createRadialGradient(moonX-Rmoon*0.3, moonY-Rmoon*0.3, 1, moonX, moonY, Rmoon);
+  mg.addColorStop(0, '#d8d4ca');
+  mg.addColorStop(0.4, '#94a09b');
+  mg.addColorStop(0.85, '#5d6964');
+  mg.addColorStop(1, '#2a2e2c');
+  ctx.fillStyle = mg;
+  ctx.beginPath(); ctx.arc(moonX, moonY, Rmoon, 0, Math.PI*2); ctx.fill();
+  // 月坑
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  [[0.3,-0.3,0.18],[-0.4,0.2,0.13],[0.1,0.4,0.16],[-0.2,-0.4,0.10]].forEach(([dx,dy,r])=>{
+    ctx.beginPath();
+    ctx.arc(moonX+dx*Rmoon, moonY+dy*Rmoon, r*Rmoon, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.fillStyle = '#fdf3e6';
+  ctx.font = '700 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('月球', moonX-14, moonY+Rmoon+22);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText('g_月 ≈ g/6', moonX-30, moonY+Rmoon+38);
+
+  // 地球（远处）
+  const earthX = W*0.86, earthY = H*0.32;
+  const Rearth = Math.min(W,H)*0.10;
+  const eg = ctx.createRadialGradient(earthX-Rearth*0.3, earthY-Rearth*0.3, 1, earthX, earthY, Rearth);
+  eg.addColorStop(0, '#8cb6d8');
+  eg.addColorStop(0.4, '#3f6f8f');
+  eg.addColorStop(0.85, '#1a3a5a');
+  eg.addColorStop(1, '#0a1a2a');
+  ctx.fillStyle = eg;
+  ctx.beginPath(); ctx.arc(earthX, earthY, Rearth, 0, Math.PI*2); ctx.fill();
+  // 大陆 (绿)
+  ctx.fillStyle = 'rgba(94,160,101,.6)';
+  ctx.beginPath();
+  ctx.arc(earthX-3, earthY-2, Rearth*0.35, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#fdf3e6';
+  ctx.font = '700 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('地球', earthX-12, earthY+Rearth+22);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText('g_地 = g', earthX-22, earthY+Rearth+38);
+
+  // 嫦娥探测器
+  let probeX, probeY;
+  const phase = state.phase;
+  if(phase === 1){
+    // 环月飞行
+    const localT = state.t / 4;
+    const orbitR = Rmoon * 1.55;
+    probeX = moonX + orbitR * Math.cos(localT * 4 * Math.PI);
+    probeY = moonY + orbitR * Math.sin(localT * 4 * Math.PI);
+    // 轨道虚线
+    ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.setLineDash([3,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(moonX, moonY, orbitR, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if(phase === 2){
+    // 在月面（停在月球表面附近）
+    probeX = moonX + Rmoon * Math.cos(-Math.PI/3);
+    probeY = moonY + Rmoon * Math.sin(-Math.PI/3) - 6;
+  } else {
+    // 月→地飞行
+    const localT = (state.t - 7) / 3;
+    probeX = moonX + (earthX - moonX) * localT;
+    probeY = moonY + (earthY - moonY) * localT;
+    ctx.strokeStyle = 'rgba(255,212,130,.4)'; ctx.setLineDash([4,3]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(moonX, moonY); ctx.lineTo(earthX, earthY); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 探测器
+  const eg2 = ctx.createRadialGradient(probeX, probeY, 1, probeX, probeY, 14);
+  eg2.addColorStop(0, 'rgba(255,212,130,.85)');
+  eg2.addColorStop(1, 'rgba(255,212,130,0)');
+  ctx.fillStyle = eg2;
+  ctx.beginPath(); ctx.arc(probeX, probeY, 14, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ffd482';
+  ctx.beginPath(); ctx.arc(probeX, probeY, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(probeX-12, probeY-1.5, 7, 3);
+  ctx.fillRect(probeX+5, probeY-1.5, 7, 3);
+  ctx.fillStyle = '#ffd482';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('嫦娥六号', probeX+10, probeY-9);
+
+  // 阶段说明
+  const phaseLabels = ['① 环月飞行', '② 月面采样', '③ 月→地转移'];
+  const phaseColors = ['#3f6f8f', '#c2611f', '#ffd482'];
+  ctx.fillStyle = phaseColors[phase-1];
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabels[phase-1], 20, 28);
+
+  // 关键力提示
+  ctx.fillStyle = 'rgba(255,255,255,.65)';
+  ctx.font = '600 11px ui-monospace,monospace';
+  if(phase === 1){
+    ctx.fillText('引力提供向心力 → 合力 ≠ 0', 20, H-22);
+  } else if(phase === 2){
+    ctx.fillText('月球重力 ≈ g/6 < 地球重力 g', 20, H-22);
+  } else {
+    ctx.fillText('飞行器质量不变（无论身处何地）', 20, H-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '嫦娥六号 · 月球采样',
+  subtitle: '嫦娥六号月球采样过程：月面起飞 → 环月飞行 → 月地转移。月球表面重力加速度约为地球 1/6。判断各陈述正误。',
+  deliv: {
+    title: '嫦娥六号 · 月球采样',
+    sub: '环月、月面、转移三阶段 · 答案 D · 月球压力 < 地球压力'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 3 题 · 6 分',
+    text: `2024 年 5 月，<b>嫦娥六号</b>探测器发射成功，开启了人类首次从月球背面采样返回之旅。将采得的样品带回地球，飞行器需经过月面起飞、环月飞行、月地转移等过程。<b>月球表面自由落体加速度约为地球表面自由落体加速度的 1/6</b>。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 在环月飞行时，样品所受合力为零',
+      'B. 若将样品放置在月球正面，它对月球表面压力等于零',
+      'C. 样品在不同过程中受到的引力不同，所以质量也不同',
+      'D. 样品放置在月球背面时对月球的压力，比放置在地球表面时对地球的压力小'
+    ],
+    officialAnswer: 'D · A 错（环月飞行合力 = 向心力 ≠ 0）；B 错（月球正面有引力，压力 = 重力 ≠ 0）；C 错（引力变质量不变）；D 对（月面重力 = mg/6，远小于地面 mg，故压力小）。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① 环月飞行', label_short:'阶段 1',
+     formula_tex: String.raw`F_\text{引} = m\dfrac{v^2}{r} \neq 0`,
+     note:'引力提供向心力，合力指向月心，不为零。A 错。'},
+    {label:'② 月面采样', label_short:'阶段 2',
+     formula_tex: String.raw`g_\text{月} \approx \dfrac{g}{6}, \quad N = m\,g_\text{月}`,
+     note:'月面重力 ≈ g/6 → 压力 N = m·g/6 ≠ 0。B 错。'},
+    {label:'③ 月→地转移', label_short:'阶段 3',
+     formula_tex: String.raw`m = \text{const}, \quad N_\text{月} = \dfrac{m g}{6} < N_\text{地} = m g`,
+     note:'引力 ≠ 质量，质量随过程不变。C 错。月面压力 = mg/6 < 地面压力 = mg，D 对。'}
+  ],
+  stats: [
+    {label:'g_地',         fmt:()=>'9.8 m/s²'},
+    {label:'g_月',         fmt:()=>'≈ 1.6 m/s² (g/6)'},
+    {label:'样品质量 m',    fmt:()=>'恒定（不随过程变）'},
+    {label:'月面压力',      fmt:()=>'m·g/6'},
+    {label:'地面压力',      fmt:()=>'m·g'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'合力≠0',     note:'F = mv²/r 向心'},
+    {label_text:'B 错', value_text:'压力≠0',    note:'月面 N = mg/6'},
+    {label_text:'C 错', value_text:'质量不变',  note:'引力变 ≠ 质量变'},
+    {label_text:'D 对', value_text:'月<地',     note:'g/6 < g → 压力小 6 倍'}
+  ],
+  legend: [
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'dot'}, text:'月球（g/6）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'地球（g）'},
+    {swatch:{bg:'#ffd482',border:'#ffd482',type:'dot'}, text:'嫦娥六号探测器'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024甲卷-Q3-嫦娥六号'
+});
+</script>
+</body>
+</html>

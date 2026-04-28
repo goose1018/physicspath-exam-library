@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 4 题 · 钢管悬绳静力平衡</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+let theta = 45 * Math.PI/180;
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 地面
+  const groundY = H * 0.78;
+  ctx.fillStyle = 'rgba(194,97,31,.04)';
+  ctx.fillRect(0, groundY, W, H-groundY);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W*.06, groundY); ctx.lineTo(W*.94, groundY); ctx.stroke();
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+  for(let x=W*.06; x<W*.94; x+=14){
+    ctx.beginPath(); ctx.moveTo(x,groundY); ctx.lineTo(x-8,groundY+10); ctx.stroke();
+  }
+
+  // 钢管
+  const Lpix = W*0.36;
+  const x0 = W*0.26, y0 = groundY;
+  const x1 = x0 + Lpix*Math.cos(theta);
+  const y1 = y0 - Lpix*Math.sin(theta);
+  ctx.strokeStyle = 'rgba(18,53,45,.18)'; ctx.lineWidth = 14;
+  ctx.beginPath(); ctx.moveTo(x0+3,y0+3); ctx.lineTo(x1+3,y1+3); ctx.stroke();
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 12; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+
+  // 绳
+  const ropeTop = H*0.06;
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1, ropeTop); ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(x1-12, ropeTop-6, 24, 6);
+  for(let dx=-10; dx<=10; dx+=4){
+    ctx.beginPath(); ctx.moveTo(x1+dx, ropeTop-6);
+    ctx.lineTo(x1+dx-3, ropeTop-12); ctx.stroke();
+  }
+
+  // 重心
+  const cmx = (x0+x1)/2, cmy = (y0+y1)/2;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cmx, cmy, 3, 0, Math.PI*2); ctx.fill();
+
+  // mg
+  PPath.arrow(ctx, cmx, cmy, cmx, cmy+70, '#b4442e', 2.5);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 13px "Cambria Math",serif';
+  ctx.fillText('mg', cmx+6, cmy+62);
+
+  // T
+  const T_len = 60 + Math.sin(theta)*40;
+  PPath.arrow(ctx, x1, y1, x1, y1-T_len, '#16613f', 2.5);
+  ctx.fillStyle = '#16613f';
+  ctx.fillText('T', x1+6, y1-T_len+10);
+
+  // N
+  PPath.arrow(ctx, x0, y0, x0, y0-50, '#3f6f8f', 2.5);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('N', x0-22, y0-30);
+
+  // f = 0
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('f = 0', x0-50, y0+22);
+
+  // 角标
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(x0, y0, 36, -theta, 0); ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('θ = '+(theta*180/Math.PI).toFixed(0)+'°', x0+44, y0-12);
+
+  // 端点圆点
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(x0, y0, 5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x1, y1, 5, 0, Math.PI*2); ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 4 题 · 4 分',
+  title: '钢管悬绳 · 静力平衡',
+  subtitle: '钢管左端落地、右端被竖直绳吊起，地面对其摩擦力大小为多少？拖动滑杆改变倾角验证摩擦力始终为零。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 4 题 · 4 分',
+    image: '../../source/images/image15.png',
+    text: `如图，质量为 <b>m</b> 的均匀钢管，一端支在粗糙水平地面上，另一端被竖直绳悬挂，处于静止状态，钢管与水平地面之间的动摩擦因数为 <b>μ</b>、夹角为 <b>θ</b>，重力加速度大小为 <b>g</b>。则地面对钢管左端的摩擦力大小为（　　）<br>A. μmg cosθ　　B. ½mg cotθ　　C. mg/(2tanθ)　　D. <b>0</b>`,
+    officialAnswer: 'D · f = 0。绳竖直 → 张力 T 无水平分量；mg 竖直 → 无水平分量；地面支持力 N 竖直 → 水平方向除 f 外无任何力。钢管静止 → f 必为 0（与角度 θ 无关）。'
+  },
+  deliv: {
+    title: '钢管悬绳静力平衡',
+    sub: '受 mg、T、N、f 四力 · 答案 D · f = 0 与角度无关'
+  },
+  totalT: 0.001,
+  evalState(t){ return {phase:1}; },
+  drawScene,
+  phases: [
+    {label:'静力分析', label_short:'核心',
+     formula_tex: String.raw`\sum F_x = 0:\quad T_x + (mg)_x + N_x + f = 0 \;\Rightarrow\; f = 0`,
+     note:'绳竖直 → T 无水平分量；mg 也无水平分量；N 竖直 → 水平方向除 f 外无任何力 → f 必为 0。'}
+  ],
+  stats: [
+    {label:'夹角 θ',  fmt:()=>(theta*180/Math.PI).toFixed(0)+'°'},
+    {label:'重力',    fmt:()=>'−y 方向'},
+    {label:'绳张力',  fmt:()=>'+y 方向'},
+    {label:'支持力',  fmt:()=>'+y 方向'},
+    {label:'摩擦力',  fmt:()=>'0 ✓'}
+  ],
+  conclusions: [
+    {label_text:'答案', value_text:'D · f = 0', note:'与角度 θ 无关'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'重力 mg ↓'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'绳张力 T ↑'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'支持力 N ↑'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'摩擦力 f = 0'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '陕西卷-Q4-钢管悬绳'
+});
+
+// θ 滑杆 - 单独添加
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div class="control-row" style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px">
+      <span>夹角 θ</span>
+      <input id="thetaSlider" type="range" min="20" max="70" step="1" value="45">
+      <span class="control-value" id="thetaV">45°</span>
+    </div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.getElementById('thetaSlider').oninput = e => {
+    theta = parseFloat(e.target.value) * Math.PI/180;
+    document.getElementById('thetaV').textContent = e.target.value+'°';
+  };
+});
+</script>
+</body>
+</html>

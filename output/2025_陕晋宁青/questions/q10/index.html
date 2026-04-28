@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 10 题 · 探究 a 与 F、m 的关系</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+let viewMode = 'setup'; // 'setup' / 'graph_am' / 'graph_a_inv_m'
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  if(viewMode === 'setup') drawSetup(ctx, W, H, t);
+  else if(viewMode === 'graph_am') drawGraph(ctx, W, H, 'am');
+  else drawGraph(ctx, W, H, 'inv');
+}
+
+function drawSetup(ctx, W, H, t){
+  // 一端垫高的木板（斜面）
+  const boardY1 = H*0.42;     // 抬起的一端
+  const boardY2 = H*0.62;     // 落地一端
+  const boardX1 = W*0.10;
+  const boardX2 = W*0.74;
+
+  // 桌面
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  const tableY = H*0.78;
+  ctx.beginPath(); ctx.moveTo(0, tableY); ctx.lineTo(W, tableY); ctx.stroke();
+  ctx.fillStyle = 'rgba(194,97,31,.04)';
+  ctx.fillRect(0, tableY, W, H-tableY);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+  for(let x=0; x<W; x+=14){
+    ctx.beginPath(); ctx.moveTo(x, tableY); ctx.lineTo(x-8, tableY+10); ctx.stroke();
+  }
+
+  // 垫块（左侧）
+  ctx.fillStyle = '#5d6964';
+  ctx.fillRect(boardX1-12, boardY1, 24, tableY-boardY1);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+  ctx.strokeRect(boardX1-12, boardY1, 24, tableY-boardY1);
+
+  // 木板
+  ctx.save();
+  ctx.fillStyle = '#c4b89e';
+  ctx.beginPath();
+  ctx.moveTo(boardX1, boardY1);
+  ctx.lineTo(boardX2, boardY2);
+  ctx.lineTo(boardX2, boardY2+8);
+  ctx.lineTo(boardX1, boardY1+8);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  // 斜面角度
+  const dx = boardX2-boardX1, dy = boardY2-boardY1;
+  const ang = Math.atan2(dy, dx);
+  const cosA = Math.cos(ang), sinA = Math.sin(ang);
+  const npx = -sinA, npy = cosA; // 法向
+
+  // 小车
+  const carPos = (t / 4) % 1;  // 0..1
+  const cx = boardX1 + carPos*dx + npx*8;
+  const cy = boardY1 + carPos*dy + npy*8;
+  drawCar(ctx, cx, cy, ang);
+
+  // 槽码盘 + 槽码
+  const pulleyX = boardX2+30, pulleyY = boardY2-2;
+  ctx.strokeStyle = '#3f6f8f'; ctx.fillStyle = '#fffdf9'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 12, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 4, 0, Math.PI*2); ctx.fill();
+  // 绳
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(pulleyX-8, pulleyY-2);
+  ctx.lineTo(pulleyX+12, pulleyY+90);
+  ctx.stroke();
+  // 槽码盘
+  ctx.fillStyle = '#5d6964';
+  ctx.fillRect(pulleyX-2, pulleyY+90, 28, 6);
+  ctx.fillStyle = '#94a09b';
+  ctx.fillRect(pulleyX, pulleyY+96, 24, 14);
+
+  // 标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('木板（一端垫高）', boardX1, boardY1-14);
+  ctx.fillText('小车 M', cx-20, cy-22);
+  ctx.fillText('滑轮', pulleyX-15, pulleyY-18);
+  ctx.fillText('槽码盘 + 槽码 m', pulleyX-30, pulleyY+135);
+
+  // 答案标注
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 一端垫高 ✓', 30, H-26);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '500 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('补偿摩擦：使小车在无拉力时能匀速', 30, H-10);
+}
+
+function drawCar(ctx, cx, cy, ang){
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(ang);
+  ctx.fillStyle = '#12352d';
+  ctx.fillRect(-22, -10, 44, 12);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(-18, -14, 36, 4);
+  ctx.fillStyle = '#5d6964';
+  ctx.beginPath(); ctx.arc(-14, 4, 5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(14, 4, 5, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawGraph(ctx, W, H, kind){
+  const padL = 60, padR = 40, padT = 50, padB = 50;
+  const cw = W-padL-padR, ch = H-padT-padB;
+  const x0 = padL, y0 = padT;
+
+  // 背景卡片
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(x0-12, y0-12, cw+24, ch+24);
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  ctx.strokeRect(x0-12, y0-12, cw+24, ch+24);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(kind==='am' ? 'a − m 图（曲线，难判断反比）' : 'a − 1/m 图（直线 ✓ 反比成立）', x0, y0-18);
+
+  // 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch);
+  ctx.stroke();
+
+  // 数据点（k=2 任意单位，a = k/m）
+  const dataPts = [{m:0.5},{m:0.75},{m:1.0},{m:1.5},{m:2.0},{m:3.0}];
+
+  if(kind==='am'){
+    const xMin=0, xMax=3.5, yMin=0, yMax=5;
+    const X = v => x0 + (v-xMin)/(xMax-xMin) * cw;
+    const Y = v => y0+ch - (v-yMin)/(yMax-yMin) * ch;
+    // 双曲线
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let m=0.4; m<=3.5; m+=0.05){
+      const a = 2/m;
+      if(m===0.4) ctx.moveTo(X(m), Y(a));
+      else ctx.lineTo(X(m), Y(a));
+    }
+    ctx.stroke();
+    // 数据点
+    dataPts.forEach(p => {
+      ctx.fillStyle = '#c2611f';
+      ctx.beginPath(); ctx.arc(X(p.m), Y(2/p.m), 5, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+    });
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = 'italic 700 14px Georgia,serif';
+    ctx.fillText('m', x0+cw+8, y0+ch+5);
+    ctx.fillText('a', x0-4, y0-6);
+  } else {
+    const xMin=0, xMax=2.5, yMin=0, yMax=5;
+    const X = v => x0 + (v-xMin)/(xMax-xMin) * cw;
+    const Y = v => y0+ch - (v-yMin)/(yMax-yMin) * ch;
+    // 直线 a = k·(1/m), k=2
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(0));
+    ctx.lineTo(X(2.5), Y(2*2.5));
+    ctx.stroke();
+    // 数据点
+    dataPts.forEach(p => {
+      ctx.fillStyle = '#16613f';
+      ctx.beginPath(); ctx.arc(X(1/p.m), Y(2/p.m), 5, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+    });
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = 'italic 700 14px Georgia,serif';
+    ctx.fillText('1/m', x0+cw+8, y0+ch+5);
+    ctx.fillText('a', x0-4, y0-6);
+    // 答案
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('直线 ⇔ a ∝ 1/m ⇔ a 与 m 反比 ✓', x0+30, y0+30);
+  }
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 10 题 · 8 分',
+  title: '探究 a 与 F、m 的关系',
+  subtitle: '研究小车加速度与拉力、质量的关系。三步：补偿摩擦、化曲为直、减小误差。',
+  originalProblem: {
+    meta: '2025 陕晋宁青卷 · 第 10 题 · 8 分',
+    image: '../../source/images/image109.png',
+    text: `下图为探究加速度与力、质量关系的部分实验装置。`,
+    subQuestions: [
+      '(1) 实验中应将木板__________（填"保持水平"或"一端垫高"）。',
+      '(2) 为探究加速度 a 与质量 m 的关系，某小组依据实验数据绘制的 a-m 图像很难直观看出图线是否为双曲线。如果采用作图法判断 a 与 m 是否成反比关系，以下选项可以直观判断的有___（多选）：A. a-1/m 图像；B. a-1/m² 图像；C. a·m-m 图像；D. a²-m 图像。',
+      '(3) 为探究加速度与力的关系，在改变作用力时，甲同学将放置在实验桌上的槽码依次放在槽码盘上；乙同学将事先放置在小车上的槽码依次移到槽码盘上，___（甲/乙）同学的方法可以更好地减小误差。'
+    ],
+    officialAnswer: '(1) 一端垫高（补偿摩擦使小车在无拉力时能匀速）　(2) AC（a-1/m 直线 ↔ a∝1/m；a·m=常数 ↔ 反比成立）　(3) 乙（M+m 总质量不变 → 拉力 ≈ mg 近似更准）'
+  },
+  deliv: {
+    title: '探究 a 与 F、m 的关系',
+    sub: '答案：(1) 一端垫高 (2) AC（a-1/m 直线、a·m 平直线）(3) 乙'
+  },
+  totalT: 4,
+  speedFactor: 1.0,
+  evalState(t){ return {phase:1, t}; },
+  drawScene,
+  phases: [
+    {label:'实验 · 三步要点', label_short:'核心',
+     formula_tex: String.raw`a = \dfrac{F}{M+m},\quad a \cdot m = \text{const} \;\Longleftrightarrow\; a \propto \dfrac{1}{m}`,
+     note:'垫高补偿摩擦力 → 化曲为直（用 1/m 横坐标）→ 槽码移动法保持总质量不变以减小拉力近似误差。'}
+  ],
+  stats: [
+    {label:'(1) 木板',  fmt:()=>'一端垫高 ✓'},
+    {label:'(2) 化直', fmt:()=>'AC （a-1/m 与 a·m）'},
+    {label:'(3) 误差', fmt:()=>'乙：槽码移动法'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'一端垫高', note:'消除木板对小车的阻力'},
+    {label_text:'(2)', value_text:'AC ✓',     note:'a-1/m 直线 + a·m 水平线均可化曲为直'},
+    {label_text:'(3)', value_text:'乙 ✓',     note:'M+m 总质量不变，拉力≈mg 近似更准'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'a-m 曲线（双曲线难判断）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'a-1/m 直线（反比 ⇔ 直线）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '陕西卷-Q10-探究a-F-m'
+});
+
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px;font-size:12px;color:var(--ppath-fg-2)">
+      <span style="display:block;margin-bottom:6px">查看视图</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-pri" data-view="setup" style="font-size:11px;padding:6px 8px;flex:1">实验装置</button>
+        <button class="btn" data-view="graph_am" style="font-size:11px;padding:6px 8px;flex:1">a-m 图</button>
+        <button class="btn" data-view="graph_a_inv_m" style="font-size:11px;padding:6px 8px;flex:1">a-1/m 图</button>
+      </div>
+    </div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.querySelectorAll('[data-view]').forEach(b=>{
+    b.onclick = ()=>{
+      viewMode = b.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('btn-pri', x===b));
+    };
+  });
+});
+</script>
+</body>
+</html>

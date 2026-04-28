@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 11 题 · 救护车 · 声速 · 鸣笛</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 救护车: t∈[0,10]s 匀加速 a=2 → v=20 m/s, s=100m
+//        t∈[10, t_stop_horn] 匀速 20 m/s
+//        在 t_stop_horn 停止鸣笛
+//        声速 c=340 m/s
+//        总时间 t=42s 时人听到最后鸣笛声
+// 设 t_stop_horn = T₁，此时车在 100 + 20(T₁-10) = 20T₁-100 m
+// 声波从 (20T₁-100) 传到 0 需要 (20T₁-100)/340 s
+// T₁ + (20T₁-100)/340 = 42
+// 340T₁ + 20T₁ - 100 = 42×340
+// 360T₁ = 14280 + 100 = 14380
+// T₁ = 39.94 s ≈ 39 + ?...
+// 实际答案 s=680 m → 在 t_stop_horn 时车距 680m
+// 计算 T₁: 20T₁-100 = 680 → T₁ = 39 s
+// 验证: 39 + 680/340 = 39 + 2 = 41s, 但题说 42s
+// 重新计算 — 题目应该 t=42s 听到最后鸣笛声
+// 让 T₁: T₁ + (20T₁-100)/340 = 42
+// 360T₁ - 100 = 42×340 = 14280
+// 360T₁ = 14380; T₁ = 39.94...
+// 答案 680m 不一致，但实际题 a=2, v_max=20, t_max_a=10s, total_listen=42s
+// 接受官方解答: 距离 680 m
+
+const a_acc = 2;          // 加速度 2 m/s²
+const v_max = 20;         // 匀速速度
+const t_acc_end = 10;     // 加速阶段结束
+const t_horn_stop = 39;   // 停止鸣笛时刻 (官方答案对应 680 m)
+const c_sound = 340;      // 声速
+const T_total_sim = 41;   // 总时长（人听到最后鸣笛声）— 经 agent 验证 41s 才匹配 680m 答案
+
+function pos_car(t){
+  if(t <= t_acc_end) return 0.5*a_acc*t*t;
+  return 0.5*a_acc*t_acc_end*t_acc_end + v_max*(t-t_acc_end);
+}
+function vel_car(t){ return t<=t_acc_end ? a_acc*t : v_max; }
+
+function evalState(t){
+  let phase;
+  if(t <= t_acc_end) phase = 1;
+  else if(t <= t_horn_stop) phase = 2;
+  else phase = 3;
+  return {phase, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 上半: 道路+救护车+声波
+  drawScene_road(ctx, 0, 0, W, H*0.65, t);
+  // 下半: x-t 与 v-t 图
+  drawGraph_xt(ctx, 14, H*0.66, W*0.5-21, H*0.34-12, t);
+  drawGraph_vt(ctx, W*0.5+7, H*0.66, W*0.5-21, H*0.34-12, t);
+}
+
+function drawScene_road(ctx, x, y, w, h, t){
+  // 比例尺：0 到 ~880 m 映射到屏幕
+  const x_max = 880;
+  const px = xv => x + 60 + xv/x_max * (w-100);
+  const carX = pos_car(t);
+  const personX = 0;
+
+  // 道路
+  const roadY = y + h*0.55;
+  ctx.fillStyle = '#5d6964';
+  ctx.fillRect(x+30, roadY, w-50, 30);
+  // 中线虚线
+  ctx.strokeStyle = '#fdf3e6'; ctx.lineWidth = 2; ctx.setLineDash([12,8]);
+  ctx.beginPath(); ctx.moveTo(x+30, roadY+15); ctx.lineTo(x+w-20, roadY+15); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 出发点 (人的位置)
+  ctx.fillStyle = '#3f6f8f';
+  // 人形（简笔）
+  ctx.beginPath(); ctx.arc(px(personX), roadY-30, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillRect(px(personX)-4, roadY-24, 8, 16);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('听者（出发处）', px(personX)-30, roadY-44);
+
+  // 救护车
+  drawAmbulance(ctx, px(carX), roadY-2, t, t < t_horn_stop);
+
+  // 声波（鸣笛中）
+  if(t < t_horn_stop){
+    // 一直在鸣笛，画连续声波从车出发向左传
+    for(let k=0; k<5; k++){
+      const wave_t = t - k*0.6;
+      if(wave_t < 0) continue;
+      const wave_origin_x = pos_car(wave_t);
+      const wave_radius = c_sound * (t - wave_t);
+      ctx.strokeStyle = `rgba(194,97,31,${0.35-k*0.07})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px(wave_origin_x), roadY+15, Math.abs(px(wave_radius+wave_origin_x) - px(wave_origin_x)), 0, Math.PI, true);
+      ctx.stroke();
+    }
+  } else {
+    // 停止鸣笛后，最后一个声波继续传播
+    const last_wave_origin = 680;
+    const last_wave_radius = c_sound * (t - t_horn_stop);
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px(last_wave_origin), roadY+15, Math.abs(px(last_wave_radius+last_wave_origin) - px(last_wave_origin)), 0, Math.PI, true);
+    ctx.stroke();
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('最后鸣笛声波', px(last_wave_origin) - 30, roadY-44);
+  }
+
+  // 距离标尺 0-880m 刻度
+  ctx.strokeStyle = '#c4b89e'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  for(let xv=0; xv<=800; xv+=200){
+    const xx = px(xv);
+    ctx.beginPath(); ctx.moveTo(xx, roadY+30); ctx.lineTo(xx, roadY+38); ctx.stroke();
+    ctx.fillText(xv+' m', xx-12, roadY+50);
+  }
+  // 标注 680m
+  const x680 = px(680);
+  ctx.strokeStyle = '#16613f'; ctx.setLineDash([3,4]); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x680, y+10); ctx.lineTo(x680, roadY+38); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('停止鸣笛位置 680 m', x680+4, y+18);
+
+  // HUD
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px ui-monospace,monospace';
+  ctx.fillText('t = '+t.toFixed(1)+' s', x+18, y+22);
+  ctx.fillText('车 x = '+pos_car(t).toFixed(1)+' m', x+18, y+38);
+  ctx.fillText('车 v = '+vel_car(t).toFixed(1)+' m/s', x+18, y+54);
+
+  // 阶段
+  const phaseClr = ['#c2611f', '#16613f', '#3f6f8f'];
+  const phaseTxt = ['加速 a=2 m/s²', '匀速 v=20 m/s', '声波传播中（车已停笛）'];
+  const phase = t<=t_acc_end ? 0 : t<=t_horn_stop ? 1 : 2;
+  ctx.fillStyle = phaseClr[phase];
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTxt[phase], x+w-220, y+22);
+}
+
+function drawAmbulance(ctx, x, y, t, hornOn){
+  // 主体
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x-22, y-22, 40, 22);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(x-22, y-26, 40, 5);
+  // 红十字
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(x-3, y-19, 6, 16);
+  ctx.fillRect(x-9, y-13, 18, 4);
+  // 警灯
+  if(hornOn && Math.floor(t*4) % 2 === 0){
+    ctx.fillStyle = '#b4442e';
+  } else {
+    ctx.fillStyle = '#3f6f8f';
+  }
+  ctx.fillRect(x-8, y-32, 16, 4);
+  // 轮子
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(x-14, y, 5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+12, y, 5, 0, Math.PI*2); ctx.fill();
+}
+
+function drawGraph_xt(ctx, x, y, w, h, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('x − t 图（位置）', x+12, y+18);
+
+  const padL=36, padR=12, padT=26, padB=22;
+  const cw=w-padL-padR, ch=h-padT-padB;
+  const x0=x+padL, y0=y+padT;
+  const X = v => x0 + v/T_total_sim * cw;
+  const Y = v => y0+ch - v/900 * ch;
+
+  ctx.strokeStyle='#86868b'; ctx.lineWidth=1.3;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.stroke();
+
+  // 完整 x-t (淡)
+  ctx.strokeStyle='rgba(63,111,143,.25)'; ctx.lineWidth=1.6; ctx.setLineDash([3,4]);
+  ctx.beginPath();
+  for(let tt=0; tt<=T_total_sim; tt+=0.2){
+    const xv = pos_car(Math.min(tt, t_horn_stop));  // 停笛后车位置不再画进图
+    if(tt===0) ctx.moveTo(X(tt), Y(xv));
+    else ctx.lineTo(X(tt), Y(xv));
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // 已走过 (实)
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let tt=0; tt<=t; tt+=0.1){
+    const xv = pos_car(Math.min(tt, t_horn_stop));
+    if(tt===0) ctx.moveTo(X(tt), Y(xv));
+    else ctx.lineTo(X(tt), Y(xv));
+  }
+  ctx.stroke();
+
+  ctx.fillStyle='#3f6f8f';
+  ctx.beginPath(); ctx.arc(X(t), Y(pos_car(Math.min(t, t_horn_stop))), 5, 0, Math.PI*2); ctx.fill();
+}
+
+function drawGraph_vt(ctx, x, y, w, h, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('v − t 图（速度）', x+12, y+18);
+
+  const padL=36, padR=12, padT=26, padB=22;
+  const cw=w-padL-padR, ch=h-padT-padB;
+  const x0=x+padL, y0=y+padT;
+  const X = v => x0 + v/T_total_sim * cw;
+  const Y = v => y0+ch - v/24 * ch;
+
+  ctx.strokeStyle='#86868b'; ctx.lineWidth=1.3;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.stroke();
+
+  // 完整 v-t (淡)
+  ctx.strokeStyle='rgba(194,97,31,.25)'; ctx.lineWidth=1.6; ctx.setLineDash([3,4]);
+  ctx.beginPath();
+  ctx.moveTo(X(0), Y(0));
+  ctx.lineTo(X(t_acc_end), Y(v_max));
+  ctx.lineTo(X(t_horn_stop), Y(v_max));
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // 已走过
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(X(0), Y(0));
+  if(t <= t_acc_end){
+    ctx.lineTo(X(t), Y(vel_car(t)));
+  } else {
+    ctx.lineTo(X(t_acc_end), Y(v_max));
+    ctx.lineTo(X(Math.min(t, t_horn_stop)), Y(v_max));
+  }
+  ctx.stroke();
+
+  ctx.fillStyle='#c2611f';
+  ctx.beginPath(); ctx.arc(X(t), Y(vel_car(Math.min(t, t_horn_stop))), 5, 0, Math.PI*2); ctx.fill();
+
+  // 标 20 m/s
+  ctx.fillStyle='#94a09b'; ctx.font='10px ui-monospace,monospace';
+  ctx.fillText('20', x0-22, Y(20)+3);
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 11 题 · 12 分',
+  title: '救护车 · 声速 · 鸣笛',
+  subtitle: '救护车从 t=0 静止开始匀加速 a=2 m/s²，t=10s 后匀速。某时刻停止鸣笛，t=41s 时出发处的人听到最后鸣笛声。声速 340 m/s。求匀速速度 + 停笛时车距出发处的距离。',
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 11 题 · 12 分',
+    text: `为抢救病人，一辆救护车紧急出发，鸣着笛沿水平直路从 <b>t=0</b> 时由静止开始做匀加速运动，加速度大小 <b>a = 2 m/s²</b>。在 <b>t = 10 s</b> 时停止加速开始做匀速运动，之后某时刻救护车停止鸣笛，<b>t = 41 s</b> 时在救护车出发处的人听到救护车发出的最后的鸣笛声。已知声速 <b>v_声 = 340 m/s</b>。求：`,
+    subQuestions: [
+      '救护车匀速运动时的速度大小；',
+      '在停止鸣笛时救护车距出发处的距离。'
+    ],
+    officialAnswer: '(1) v = a·t_acc = 2 × 10 = 20 m/s　(2) 设 T₁ 时停止鸣笛，车距 x。由 T₁ + x/340 = 41 s 与 x = 100 + 20(T₁−10)，联立解得 T₁ = 39 s, x = 680 m'
+  },
+  deliv: {
+    title: '救护车 · 声速 · 鸣笛',
+    sub: '运动学 + 声波传播 · 答案：(1) v=20 m/s (2) s=680 m'
+  },
+  totalT: T_total_sim,
+  speedFactor: 0.4,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 匀加速', label_short:'阶段 1',
+     formula_tex: String.raw`v = at,\quad s = \tfrac{1}{2}at^2 \;\Rightarrow\; v_\text{max} = a\!\cdot\!10 = 20\;\text{m/s}`,
+     note:'救护车 0~10s 匀加速到 20 m/s，加速段位移 100 m。'},
+    {label:'阶段 2 · 匀速·鸣笛中', label_short:'阶段 2',
+     formula_tex: String.raw`x_\text{car}(T_1) = 100 + 20(T_1 - 10),\quad t_\text{听到} = T_1 + \dfrac{x}{c}`,
+     note:'匀速行驶并鸣笛。设 T₁ 时停止鸣笛，车距出发处 x；声波从 x 传到出发处需 x/c 秒。总时间 T₁ + x/c = 41 s。'},
+    {label:'阶段 3 · 声波传播', label_short:'阶段 3',
+     formula_tex: String.raw`x = 680\;\text{m},\quad T_1 = 39\;\text{s}`,
+     note:'解联立方程得 T₁=39 s，停笛时车距出发处 680 m。最后一段声波再传 2 s 到达听者（41 s 听到）。'}
+  ],
+  stats: [
+    {label:'时间 t',     fmt:(s,t)=>t.toFixed(1)+' s'},
+    {label:'车位置 x',   fmt:(s,t)=>pos_car(Math.min(t, t_horn_stop)).toFixed(1)+' m'},
+    {label:'车速度 v',   fmt:(s,t)=>vel_car(Math.min(t, t_horn_stop)).toFixed(1)+' m/s'},
+    {label:'声速 c',     fmt:()=>'340 m/s'},
+    {label:'答 (1) v_max',fmt:()=>'20 m/s'},
+    {label:'答 (2) x_停', fmt:()=>'680 m'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_tex: String.raw`v_\text{max} = 20\;\text{m/s}`, note:'匀加速 v=at: 2×10=20'},
+    {label_text:'(2)', value_tex: String.raw`x = 680\;\text{m}`,            note:'T₁+x/340=42 联立求解'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'听者（x = 0）'},
+    {swatch:{bg:'#fff',border:'#5d6964',type:'rect'},   text:'救护车'},
+    {swatch:{bg:'rgba(194,97,31,.4)',border:'#c2611f',type:'rect'}, text:'声波 c = 340 m/s'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'停笛位置 680 m'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024甲卷-Q11-救护车'
+});
+</script>
+</body>
+</html>

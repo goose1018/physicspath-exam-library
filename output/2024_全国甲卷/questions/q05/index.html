@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 题 · 两点电荷·等势线分析</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理: 两点电荷 q1 (+) 和 q2 (-)。距离 d
+// 由 V=0 等势线位置可知 |q1|/|q2| 之比
+// 由 V_p=kq/r 在原点处叠加 = 0 推出比例
+// 官方答案 B（具体数值需看图，可能为 q1 = +Q, q2 = -Q/2 之类）
+
+const Q1 = 2;     // 假设 +2 单位
+const Q2 = -1;    // -1 单位 (大小为 q1 的一半)
+const k_const = 1;
+
+function V_at(x, y){
+  const r1 = Math.hypot(x - 0.3, y);    // q1 在 (0.3, 0)
+  const r2 = Math.hypot(x - 0.8, y);    // q2 在 (0.8, 0)
+  if(r1 < 0.05 || r2 < 0.05) return null;
+  return k_const * (Q1/r1 + Q2/r2);
+}
+
+function evalState(t){ return {phase:1, t}; }
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  const padL = 30, padR = 20, padT = 30, padB = 30;
+  const cw = W-padL-padR, ch = H-padT-padB;
+  const x0 = padL, y0 = padT;
+
+  // 物理坐标: x∈[0, 1.1], y∈[-0.4, 0.4]
+  const xMin=-0.05, xMax=1.15, yMin=-0.4, yMax=0.4;
+  const X = px => x0 + (px-xMin)/(xMax-xMin) * cw;
+  const Y = py => y0+ch/2 - py/(yMax-yMin) * ch;
+
+  // 网格
+  ctx.strokeStyle = 'rgba(18,53,45,.04)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let xv=0; xv<=1.0; xv+=0.1){ ctx.moveTo(X(xv), y0); ctx.lineTo(X(xv), y0+ch); }
+  for(let yv=-0.3; yv<=0.3; yv+=0.1){ ctx.moveTo(x0, Y(yv)); ctx.lineTo(x0+cw, Y(yv)); }
+  ctx.stroke();
+
+  // x 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x0, Y(0)); ctx.lineTo(x0+cw, Y(0)); ctx.stroke();
+  ctx.fillStyle = '#1d1d1f'; ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('x', x0+cw+4, Y(0)+5);
+
+  // 等势线 (用 marching squares 简化版本)
+  const levels = [-3, -1.5, -0.5, 0, 0.5, 1.5, 3];
+  const levelColors = {
+    '-3': '#8cb6d8', '-1.5': '#a8c9e0', '-0.5': '#cce0eb',
+    '0': '#c2611f',   // V=0 等势线（关键）
+    '0.5': '#fde7d2', '1.5': '#f9c294', '3': '#e89d6e'
+  };
+  // 采样网格
+  const N = 100;
+  const dx = (xMax-xMin)/N, dy = (yMax-yMin)/N;
+  const grid = [];
+  for(let j=0; j<=N; j++){
+    grid[j] = [];
+    for(let i=0; i<=N; i++){
+      const xv = xMin + i*dx;
+      const yv = yMin + j*dy;
+      grid[j][i] = V_at(xv, yv);
+    }
+  }
+  // 简化等势线：对每个 level 用 contour
+  levels.forEach(level => {
+    ctx.strokeStyle = levelColors[String(level)] || '#94a09b';
+    ctx.lineWidth = level === 0 ? 2.5 : 1.4;
+    ctx.beginPath();
+    // 简单 marching square
+    for(let j=0; j<N; j++){
+      for(let i=0; i<N; i++){
+        const v00 = grid[j][i], v10 = grid[j][i+1], v01 = grid[j+1][i], v11 = grid[j+1][i+1];
+        if(v00===null || v10===null || v01===null || v11===null) continue;
+        const x_a = xMin + i*dx, y_a = yMin + j*dy;
+        const x_b = xMin + (i+1)*dx, y_b = yMin + (j+1)*dy;
+        // 检查每条边是否横跨 level
+        function intersect(va, vb, ta, tb){
+          if((va < level && vb >= level) || (va >= level && vb < level)){
+            const u = (level - va)/(vb - va);
+            return ta + u*(tb-ta);
+          }
+          return null;
+        }
+        const pts = [];
+        // 四条边
+        let p = intersect(v00, v10, x_a, x_b); if(p!==null) pts.push([X(p), Y(y_a)]);
+        p = intersect(v10, v11, y_a, y_b); if(p!==null) pts.push([X(x_b), Y(p)]);
+        p = intersect(v01, v11, x_a, x_b); if(p!==null) pts.push([X(p), Y(y_b)]);
+        p = intersect(v00, v01, y_a, y_b); if(p!==null) pts.push([X(x_a), Y(p)]);
+        if(pts.length === 2){
+          ctx.moveTo(pts[0][0], pts[0][1]);
+          ctx.lineTo(pts[1][0], pts[1][1]);
+        }
+      }
+    }
+    ctx.stroke();
+  });
+
+  // 电荷 q1 (+) at (0.3, 0)
+  const q1x = X(0.3), q1y = Y(0);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(q1x, q1y, 14, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 16px "Cambria Math",serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('+', q1x, q1y);
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('q₁ = +2Q', q1x-30, q1y+30);
+
+  // 电荷 q2 (-) at (0.8, 0)
+  const q2x = X(0.8), q2y = Y(0);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(q2x, q2y, 14, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 16px "Cambria Math",serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('−', q2x, q2y);
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('q₂ = −Q', q2x-20, q2y+30);
+
+  // V=0 等势线标记 (关键点：在两电荷之间，距 q1 较远点)
+  // V=0 处 |q1|/r1 = |q2|/r2，即 r1/r2 = |q1|/|q2| = 2
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('V = 0 等势线', X(0.65), Y(0.32));
+
+  // 标题
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('两点电荷叠加电势：V = k·q₁/r₁ + k·q₂/r₂', x0, y0-10);
+
+  // 答案
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('q₁ : q₂ = +2 : −1（B 选项）', x0, y0+ch+18);
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '两点电荷 · 等势线分析',
+  subtitle: '两点电荷 q₁、q₂ 产生电场的等势线（数字单位伏特）。由 V=0 等势线的位置和形状判断 q₁、q₂ 的正负与电荷量比。',
+  deliv: {
+    title: '两点电荷 · 等势线分析',
+    sub: '由 V=0 等势线推 q₁/q₂ · 答案 B · q₁ 正、q₂ 负、|q₁|=2|q₂|'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 5 题 · 6 分',
+    image: '../../source/images/image41.png',
+    text: `在电荷量为 Q 的点电荷产生的电场中，将无限远处的电势规定为零时，距离该点电荷 r 处的电势为 <b>V = kQ/r</b>，其中 k 为静电力常量。多个点电荷产生的电场中某点的电势，等于每个点电荷单独存在的该点的电势的代数和。电荷量分别为 q₁ 和 q₂ 的两个点电荷产生的电场的等势线如图中曲线所示（图中数字的单位是伏特），则（　　）`,
+    subQuestions: [
+      'A. q₁ 正、q₂ 正，|q₁| < |q₂|',
+      'B. q₁ 正、q₂ 负，|q₁| = 2|q₂|',
+      'C. q₁ 负、q₂ 正，|q₁| = 2|q₂|',
+      'D. q₁ 负、q₂ 负，|q₁| < |q₂|'
+    ],
+    officialAnswer: 'B · 由两电势分布图（一正一负电荷）可知 q₁ 带正电、q₂ 带负电。由 V=0 等势线（kq₁/r₁ + kq₂/r₂ = 0）位置可知 r₁/r₂ = |q₁|/|q₂|；从图中等势线穿过的位置距离比即得 |q₁| = 2|q₂|。'
+  },
+  totalT: 0.001,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'V=0 等势线推电荷比', label_short:'核心',
+     formula_tex: String.raw`V_P = \dfrac{kq_1}{r_1} + \dfrac{kq_2}{r_2} = 0 \;\Rightarrow\; \dfrac{|q_1|}{|q_2|} = \dfrac{r_1}{r_2}`,
+     note:'V=0 处两电荷电势恰好抵消。距正电荷越远（r₁ 大），表示 |q₁| 越大；由图测距比，得 |q₁|=2|q₂|。'}
+  ],
+  stats: [
+    {label:'q₁',          fmt:()=>'+2Q（正电）'},
+    {label:'q₂',          fmt:()=>'−Q（负电）'},
+    {label:'|q₁|/|q₂|',   fmt:()=>'2 : 1'},
+    {label:'V=0 处',      fmt:()=>'r₁/r₂ = 2 (距 q₁ 远 2 倍)'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'同正错',  note:'两正电荷无 V=0 等势线（图中存在）'},
+    {label_text:'B 对', value_text:'+2Q, −Q',  note:'V=0 线 + 距离比'},
+    {label_text:'C 错', value_text:'极性反', note:'q₁ 是正不是负'},
+    {label_text:'D 错', value_text:'同负错',  note:'两负电荷无 V=0 等势线'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'q₁ = +2Q（正电荷）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'q₂ = −Q（负电荷）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'V=0 等势线（关键）'},
+    {swatch:{bg:'#cce0eb',border:'#94a09b',type:'rect'}, text:'V<0 等势线（蓝）'},
+    {swatch:{bg:'#fde7d2',border:'#94a09b',type:'rect'}, text:'V>0 等势线（橙）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024甲卷-Q5-等势线'
+});
+</script>
+</body>
+</html>

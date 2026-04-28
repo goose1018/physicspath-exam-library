@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 2 题 · 滑轮+物块+砝码 · a-m 图</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理: P 在桌面上，P 质量 M，桌面摩擦因数 μ。绳跨过定滑轮，挂砝码盘+砝码总质量 m
+// 牛二: 对 P：T - μMg = M·a
+//        对盘+砝码：mg - T = m·a
+// 联立: a = (mg - μMg) / (M + m)
+//      = g·(m - μM) / (M + m)
+// 当 m < μM: a = 0 (静摩擦平衡，不动)
+// 当 m → ∞: a → g
+// a-m 曲线: 起点 m=μM 时 a=0，趋近 m→∞ 时 a→g 的水平渐近线
+
+const M_block = 2;        // P 质量
+const mu = 0.3;           // 摩擦因数
+const g = 10;
+const m_critical = mu * M_block;   // 0.6 kg
+const T_total = 8;
+
+let mPan = 0;   // 砝码盘+砝码总质量
+let blockX_offset = 0;   // P 物块累积位移（像素）
+let lastT_q2 = 0;
+
+function evalState(t){
+  if(t < lastT_q2){ blockX_offset = 0; lastT_q2 = 0; }
+  const s = Math.min(1, t / T_total);
+  mPan = s * 5;
+  // 累积位移：dx/dt = v, dv/dt = a
+  // 简化：让物块在 a > 0 时以正比于 a 的速度向右移动
+  const a_now = a_at(mPan);
+  if(a_now > 0){
+    blockX_offset += a_now * 8 * (t - lastT_q2);   // px/s
+    if(blockX_offset > 80) blockX_offset = 80;     // 不出框
+  }
+  lastT_q2 = t;
+  return {phase: mPan < m_critical ? 1 : 2, mPan};
+}
+
+function a_at(m){
+  if(m <= m_critical) return 0;
+  return g * (m - mu*M_block) / (M_block + m);
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 上半：实验装置
+  drawApparatus(ctx, 0, 0, W*0.55, H, t, mPan);
+  // 右半：a-m 图
+  drawGraph(ctx, W*0.55+10, 14, W*0.45-24, H-28, mPan);
+}
+
+function drawApparatus(ctx, x, y, w, h, t, m){
+  // 桌面
+  const tableY = y + h*0.55;
+  ctx.fillStyle = '#c4b89e';
+  ctx.fillRect(x+15, tableY, w*0.65, 8);
+  ctx.fillStyle = '#5d6964';
+  ctx.fillRect(x+15, tableY+8, w*0.65, 30);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+  ctx.strokeRect(x+15, tableY, w*0.65, 8);
+
+  // P 物块（用累积位移 blockX_offset，由 evalState 维护）
+  const a = a_at(m);
+  const Px = x + 50 + blockX_offset;
+  const Py = tableY - 30;
+  ctx.fillStyle = '#12352d';
+  ctx.fillRect(Px, Py, 50, 30);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(Px+4, Py-4, 42, 4);
+  ctx.fillStyle = '#fdf3e6';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillText('P', Px+20, Py+18);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText('M = '+M_block+' kg', Px-2, Py-10);
+
+  // 滑轮（在桌面右端边缘）
+  const pulleyX = x + w*0.70, pulleyY = tableY;
+  ctx.strokeStyle = '#3f6f8f'; ctx.fillStyle = '#fffdf9'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 12, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 4, 0, Math.PI*2); ctx.fill();
+  // 滑轮支架
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(pulleyX, pulleyY-12);
+  ctx.lineTo(pulleyX, pulleyY-30);
+  ctx.lineTo(pulleyX-8, pulleyY-30);
+  ctx.stroke();
+
+  // 绳 - 水平段 P → 滑轮
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(Px+50, Py+15);
+  ctx.lineTo(pulleyX-12, pulleyY-2);
+  ctx.stroke();
+  // 绳 - 垂直段 滑轮 → 砝码盘
+  const panY = pulleyY + 50 + 30 * Math.min(1, m/3);  // 重物越多盘越低
+  ctx.beginPath();
+  ctx.moveTo(pulleyX+12, pulleyY-2);
+  ctx.lineTo(pulleyX+12, panY);
+  ctx.stroke();
+
+  // 砝码盘
+  ctx.fillStyle = '#5d6964';
+  ctx.fillRect(pulleyX, panY, 28, 4);
+  // 砝码（堆叠）
+  const stackHeight = m * 6;
+  ctx.fillStyle = '#94a09b';
+  ctx.fillRect(pulleyX+4, panY-stackHeight, 20, stackHeight);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 0.8;
+  for(let k=0; k<Math.floor(m*2); k++){
+    ctx.beginPath();
+    ctx.moveTo(pulleyX+4, panY-3-k*3);
+    ctx.lineTo(pulleyX+24, panY-3-k*3);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText('m = '+m.toFixed(2)+' kg', pulleyX-6, panY+22);
+
+  // 摩擦力箭头（如果 P 静止）
+  if(opts.showVec){
+    if(a === 0 && m > 0){
+      // 静摩擦
+      PPath.arrow(ctx, Px+25, Py+15, Px+25-Math.min(40, m*g*15), Py+15, '#b4442e', 2);
+      ctx.fillStyle = '#b4442e';
+      ctx.font = '700 11px sans-serif';
+      ctx.fillText('f_静 = mg', Px-10, Py+45);
+    } else if(a > 0){
+      // 动摩擦
+      PPath.arrow(ctx, Px+25, Py+15, Px+25-30, Py+15, '#b4442e', 2);
+      ctx.fillStyle = '#b4442e';
+      ctx.font = '700 11px sans-serif';
+      ctx.fillText('f = μMg = '+(mu*M_block*g).toFixed(1)+'N', Px-15, Py+45);
+      // 加速度
+      PPath.arrow(ctx, Px+25, Py-20, Px+25 + a*8, Py-20, '#16613f', 2);
+      ctx.fillStyle = '#16613f';
+      ctx.font = '700 11px sans-serif';
+      ctx.fillText('a = '+a.toFixed(2)+' m/s²', Px-10, Py-26);
+    }
+  }
+
+  // 标题
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('实验装置', x+15, y+22);
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText(`μ = ${mu}, g = ${g} m/s²`, x+15, y+40);
+
+  // 临界值
+  ctx.fillStyle = m < m_critical ? '#b4442e' : '#16613f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(m < m_critical ? '⚠ m < μM, 静止' : '✓ m > μM, 加速', x+15, y+62);
+}
+
+function drawGraph(ctx, x, y, w, h, m){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('a − m 图（D 选项形状）', x+12, y+18);
+
+  const padL = 38, padR = 14, padT = 28, padB = 28;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT;
+  const X = mv => x0 + mv/5 * cw;
+  const Y = av => y0+ch - av/g * ch;
+
+  // 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('m', x0+cw+4, y0+ch+5);
+  ctx.fillText('a', x0-4, y0-4);
+  // g 渐近线
+  ctx.strokeStyle = 'rgba(180,68,46,.4)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(x0, Y(g)); ctx.lineTo(x0+cw, Y(g)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText('a = g (渐近)', x0+cw-70, Y(g)-3);
+  // m_critical 标记
+  ctx.strokeStyle = 'rgba(22,97,63,.5)'; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(X(m_critical), y0); ctx.lineTo(X(m_critical), y0+ch); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText('m=μM='+m_critical, X(m_critical)+3, y0+ch-6);
+
+  // a-m 曲线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for(let mv=0; mv<=5; mv+=0.05){
+    const av = a_at(mv);
+    if(mv===0) ctx.moveTo(X(mv), Y(av));
+    else ctx.lineTo(X(mv), Y(av));
+  }
+  ctx.stroke();
+
+  // 当前点
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(X(m), Y(a_at(m)), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 6 分',
+  title: '滑轮+物块+砝码 · a-m 图',
+  subtitle: 'P 物块在粗糙桌面上，绳跨过滑轮挂砝码盘。改变盘中砝码总质量 m，测 P 的加速度 a。判断哪个 a-m 图可能正确。',
+  deliv: {
+    title: '滑轮+物块+砝码 · a-m 图',
+    sub: 'P 摩擦力 + 砝码挂钩牛二 · 答案 D · 临界 m=μM 后 a 趋近 g'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 2 题 · 6 分',
+    image: '../../source/images/image12.png',
+    text: `如图，一轻绳跨过光滑定滑轮，绳的一端系物块 <b>P</b>，<b>P 置于水平桌面上，与桌面间存在摩擦</b>；绳的另一端悬挂一轻盘（质量可忽略），盘中放置砝码。改变盘中砝码总质量 <b>m</b>，并测量 <b>P</b> 的加速度大小 <b>a</b>，得到 a-m 图像。重力加速度大小为 <b>g</b>。在下列图像中，可能正确的是（　　）`,
+    officialAnswer: 'D · 由 P 牛二：T − μMg = Ma；盘+砝码：mg − T = ma。联立得 a = g(m − μM)/(M + m)。当 m ≤ μM 时 a = 0（静摩擦平衡）；m → ∞ 时 a → g（水平渐近线）。曲线起点 (μM, 0)，单调增渐近 g。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · m ≤ μM 静止', label_short:'阶段 1',
+     formula_tex: String.raw`T = mg \le \mu Mg \;\Rightarrow\; a = 0`,
+     note:'砝码不够，绳张力小于最大静摩擦 → P 不动，a=0。'},
+    {label:'阶段 2 · m > μM 加速', label_short:'阶段 2',
+     formula_tex: String.raw`a = \dfrac{(m - \mu M)\,g}{M + m},\quad m\to\infty:\; a\to g`,
+     note:'砝码超过临界值 → P 开始加速。a 单调增、渐近线 a = g。'}
+  ],
+  stats: [
+    {label:'M (P 质量)',  fmt:()=>M_block+' kg'},
+    {label:'μ',           fmt:()=>mu.toFixed(2)},
+    {label:'临界 μM',     fmt:()=>m_critical.toFixed(2)+' kg'},
+    {label:'当前 m',      fmt:s=>(s.mPan||0).toFixed(2)+' kg'},
+    {label:'当前 a',      fmt:s=>a_at(s.mPan||0).toFixed(2)+' m/s²'},
+    {label:'渐近 a',      fmt:()=>g.toFixed(1)+' m/s² (= g)'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'起点错',     note:'起点应在 μM 而非原点'},
+    {label_text:'B 错', value_text:'渐近错',     note:'不应突变到 g'},
+    {label_text:'C 错', value_text:'形状错',     note:'非直线，渐近水平'},
+    {label_text:'D 对', value_tex: String.raw`a = \dfrac{(m-\mu M)g}{M+m}`, note:'起点 (μM,0) 渐近 a→g'}
+  ],
+  legend: [
+    {swatch:{bg:'#12352d',border:'#12352d',type:'rect'}, text:'P 物块（M=2kg）'},
+    {swatch:{bg:'#94a09b',border:'#5d6964',type:'rect'}, text:'砝码盘+砝码'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'a-m 曲线'},
+    {swatch:{bg:'rgba(180,68,46,.4)',border:'#b4442e',type:'rect'}, text:'渐近线 a=g'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024甲卷-Q2-滑轮砝码'
+});
+</script>
+</body>
+</html>

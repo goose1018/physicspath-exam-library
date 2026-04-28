@@ -1,0 +1,21 @@
+{
+  "exam": "2024年全国甲卷·物理",
+  "year": 2024,
+  "paper_code": "2024_quanguo_jia",
+  "source_file": "2024年高考物理试卷（全国甲卷）（解析卷）.docx",
+  "total_questions": 12,
+  "questions": [
+    {"id":"q01","num":1,"type":"单选","topic":"氘核聚变·反应方程平衡","answer":"C","tier":"S","animatable":true,"viz_type":"static_equation","summary":"反应前后质量数和电荷数守恒，求 x、y 值"},
+    {"id":"q02","num":2,"type":"单选","topic":"滑轮+物块+砝码 · a-m 图判断","answer":"D","tier":"A","animatable":true,"viz_type":"dynamic_graph","summary":"P 受摩擦，绳跨滑轮挂砝码盘，绘 a-m 图"},
+    {"id":"q03","num":3,"type":"单选","topic":"嫦娥六号·月球采样","answer":"D","tier":"A","animatable":true,"viz_type":"orbital_motion","summary":"环月飞行+地球月球重力对比"},
+    {"id":"q04","num":4,"type":"单选","topic":"大圆环上小环下滑·力分析","answer":"C","tier":"B","animatable":true,"viz_type":"circular_dynamics","summary":"小环从顶端下滑，分析对大圆环作用力变化"},
+    {"id":"q05","num":5,"type":"单选","topic":"两点电荷·等势线分析","answer":"B","tier":"A","animatable":true,"viz_type":"field_visualization","summary":"由等势线判断电荷正负与电荷量比"},
+    {"id":"q06","num":6,"type":"多选","topic":"理想变压器·副线圈匝数+滑动变阻器","answer":"AC","tier":"A","animatable":true,"viz_type":"circuit_analysis","summary":"通过 T 触头和滑动变阻器调整 R₁ 热功率"},
+    {"id":"q07","num":7,"type":"多选","topic":"蹦床运动员·F-t 图分析","answer":"BD","tier":"A","animatable":true,"viz_type":"projectile_force","summary":"运动员蹦床+ F-t 图判断速度/位移/平均力"},
+    {"id":"q08","num":8,"type":"多选","topic":"滑轮+磁场+线框·v-t 图","answer":"AC","tier":"B","animatable":true,"viz_type":"electromagnetic_dynamics","summary":"绳跨滑轮连线框和物块，线框进出磁场"},
+    {"id":"q09","num":9,"type":"实验","topic":"电梯+弹簧测力计·超失重","answer":"5.0N / 失重 / 1.0 m/s²","tier":"A","animatable":true,"viz_type":"experiment_setup","summary":"读测力计示数判断超重失重并求加速度"},
+    {"id":"q10","num":10,"type":"实验","topic":"氧气传感器定标","answer":"电路连线 / b端 / 1.40V / 17%","tier":"A","animatable":true,"viz_type":"calibration","summary":"分压式电路+电流外接+定标曲线绘制"},
+    {"id":"q11","num":11,"type":"计算","topic":"救护车·声速·匀加速+鸣笛","answer":"v=20m/s · s=680m","tier":"A","animatable":true,"viz_type":"kinematic_animation","summary":"救护车匀加速后匀速，求速度+鸣笛位置"},
+    {"id":"q12","num":12,"type":"计算","topic":"金属棒+磁场+电容·电磁感应综合","answer":"v=v₀/√2 · U=BLv₀/√2 · W","tier":"B","animatable":true,"viz_type":"emf_capacitor","summary":"金属棒滑导轨，开关切换电阻/电容"}
+  ]
+}

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 2 题 · 天问三号 · 万有引力</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+const T_total = 8;  // 8 秒一周
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 深色太空背景
+  const grd = ctx.createRadialGradient(W*.5, H*.5, 50, W*.5, H*.5, Math.max(W,H)*.7);
+  grd.addColorStop(0, '#1a1f2e'); grd.addColorStop(1, '#0a0e1a');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  // 星空
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  for(let i=0; i<70; i++){
+    const sx = (i*73 % W);
+    const sy = ((i*131 + i*i*7) % H);
+    const a = 0.2 + 0.6*Math.sin(t*1.5 + i);
+    ctx.globalAlpha = Math.max(0.1, a);
+    ctx.fillRect(sx, sy, 1.4, 1.4);
+  }
+  ctx.globalAlpha = 1;
+
+  const cx = W*0.5, cy = H*0.5;
+  const Rmars = Math.min(W,H)*0.13;
+  const Rorbit = Math.min(W,H)*0.32;
+  const theta = (t / T_total) * Math.PI * 2;
+
+  // 轨道虚线
+  ctx.strokeStyle = 'rgba(255,255,255,.18)';
+  ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.arc(cx, cy, Rorbit, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 火星本体
+  const mg = ctx.createRadialGradient(cx-Rmars*0.3, cy-Rmars*0.3, 1, cx, cy, Rmars);
+  mg.addColorStop(0, '#e88d5b');
+  mg.addColorStop(0.4, '#c2611f');
+  mg.addColorStop(0.85, '#7a3a0f');
+  mg.addColorStop(1, '#3a1808');
+  ctx.fillStyle = mg;
+  ctx.beginPath(); ctx.arc(cx, cy, Rmars, 0, Math.PI*2); ctx.fill();
+  // 火星斑纹
+  ctx.fillStyle = 'rgba(255,255,255,.05)';
+  [[0.3,-0.4,0.2],[-0.5,0.2,0.15],[0.0,0.5,0.18],[0.5,0.1,0.12]].forEach(([dx,dy,r])=>{
+    ctx.beginPath();
+    ctx.arc(cx+dx*Rmars, cy+dy*Rmars, r*Rmars, 0, Math.PI*2);
+    ctx.fill();
+  });
+  // 大气晕
+  const halo = ctx.createRadialGradient(cx, cy, Rmars, cx, cy, Rmars*1.2);
+  halo.addColorStop(0, 'rgba(255,180,120,.4)');
+  halo.addColorStop(1, 'rgba(255,180,120,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(cx, cy, Rmars*1.2, 0, Math.PI*2); ctx.fill();
+  // 标签
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.font = '600 13px ui-monospace,monospace';
+  ctx.fillText('Mars · M = ?', cx-Rmars-12, cy+Rmars+24);
+
+  // 探测器位置
+  const sx = cx + Rorbit*Math.cos(theta);
+  const sy = cy + Rorbit*Math.sin(theta);
+
+  // 轨迹尾巴
+  ctx.lineWidth = 2.5;
+  for(let k=0; k<35; k++){
+    const a = theta - k*0.06;
+    const px = cx + Rorbit*Math.cos(a);
+    const py = cy + Rorbit*Math.sin(a);
+    ctx.strokeStyle = `rgba(124,196,255,${(1-k/35)*0.55})`;
+    if(k===0) { ctx.beginPath(); ctx.moveTo(px,py); }
+    else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  // 探测器小球（光晕+本体）
+  const eg = ctx.createRadialGradient(sx,sy,1,sx,sy,14);
+  eg.addColorStop(0, 'rgba(255,212,130,.9)');
+  eg.addColorStop(1, 'rgba(255,212,130,0)');
+  ctx.fillStyle = eg;
+  ctx.beginPath(); ctx.arc(sx,sy,14,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ffd482';
+  ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth=1.5; ctx.stroke();
+  // 太阳能板
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(sx-14, sy-1.5, 8, 3);
+  ctx.fillRect(sx+6, sy-1.5, 8, 3);
+  // 标签
+  ctx.fillStyle = '#ffd482';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('天问三号', sx+10, sy-9);
+
+  // 半径线
+  if(opts.showGuide){
+    ctx.strokeStyle = 'rgba(255,255,255,.32)';
+    ctx.setLineDash([2,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sx, sy); ctx.stroke();
+    ctx.setLineDash([]);
+    const mx = (cx+sx)/2, my = (cy+sy)/2;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'italic 700 13px Georgia,serif';
+    ctx.fillText('r', mx+8, my-4);
+  }
+
+  // 公式覆盖
+  ctx.fillStyle = 'rgba(255,210,130,.85)';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('T = 2 h · r = 3750 km · G = 6.67×10⁻¹¹', 14, H-14);
+  ctx.fillStyle = '#fff';
+  ctx.font = '800 14px "Cambria Math","Times New Roman",serif';
+  ctx.fillText('M = 4π²r³ / (GT²)', 14, 28);
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 4 分',
+  title: '天问三号 · 万有引力',
+  subtitle: '环月火星轨道器做匀速圆周运动，由轨道半径 r 和周期 T 推算火星质量。',
+  deliv: {
+    title: '天问三号 · 火星探测器',
+    sub: '环绕火星匀速圆周运动 · 答案 A · 可推算火星质量'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState(t){ return {phase:1, t}; },
+  drawScene,
+  phases: [
+    {label:'匀速圆周轨道', label_short:'核心',
+     formula_tex: String.raw`G\dfrac{Mm}{r^2} = m\dfrac{4\pi^2}{T^2}\,r \;\Longrightarrow\; M = \dfrac{4\pi^2 r^3}{GT^2}`,
+     note:'万有引力提供向心力。已知 r、T、G 即可推出火星质量 M。'}
+  ],
+  stats: [
+    {label:'轨道半径 r', fmt:()=>'3.75 × 10⁶ m'},
+    {label:'周期 T',     fmt:()=>'7200 s'},
+    {label:'引力常量 G', fmt:()=>'6.67 × 10⁻¹¹'},
+    {label:'计算 M',     fmt:()=>'≈ 6.0 × 10²³ kg'},
+    {label:'实际 M',     fmt:()=>'6.39 × 10²³ kg'}
+  ],
+  conclusions: [
+    {label_text:'A 可推', value_text:'火星质量 ✓', note:'仅需 r、T、G'},
+    {label_text:'B 不可', value_text:'体积 ✗',     note:'需火星半径 R'},
+    {label_text:'C 不可', value_text:'逃逸速度 ✗', note:'需火星半径 R'},
+    {label_text:'D 不可', value_text:'自转周期 ✗', note:'轨道周期≠自转'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'火星 M（待求）'},
+    {swatch:{bg:'#ffd482',border:'#ffd482',type:'dot'}, text:'天问三号探测器'},
+    {swatch:{bg:'rgba(124,196,255,.4)',border:'#7cc4ff',type:'rect'}, text:'轨道运行轨迹'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '陕西卷-Q2-天问三号'
+});
+</script>
+</body>
+</html>

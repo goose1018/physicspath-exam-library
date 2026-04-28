@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 1 题 · 氘核聚变·反应方程平衡</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+function evalState(t){
+  // 三个阶段：阶段 1 显示反应物 → 阶段 2 显示守恒计算 → 阶段 3 显示产物
+  const s = (t / 6) % 1;
+  const phase = s < 0.33 ? 1 : s < 0.66 ? 2 : 3;
+  return {phase, s, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const phase = state.phase;
+  const cy = H * 0.45;
+
+  // 反应方程：6 ²₁D → 2 ⁴₂He + 2 ¹₁H + 2 ¹₀n
+  // 左侧：反应物
+  drawNuclide(ctx, W*0.18, cy, 2, 1, '6', 'D', '#c2611f', '氘 ²₁D × 6');
+  // 等号
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 28px "Cambria Math",serif';
+  ctx.fillText('→', W*0.30, cy+8);
+
+  // 右侧：产物
+  drawNuclide(ctx, W*0.45, cy, 4, 2, '2', 'He', '#16613f', '氦 ⁴₂He × 2');
+  ctx.fillStyle = '#1d1d1f'; ctx.font = '900 22px "Cambria Math",serif';
+  ctx.fillText('+', W*0.56, cy+5);
+  drawNuclide(ctx, W*0.65, cy, 1, 1, 'x', 'H', '#3f6f8f', '氢 ¹₁H × x');
+  ctx.fillText('+', W*0.74, cy+5);
+  drawNuclide(ctx, W*0.83, cy, 1, 0, 'y', 'n', '#5d6964', '中子 ¹₀n × y');
+
+  // 守恒计算 (阶段 2 高亮)
+  const yCons = H * 0.78;
+  const consEnabled = phase >= 2;
+
+  // 质量数守恒：6×2 = 2×4 + x×1 + y×1
+  ctx.fillStyle = consEnabled ? '#c2611f' : '#94a09b';
+  ctx.font = '700 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('质量数守恒：', W*0.06, yCons);
+  ctx.font = '700 16px "Cambria Math",serif';
+  ctx.fillStyle = consEnabled ? '#1d1d1f' : '#94a09b';
+  ctx.fillText('6×2 = 2×4 + x + y    ⇒    x + y = 4', W*0.06+100, yCons);
+
+  ctx.fillStyle = consEnabled ? '#c2611f' : '#94a09b';
+  ctx.font = '700 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('电荷数守恒：', W*0.06, yCons+30);
+  ctx.font = '700 16px "Cambria Math",serif';
+  ctx.fillStyle = consEnabled ? '#1d1d1f' : '#94a09b';
+  ctx.fillText('6×1 = 2×2 + x×1 + y×0    ⇒    x = 2', W*0.06+100, yCons+30);
+
+  // 解 (阶段 3 高亮)
+  if(phase >= 3){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 18px "Cambria Math",serif';
+    ctx.fillText('∴ x = 2,  y = 2', W*0.06, yCons+62);
+    // 答案标
+    ctx.fillStyle = '#fdf3e6';
+    ctx.fillRect(W*0.65, yCons+45, 220, 30);
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(W*0.65, yCons+45, 220, 30);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 16px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C  ·  x = 2, y = 2', W*0.65+12, yCons+65);
+  }
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('氘核（²₁D）聚变反应：质量数 + 电荷数同时守恒', W*0.06, H*0.10);
+
+  // 阶段提示
+  const phaseLabels = ['① 看反应物', '② 列守恒方程', '③ 解出 x、y'];
+  const phaseColors = ['#c2611f', '#3f6f8f', '#16613f'];
+  ctx.fillStyle = phaseColors[phase-1];
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabels[phase-1], W-180, H*0.10);
+}
+
+function drawNuclide(ctx, cx, cy, A, Z, count, sym, color, label){
+  // 上标 A，下标 Z，主符号 sym，前面系数 count
+  // 圆形核
+  const grd = ctx.createRadialGradient(cx, cy, 1, cx, cy, 28);
+  grd.addColorStop(0, color);
+  grd.addColorStop(1, color+'40');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(cx, cy, 24, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // 系数
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 18px "Cambria Math",serif';
+  ctx.fillText(count, cx-50, cy+5);
+
+  // A (上标)
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText(A.toString(), cx-7, cy-6);
+  // Z (下标)
+  ctx.fillText(Z.toString(), cx-7, cy+15);
+  // 元素符号
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillText(sym, cx-2, cy+5);
+
+  // 标签
+  ctx.fillStyle = color;
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, cx-30, cy+50);
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '氘核聚变 · 反应方程平衡',
+  subtitle: '总反应方程 6²₁D → 2⁴₂He + x ¹₁H + y ¹₀n。由质量数和电荷数同时守恒求 x、y。',
+  deliv: {
+    title: '氘核聚变·反应方程平衡',
+    sub: '质量数守恒 + 电荷数守恒 · 答案 C · x = 2, y = 2'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 1 题 · 6 分',
+    text: `氘核可通过一系列聚变反应释放能量，总的反应效果可用 <b>6 ²₁D → 2 ⁴₂He + x ¹₁H + y ¹₀n</b> 表示，式中 <b>x、y</b> 的值分别为（　　）`,
+    subQuestions: [
+      'A. x = 1, y = 3',
+      'B. x = 3, y = 1',
+      'C. x = 2, y = 2',
+      'D. x = 4, y = 0'
+    ],
+    officialAnswer: 'C · 反应前后质量数和电荷数同时守恒：质量数 6×2 = 2×4 + x + y → x+y=4；电荷数 6×1 = 2×2 + x → x=2。代入得 y=2。'
+  },
+  totalT: 6,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① 反应物 · 6 个 ²₁D', label_short:'阶段 1',
+     formula_tex: String.raw`6\,{}_{1}^{2}\text{D}`,
+     note:'反应物：6 个氘核（²₁D，质量数 2，电荷数 1）。'},
+    {label:'② 列守恒方程', label_short:'阶段 2',
+     formula_tex: String.raw`6\!\cdot\!2 = 2\!\cdot\!4 + x + y \;\Rightarrow\; x+y=4 \quad\quad 6\!\cdot\!1 = 2\!\cdot\!2 + x \;\Rightarrow\; x=2`,
+     note:'核反应必须同时满足质量数守恒和电荷数守恒。'},
+    {label:'③ 解出 x = 2, y = 2', label_short:'阶段 3',
+     formula_tex: String.raw`x = 2,\quad y = 2`,
+     note:'最终：6 ²₁D → 2 ⁴₂He + 2 ¹₁H + 2 ¹₀n。答案 C。'}
+  ],
+  stats: [
+    {label:'反应物 A 总',  fmt:()=>'12 (=6×2)'},
+    {label:'产物 A 总',    fmt:()=>'2×4 + x + y = 12'},
+    {label:'反应物 Z 总',  fmt:()=>'6 (=6×1)'},
+    {label:'产物 Z 总',    fmt:()=>'2×2 + x×1 + y×0 = 6'},
+    {label:'解',           fmt:()=>'x=2, y=2'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'x=1, y=3', note:'电荷数 5≠6'},
+    {label_text:'B 错', value_text:'x=3, y=1', note:'电荷数 7≠6'},
+    {label_text:'C 对', value_text:'x=2, y=2', note:'两守恒成立'},
+    {label_text:'D 错', value_text:'x=4, y=0', note:'电荷数 8≠6'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'氘 ²₁D（反应物）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'氦 ⁴₂He（产物）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'氢 ¹₁H（待求 x）'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'dot'}, text:'中子 ¹₀n（待求 y）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024甲卷-Q1-氘核聚变'
+});
+</script>
+</body>
+</html>

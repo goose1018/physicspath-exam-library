@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2025 陕晋宁青卷物理 · 动画讲义</title>
+<link rel="stylesheet" href="../_shared/q-shell.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 24px}
+  .filter-chip{padding:7px 14px;border-radius:999px;background:var(--ppath-card);
+    border:1px solid var(--ppath-line);font-size:13px;font-weight:700;cursor:pointer;
+    color:var(--ppath-fg-2);font:inherit;transition:.15s}
+  .filter-chip:hover{border-color:var(--ppath-fg-2)}
+  .filter-chip.active{background:var(--ppath-ink-green-800);color:var(--ppath-fg-on-ink);
+    border-color:var(--ppath-ink-green-800)}
+  .search{flex:1;min-width:200px;padding:10px 16px;border:1px solid var(--ppath-line);
+    background:var(--ppath-card);border-radius:999px;font:inherit;font-size:13.5px;
+    color:var(--ppath-fg-1);font-family:var(--ppath-font-sans)}
+  .search:focus{outline:0;border-color:var(--ppath-amber-600)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">2025 高考物理 · 真题动画讲义</p>
+      <h1>陕西、山西、青海、宁夏卷</h1>
+      <p class="subtitle">14 道题（去除 1 道纯公式题），共 13 道动画讲义。每道题都附带可下载的 GIF / WebM / PNG 素材，老师拖进 PPT 即用。</p>
+    </div>
+    <div class="actions">
+      <span class="mode-pill"><span class="dot"></span>13 / 13 上线</span>
+    </div>
+  </header>
+
+  <div class="summary-bar">
+    <div><b>14</b>道题</div>
+    <div><b>13</b>已上线</div>
+    <div><b>4</b>道 B 级双 agent 审</div>
+    <div><b>1</b>纯公式跳过</div>
+  </div>
+
+  <div class="filters">
+    <input type="text" class="search" id="search" placeholder="搜索题号、考点、关键词…">
+    <button class="filter-chip active" data-filter="all">全部</button>
+    <button class="filter-chip" data-filter="单选">单选</button>
+    <button class="filter-chip" data-filter="多选">多选</button>
+    <button class="filter-chip" data-filter="实验">实验</button>
+    <button class="filter-chip" data-filter="计算">计算</button>
+    <button class="filter-chip" data-filter="B">B 级（双审）</button>
+  </div>
+
+  <section class="q-grid" id="grid"></section>
+</div>
+
+<script>
+const QUESTIONS = [
+  {id:'q01', num:1,  type:'单选', tier:'S', topic:'静电场电场线分布',           summary:'三大原则：不相交、不闭合、平行须等间距。仅 B 正确。',                       answer:'B',     status:'done'},
+  {id:'q02', num:2,  type:'单选', tier:'A', topic:'天问三号 · 万有引力',         summary:'由轨道半径 r 和周期 T 推算火星质量。',                                       answer:'A',     status:'done'},
+  {id:'q03', num:3,  type:'单选', tier:'A', topic:'F-t 图判断 v-t 图',           summary:'分拣机器人 m=20kg，三段动力学：加速 → 匀速 → 减速。',                       answer:'A',     status:'done'},
+  {id:'q04', num:4,  type:'单选', tier:'S', topic:'钢管悬绳 · 静力平衡',         summary:'地面对钢管摩擦力为零（与角度 θ 无关）。',                                    answer:'D',     status:'done'},
+  {id:'q05', num:5,  type:'单选', tier:'X', topic:'电子德布罗意波长',             summary:'纯公式题：λ ∝ 1/√U。无可视化。',                                            answer:'C',     status:'skip'},
+  {id:'q06', num:6,  type:'单选', tier:'B', topic:'双线框进出磁场 · 电磁感应',    summary:'甲（R）、乙（2R）线框比较合力、速度、焦耳热。Q₁:Q₂ = 4:3。',                answer:'D',     status:'done'},
+  {id:'q07', num:7,  type:'多选', tier:'A', topic:'横波 · 振动图求波形',          summary:'a→b 与 b→a 双向传播分析，t = T/4 时波形。',                                 answer:'AD',    status:'done'},
+  {id:'q08', num:8,  type:'多选', tier:'A', topic:'双缝干涉 · 双色光',            summary:'蓝/红激光复合，比较条纹间距与重合点。',                                      answer:'BC',    status:'done'},
+  {id:'q09', num:9,  type:'多选', tier:'B', topic:'弹性绳 · 滑块 · 斜杆',         summary:'摩擦+弹性+几何综合，f 恒定 1.28N，s = 0.5m。',                              answer:'AC',    status:'done'},
+  {id:'q10', num:10, type:'实验', tier:'A', topic:'探究 a 与 F、m 的关系',        summary:'补偿摩擦 + 化曲为直 (a-1/m) + 槽码移动法减小误差。',                          answer:'垫高/AC/乙',  status:'done'},
+  {id:'q11', num:11, type:'实验', tier:'A', topic:'多用电表 + 电路定位',          summary:'电压表反推 E、C、R 在哪两接线柱间。',                                       answer:'B/串/2-3,1-4,1-2', status:'done'},
+  {id:'q12', num:12, type:'计算', tier:'A', topic:'卡车轮胎气体 · 热一律',         summary:'P-V 线性变化 → 状态方程求 p₂；W = 面积 → 内能。',                          answer:'p₂/ΔU',  status:'done'},
+  {id:'q13', num:13, type:'计算', tier:'B', topic:'磁控法测电子比荷',              summary:'圆筒磁场临界 e/m = 2v₀/(B₀R)，击壁面积 S = πR²√(B₀²−B²)/B。',               answer:'e/m, S',  status:'done'},
+  {id:'q14', num:14, type:'计算', tier:'B', topic:'双带电粒子 · 动量动能守恒',     summary:'共速 v₀/3，s_B = v₀t₀/3 − r₀/6，t_F = 2r₀/v₀。',                            answer:'v_P, s_B, t_F', status:'done'}
+];
+
+const TIER_LABEL = {S:'静态',A:'动画',B:'复杂动画 · 双审',X:'纯公式'};
+const STATUS_LABEL = {done:'已上线', progress:'制作中', todo:'待制作', skip:'跳过'};
+
+let curFilter = 'all', searchText = '';
+
+function render(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  QUESTIONS.forEach(q => {
+    const matchF = curFilter === 'all'
+      || (curFilter === 'B' && q.tier === 'B')
+      || q.type === curFilter;
+    const matchS = !searchText
+      || q.topic.toLowerCase().includes(searchText)
+      || q.summary.toLowerCase().includes(searchText)
+      || q.id.includes(searchText) || String(q.num) === searchText;
+    if(!(matchF && matchS)) return;
+
+    const card = document.createElement('a');
+    card.className = 'q-card' + (q.status==='done' ? '' : ' disabled');
+    if(q.status === 'done') card.href = `questions/${q.id}/index.html`;
+
+    const tierTag = q.tier==='B' ? `<span class="tag amber">B 级 · 双审</span>` :
+                    q.tier==='X' ? `<span class="tag draft">纯公式</span>` :
+                    q.tier==='A' ? `<span class="tag">动画</span>` :
+                                   `<span class="tag">静态</span>`;
+    const statusTag = q.status==='done' ? `<span class="tag success">已上线</span>` :
+                      q.status==='skip' ? `<span class="tag draft">跳过</span>` :
+                      `<span class="tag warning">待做</span>`;
+
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="q-num">${String(q.num).padStart(2,'0')}</div>
+        ${tierTag}
+      </div>
+      <div class="q-meta">
+        <span class="tag">${q.type}</span>
+        <span class="tag amber">答案 ${q.answer}</span>
+      </div>
+      <div class="q-topic">${q.topic}</div>
+      <div class="q-summary">${q.summary}</div>
+      <div class="q-foot">
+        ${statusTag}
+        ${q.status==='done' ? '<span style="color:var(--ppath-amber-600);font-weight:700">查看动画 →</span>' : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  if(window.lucide) lucide.createIcons();
+}
+
+document.getElementById('search').oninput = e => { searchText = e.target.value.toLowerCase(); render(); };
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    curFilter = chip.dataset.filter;
+    render();
+  };
+});
+
+render();
+</script>
+</body>
+</html>

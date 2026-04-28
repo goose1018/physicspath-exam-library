@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 10 题 · 氧气传感器·定标</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+let viewMode = 'circuit';   // 'circuit' / 'curve'
+
+// 定标数据：(氧气含量, 电压)
+// 校准为：1.50V → 17%（官方答案）
+// 关键约束：(15%, 1.40V) 与 (20%, 1.65V) 之间线性插值，1.50V 对应 17%
+//   验证：(1.50-1.40)/(1.65-1.40) = 0.4, 15 + 0.4*5 = 17% ✓
+const calibrationPoints = [
+  {O2:1, V:0.40},
+  {O2:5, V:0.80},
+  {O2:10, V:1.20},
+  {O2:15, V:1.40},        // 题目给的关键点（图 c）
+  {O2:20, V:1.65},
+  {O2:25, V:1.90}
+];
+
+// 待测样本电压 1.50 V → 估算 O2 含量 ≈ 17%
+function estimateO2(V){
+  // 线性插值
+  for(let i=0; i<calibrationPoints.length-1; i++){
+    const p1 = calibrationPoints[i], p2 = calibrationPoints[i+1];
+    if(V >= p1.V && V <= p2.V){
+      return p1.O2 + (V - p1.V) / (p2.V - p1.V) * (p2.O2 - p1.O2);
+    }
+  }
+  return 0;
+}
+
+function evalState(t){ return {phase:1, t}; }
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  if(viewMode === 'circuit') drawCircuit(ctx, W, H);
+  else drawCurve(ctx, W, H);
+}
+
+function drawCircuit(ctx, W, H){
+  // 实验电路图：电源 → 滑动变阻分压 → 传感器 + 毫安表 串联，电压表并联在传感器两端
+  const cx = W*0.5, cy = H*0.5;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(W*0.06, H*0.10, W*0.88, H*0.80);
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  ctx.strokeRect(W*0.06, H*0.10, W*0.88, H*0.80);
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('实验电路图（分压式 + 电流表内接）', W*0.10, H*0.16);
+
+  // 电源
+  const Ex = W*0.18, Ey = H*0.55;
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(Ex-12, Ey-12); ctx.lineTo(Ex-12, Ey+12);
+  ctx.moveTo(Ex-6, Ey-7); ctx.lineTo(Ex-6, Ey+7);
+  ctx.moveTo(Ex, Ey-12); ctx.lineTo(Ex, Ey+12);
+  ctx.moveTo(Ex+6, Ey-7); ctx.lineTo(Ex+6, Ey+7);
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('E', Ex-3, Ey-22);
+
+  // 滑动变阻 R (分压)
+  const Rx = W*0.32, Ry = H*0.35;
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(Rx-25, Ry-5); ctx.lineTo(Rx-25, Ry+5);
+  ctx.lineTo(Rx+25, Ry+5); ctx.lineTo(Rx+25, Ry-5);
+  ctx.lineTo(Rx-25, Ry-5);
+  ctx.stroke();
+  // 抽头
+  const slideX = Rx + 5;
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath();
+  ctx.moveTo(slideX, Ry-15); ctx.lineTo(slideX-5, Ry-7); ctx.lineTo(slideX+5, Ry-7);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('R', Rx-5, Ry-22);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('a', Rx-30, Ry+18);
+  ctx.fillText('b', Rx+27, Ry+18);
+
+  // 毫安表 mA (电流表内接 → 与传感器串联)
+  const mAx = W*0.55, mAy = H*0.35;
+  ctx.strokeStyle = '#a85219'; ctx.fillStyle = '#fffdf9'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(mAx, mAy, 14, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('mA', mAx-8, mAy+4);
+
+  // 氧气传感器
+  const senX = W*0.72, senY = H*0.55;
+  ctx.fillStyle = '#fde7d2';
+  ctx.fillRect(senX-25, senY-15, 50, 30);
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.strokeRect(senX-25, senY-15, 50, 30);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('O₂传感器', senX-22, senY+4);
+
+  // 电压表 V (并联在传感器两端)
+  const Vx = W*0.72, Vy = H*0.78;
+  ctx.strokeStyle = '#3f6f8f'; ctx.fillStyle = '#fffdf9'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(Vx, Vy, 14, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('V', Vx-3, Vy+4);
+
+  // 开关 S
+  const Sx = W*0.45, Sy = H*0.78;
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(Sx-10, Sy); ctx.lineTo(Sx+10, Sy-3);
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('S', Sx-3, Sy-10);
+
+  // 连线
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  // 电源 → R 上端
+  ctx.beginPath();
+  ctx.moveTo(Ex+6, Ey-12); ctx.lineTo(Ex+6, Ry); ctx.lineTo(Rx-25, Ry);
+  ctx.stroke();
+  // R 下端 → 开关 → 电源 -
+  ctx.beginPath();
+  ctx.moveTo(Rx-25, Ry+10); ctx.lineTo(Rx-25, Sy); ctx.lineTo(Sx-10, Sy);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(Sx+10, Sy-3); ctx.lineTo(Vx-14, Sy);
+  ctx.stroke();
+  // R 抽头 → mA → 传感器
+  ctx.beginPath();
+  ctx.moveTo(slideX, Ry-15); ctx.lineTo(slideX, Ry-25); ctx.lineTo(mAx-14, Ry-25); ctx.lineTo(mAx-14, mAy);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(mAx+14, mAy); ctx.lineTo(senX-25, mAy); ctx.lineTo(senX-25, senY-15);
+  ctx.stroke();
+  // 传感器下 → 电压表
+  ctx.beginPath();
+  ctx.moveTo(senX-25, senY+15); ctx.lineTo(senX-25, Vy);
+  ctx.lineTo(Vx-14, Vy);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(Vx+14, Vy); ctx.lineTo(senX+25, Vy); ctx.lineTo(senX+25, senY+15);
+  ctx.stroke();
+  // 电压表-传感器并联段闭合
+  // 回到电源 -
+  ctx.beginPath();
+  ctx.moveTo(Ex-12, Ey+12); ctx.lineTo(Ex-12, Vy);
+  ctx.stroke();
+
+  // 答案标
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 滑动变阻分压式 + mA 内接 ✓', W*0.10, H*0.93);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '500 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) 闭合开关前滑片滑到 a 端 → 传感器电压 0', W*0.55, H*0.93);
+}
+
+function drawCurve(ctx, W, H){
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(W*0.06, H*0.08, W*0.88, H*0.84);
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  ctx.strokeRect(W*0.06, H*0.08, W*0.88, H*0.84);
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('定标曲线 V − O₂%', W*0.10, H*0.14);
+
+  const padL = 70, padR = 30, padT = 50, padB = 40;
+  const x0 = W*0.06 + padL, y0 = H*0.08 + padT;
+  const cw = W*0.88 - padL - padR;
+  const ch = H*0.84 - padT - padB;
+  const X = o => x0 + o/30 * cw;
+  const Y = v => y0+ch - v/2.0 * ch;
+
+  // 网格
+  ctx.strokeStyle = 'rgba(18,53,45,.05)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let o=0; o<=30; o+=5){ ctx.moveTo(X(o), y0); ctx.lineTo(X(o), y0+ch); }
+  for(let v=0; v<=2; v+=0.4){ ctx.moveTo(x0, Y(v)); ctx.lineTo(x0+cw, Y(v)); }
+  ctx.stroke();
+  // 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('O₂ %', x0+cw+4, y0+ch+5);
+  ctx.fillText('U / V', x0-4, y0-6);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  for(let o=0; o<=25; o+=5) ctx.fillText(o.toFixed(0)+'%', X(o)-8, y0+ch+14);
+  for(let v=0.4; v<=1.6; v+=0.4) ctx.fillText(v.toFixed(1), x0-26, Y(v)+3);
+
+  // 拟合曲线（连接点）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath();
+  calibrationPoints.forEach((p, i) => {
+    if(i===0) ctx.moveTo(X(p.O2), Y(p.V));
+    else ctx.lineTo(X(p.O2), Y(p.V));
+  });
+  ctx.stroke();
+
+  // 数据点
+  calibrationPoints.forEach(p => {
+    ctx.fillStyle = p.O2 === 15 ? '#c2611f' : '#16613f';
+    ctx.beginPath(); ctx.arc(X(p.O2), Y(p.V), p.O2===15 ? 7 : 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  });
+
+  // 标注关键点 (15%, 1.40V)
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px ui-monospace,monospace';
+  ctx.fillText('(15%, 1.40 V)', X(15)+10, Y(1.40)-8);
+
+  // 待测点 (?%, 1.50V)
+  const O2_unknown = estimateO2(1.50);
+  ctx.strokeStyle = '#b4442e'; ctx.setLineDash([5,4]); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x0, Y(1.50)); ctx.lineTo(X(O2_unknown), Y(1.50));
+  ctx.lineTo(X(O2_unknown), y0+ch);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 13px ui-monospace,monospace';
+  ctx.fillText('U=1.50 V → '+O2_unknown.toFixed(0)+'%', X(O2_unknown)+8, Y(1.50)-5);
+  ctx.beginPath();
+  ctx.arc(X(O2_unknown), Y(1.50), 7, 0, Math.PI*2);
+  ctx.fillStyle = '#b4442e'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('待测气瓶 U=1.50 V → 氧气含量 ≈ 17 %', W*0.10, H*0.96);
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 10 题 · 9 分',
+  title: '氧气传感器 · 定标',
+  subtitle: '电阻型氧气传感器：阻值随氧气含量变化。保持工作电流恒定，测不同氧气含量下传感器两端电压，建立 V-O₂% 定标关系。',
+  deliv: {
+    title: '氧气传感器 · 定标',
+    sub: '分压式 + 电流表内接 + 定标曲线 · 答案：电路图 / b端 / 1.40 V / 17 %'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 10 题 · 9 分',
+    image: '../../source/images/image94.png',
+    text: `电阻型氧气传感器阻值会随所处环境中的氧气含量发生变化。在保持流过传感器的电流（即工作电流）恒定的条件下，通过测量不同氧气含量下传感器两端的电压，建立电压与氧气含量之间的对应关系，这一过程称为定标。一同学用图（a）所示电路对他制作的一个氧气传感器定标。实验器材：装在气室内的氧气传感器（工作电流 I_g）、毫安表（内阻可忽略）、电压表、电源、滑动变阻器、开关、导线若干、5 个气瓶（氧气含量分别为 1%、5%、10%、15%、20%、25%）。`,
+    subQuestions: [
+      '(1) 将图（a）中的实验器材间的连线补充完整，使其能对传感器定标；',
+      '(3) 把滑动变阻器的滑片滑到 ___ 端（"a"或"b"），闭合开关；',
+      '(6) 氧气含量为 15% 时电压表的示数如图（c），该示数为 ___ V（保留 2 位有效数字）；现测量一瓶待测氧气含量的气体，调整滑动变阻器滑片位置使毫安表示数为 I_g，此时电压表示数为 1.50 V，则此瓶气体的氧气含量为 ___ %（保留整数）。'
+    ],
+    officialAnswer: '(1) 分压式接法 + 电流表内接（毫安表内阻可忽略）　(3) b 端（保护电路：闭合开关前传感器两端电压为 0）　(6) 1.40 V（电压表分度值 0.1 V 估读到 1.40）；待测氧气含量 17%（在 V-O₂% 定标曲线上 1.50 V 对应约 17%）。'
+  },
+  totalT: 0.001,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'氧气传感器定标', label_short:'核心',
+     formula_tex: String.raw`U = R(O_2\%)\cdot I_g \;\Rightarrow\; \text{由 U 反查氧气含量}`,
+     note:'保持工作电流 I_g 恒定 → U 直接反映传感器阻值 → 通过 5 个已知气瓶定标，得 V-O₂% 曲线 → 待测气瓶反查。'}
+  ],
+  stats: [
+    {label:'(1) 电路接法',     fmt:()=>'分压 + 内接'},
+    {label:'(3) 滑片位置',     fmt:()=>'b 端（保护）'},
+    {label:'(6a) 15% 读数',    fmt:()=>'1.40 V'},
+    {label:'(6b) 1.50V 反查',  fmt:()=>'17 %'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'分压+内接', note:'传感器两端 U 调节范围大；mA 内阻可忽略'},
+    {label_text:'(3)', value_text:'b 端',      note:'闭合开关前传感器电压为 0（保护）'},
+    {label_text:'(6)', value_text:'1.40V/17%', note:'分度值估读 + 定标曲线反查'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'电源 E'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'滑动变阻 R / 电压表 V'},
+    {swatch:{bg:'#a85219',border:'#a85219',type:'rect'}, text:'毫安表 mA'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'O₂ 传感器'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024甲卷-Q10-氧气传感器'
+});
+
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px;font-size:12px;color:var(--ppath-fg-2)">
+      <span style="display:block;margin-bottom:6px">查看视图</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-pri" data-view="circuit" style="font-size:11px;padding:6px 10px;flex:1">电路图</button>
+        <button class="btn" data-view="curve" style="font-size:11px;padding:6px 10px;flex:1">定标曲线</button>
+      </div>
+    </div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.querySelectorAll('[data-view]').forEach(b=>{
+    b.onclick = ()=>{
+      viewMode = b.dataset.view;
+      document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('btn-pri', x===b));
+    };
+  });
+});
+</script>
+</body>
+</html>

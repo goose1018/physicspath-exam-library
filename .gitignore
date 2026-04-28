@@ -1,0 +1,41 @@
+# ── 旧工作区 / 临时 / 来自外部 zip 不归我们管 ──
+# 旧版陕西卷工作区（已迁移到 output/2025_陕晋宁青/）
+source_2025_shaanxi/
+# 来自 PhysicsPath Design System.zip
+website/
+# 来自 _ (1).zip
+website2/
+# 旧版 q 页面
+site/
+# 早期 demo
+trajectory.html
+
+# 设计系统 zip 解压（来自外部）
+output/_shared/design-system/
+output/_react_assets/
+
+# ── 大体积 / 敏感：DOCX 解包 + 原题图 ──
+# 原题图涉及版权，可由 source/extract.py 从 DOCX 重建
+**/source/unpacked/
+**/source/images/
+**/source/paragraph_index.json
+
+# 旧版本备份
+output/_old_index.html.bak
+*.bak
+
+# ── 通用 ──
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+Thumbs.db
+*.log
+.venv/
+node_modules/
+.vscode/
+.idea/
+
+# 本地临时
+/tmp/
+/.tmp/

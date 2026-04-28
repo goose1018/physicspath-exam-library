@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 8 题 · 滑轮+磁场+线框 v-t</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理:
+// 一矩形线框（质量 M），跨过滑轮的绳一端连线框上边、另一端连物块（质量 m）
+// 线框上边水平，t=0 时线框上边从下方进入磁场，方向竖直向上初速度 v
+// 物块从同高度某位置开始（绳跨过滑轮意味着 m 下落对应线框上升）
+// 当线框完全在磁场内（上下边都在磁场区）：无 EMF，无安培力
+// 当线框上边在磁场内、下边未进入：有 EMF，方向使力对抗运动
+//
+// 牛二（设线框向上正方向）:
+// 上边进入磁场: BIL 方向 v×B → 设 B 入纸，v 上 → 力方向左/右? 实际安培力 = -BIL 沿 -v 方向
+// 设运动正方向 +x（向上）。线框 + 物块系统:
+// 物块: mg - T = m·a (向下)
+// 线框: T - Mg - F_安 = M·a (向上)
+// F_安 = B²L²v/R (反对运动)
+// 加 mg - T = m·a; T - Mg - B²L²v/R = M·a
+// 联立: (m-M)g - B²L²v/R = (M+m)·a
+// → a = [(m-M)g - B²L²v/R] / (M+m)
+//
+// 当 a = 0: v_terminal = (m-M)g·R / (B²L²)
+// 若 m=M: terminal v = 0 (无加速度)
+// 若 m>M: 加速度正向 (向上); 若 m<M: 加速度负向 (向下)
+//
+// 选项 A (可能正确): 完成进入后匀速; 出磁场再做加速度减小的减速；最终匀速
+// 选项 B (不可能): 线框进磁场时不可能匀减速
+// 选项 C (可能正确): 线框 = 物块 (M=m), 进入做加速度减小的减速到匀速; 完全进磁场后匀速; 出磁场反向安培力又减速到匀速
+// 选项 D (不可能)
+
+const T_total = 12;
+
+// 简化场景：M=m, 初速 v0 大于终速 v0' = 0 (无安培力时无加速度)
+// 阶段1: 线框未进入 (匀速 v0)... 但题目说 t=0 时线框上边从下方进入
+// 阶段2: 上边进入磁场，下边未进 - EMF 减速到 v_term = 0 (M=m)
+// 阶段3: 完全在场内 - 无 EMF，匀速
+// 阶段4: 上边出磁场，下边在场内 - 再次有 EMF，减速到 v_term
+
+let phaseModel = 'A';   // 'A' 或 'C' 选项
+
+function simulate_v(t){
+  // 简化数值积分预存表（快速绘制）
+  // 使用 m=M=1, B²L²/R = k = 0.5, v0 = 2 (>v_term=0)
+  const k = 0.5;
+  const dt = 0.005;
+  let v = 2.0;
+  let s = 0;        // 累计位移
+  let phase = 1;    // 1=刚进 (上边进，下边未进), 2=完全在场, 3=出场（上边出）
+  const L = 1;      // 线框上下边距 (沿运动方向)
+  const fieldH = 2; // 场区高度（上下边界距离）
+  // s = 上边距进场点距离
+  // 阶段1: 0 < s < L (上边在场内、下边未进) — 有 EMF
+  // 阶段2: L < s < fieldH (完全在内) — 无 EMF
+  // 阶段3: fieldH < s < fieldH+L (上边出但下边在内) — 有 EMF
+  // 阶段4: s > fieldH+L (完全出场) — 无 EMF
+  const result = [{t:0, v:2, phase:1}];
+  for(let tt=dt; tt<=t+dt; tt+=dt){
+    let hasEMF = (s < L) || (s >= fieldH && s < fieldH+L);
+    let acc;
+    // 简化模型常数：M+m=2 (令 m=M=1 或 m+M=2)，g_eff = (m-M)g/(M+m)
+    // C 选项 m=M: g_eff = 0；A 选项 m>M: g_eff = 0.3 (令 m-M=0.6)
+    if(phaseModel === 'C'){
+      // M=m → g_eff=0, v_term=0
+      if(hasEMF) acc = -k*v;     // F_安/(M+m) ∝ v
+      else acc = 0;              // 全在场或全出场无 EMF → 无加速度（M=m 时合外力为 0）
+    } else {
+      // A 选项: m>M → g_eff > 0, v_term > 0
+      const g_eff = 0.3;         // (m-M)g/(M+m)
+      if(hasEMF) acc = g_eff - k*v;     // 趋近 v_term = g_eff/k = 0.6
+      else acc = g_eff;          // 无 EMF 时仍受 g_eff 加速（m>M 净拉力存在）
+    }
+    v += acc*dt;
+    s += v*dt;
+    if(s < L) phase = 1;
+    else if(s < fieldH) phase = 2;
+    else if(s < fieldH+L) phase = 3;
+    else phase = 4;
+    result.push({t: tt, v, phase, s});
+  }
+  return result;
+}
+
+// 缓存
+let simCache = null, simCacheModel = '';
+function getSim(){
+  if(simCache && simCacheModel === phaseModel) return simCache;
+  simCache = simulate_v(T_total);
+  simCacheModel = phaseModel;
+  return simCache;
+}
+
+function evalState(t){
+  const data = getSim();
+  const idx = Math.min(data.length-1, Math.floor(t / 0.005));
+  return {phase: data[idx].phase, v: data[idx].v, s: data[idx].s, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 左：物理场景
+  drawSetup(ctx, 0, 0, W*0.45, H, state, opts);
+  // 右：v-t 图
+  drawGraph_vt(ctx, W*0.45+10, 14, W*0.55-24, H-28, state, t);
+}
+
+function drawSetup(ctx, x, y, w, h, state, opts){
+  // 滑轮
+  const pulleyX = x + w*0.55, pulleyY = y + h*0.18;
+  ctx.fillStyle = '#fffdf9'; ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 14, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 4, 0, Math.PI*2); ctx.fill();
+
+  // 磁场区域（虚线矩形）
+  const fieldX = x + w*0.10, fieldX2 = x + w*0.40;
+  const fieldYTop = y + h*0.30, fieldYBot = y + h*0.62;
+  ctx.fillStyle = 'rgba(63,111,143,.10)';
+  ctx.fillRect(fieldX, fieldYTop, fieldX2-fieldX, fieldYBot-fieldYTop);
+  ctx.strokeStyle = 'rgba(63,111,143,.5)'; ctx.lineWidth = 1.4; ctx.setLineDash([5,4]);
+  ctx.strokeRect(fieldX, fieldYTop, fieldX2-fieldX, fieldYBot-fieldYTop);
+  ctx.setLineDash([]);
+  // ⊗ 标记
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1;
+  for(let i=0; i<3; i++){
+    for(let j=0; j<2; j++){
+      const cx = fieldX + (i+0.5)*(fieldX2-fieldX)/3;
+      const cy = fieldYTop + (j+0.5)*(fieldYBot-fieldYTop)/2;
+      ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx-2.5,cy-2.5); ctx.lineTo(cx+2.5,cy+2.5);
+      ctx.moveTo(cx+2.5,cy-2.5); ctx.lineTo(cx-2.5,cy+2.5);
+      ctx.stroke();
+    }
+  }
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('磁场 B ⊗', fieldX+4, fieldYTop-4);
+
+  // 线框位置（上边的 y 位置）
+  // s=0 上边刚进入场底（fieldYBot）
+  // s 越大上边越往上
+  const s = state.s || 0;
+  const L_pix = 28, fieldH_pix = fieldYBot - fieldYTop;
+  // 上边 y 位置 (减去 s 像素)
+  const upperY = fieldYBot - (s / 2) * fieldH_pix;     // s∈[0,2]→上边从底到顶
+  const lowerY = upperY + L_pix;
+  const frameXL = fieldX + (fieldX2-fieldX)*0.10;
+  const frameXR = fieldX + (fieldX2-fieldX)*0.85;
+
+  // 线框
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.rect(frameXL, upperY, frameXR-frameXL, lowerY-upperY);
+  ctx.stroke();
+
+  // 速度箭头
+  if(opts.showVec && Math.abs(state.v) > 0.05){
+    const vScale = state.v * 20;
+    PPath.arrow(ctx, (frameXL+frameXR)/2, (upperY+lowerY)/2, (frameXL+frameXR)/2, (upperY+lowerY)/2 - vScale, '#16613f', 2);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('v='+state.v.toFixed(2), (frameXL+frameXR)/2+8, (upperY+lowerY)/2 - 5);
+  }
+
+  // 绳 (从线框上边右侧到滑轮再到物块)
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(frameXR-3, upperY);
+  ctx.lineTo(pulleyX-14, pulleyY);
+  ctx.stroke();
+  // 滑轮另一侧
+  ctx.beginPath();
+  ctx.moveTo(pulleyX+14, pulleyY);
+  ctx.lineTo(pulleyX+30, pulleyY+90);
+  ctx.stroke();
+
+  // 物块
+  const blockX = pulleyX + 25, blockY = pulleyY + 100;
+  ctx.fillStyle = '#12352d';
+  ctx.fillRect(blockX, blockY, 18, 18);
+  ctx.fillStyle = '#fdf3e6';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('m', blockX+5, blockY+13);
+
+  // 阶段标记
+  const phaseLabels = ['1 · 上边进场', '2 · 全在场', '3 · 上边出场', '4 · 全出场'];
+  const phaseColors = ['#c2611f', '#16613f', '#c2611f', '#5d6964'];
+  ctx.fillStyle = phaseColors[state.phase-1] || '#5d6964';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabels[state.phase-1] || '—', x+15, y+24);
+
+  // 模型说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(`模型：${phaseModel === 'A' ? 'A 选项 (m>M)' : 'C 选项 (m=M)'}`, x+15, y+44);
+}
+
+function drawGraph_vt(ctx, x, y, w, h, state, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('v − t 图（'+(phaseModel === 'A' ? '答案 A' : '答案 C')+'）', x+12, y+18);
+
+  const padL = 38, padR = 14, padT = 28, padB = 28;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT;
+  const X = tv => x0 + tv/T_total * cw;
+  const Y = vv => y0+ch/2 - vv/3 * (ch/2);   // 中间为 0，正向上
+
+  // 0 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, Y(0)); ctx.lineTo(x0+cw, Y(0));
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('t', x0+cw+4, Y(0)+5);
+  ctx.fillText('v', x0-4, y0-4);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  for(let tv=2; tv<=T_total; tv+=2){
+    ctx.fillText(tv.toFixed(0), X(tv)-4, Y(0)+12);
+  }
+
+  // 完整曲线
+  const data = getSim();
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for(let i=0; i<data.length; i++){
+    if(i===0) ctx.moveTo(X(data[i].t), Y(data[i].v));
+    else ctx.lineTo(X(data[i].t), Y(data[i].v));
+  }
+  ctx.stroke();
+
+  // 当前点
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(X(t), Y(state.v), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分 · B 级',
+  title: '滑轮+磁场+线框 · v-t 图',
+  subtitle: '绝缘细绳跨过滑轮，一端连矩形金属线框（质量 M）、另一端连物块（质量 m）。线框上边以初速 v 从磁场下方进入。求 v-t 图可能正确选项。',
+  deliv: {
+    title: '滑轮+磁场+线框 · v-t 图',
+    sub: '动量牛二 + 安培力 · 答案 AC（A：m>M 终速正；C：m=M 终速 0）'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 8 题 · 6 分',
+    image: '../../source/images/image71.png',
+    text: `如图，一绝缘细绳跨过两个在同一竖直面（纸面）内的光滑定滑轮，绳的一端连接一矩形金属线框，另一端连接一物块。线框与左侧滑轮之间的虚线区域内有方向垂直纸面的匀强磁场，磁场上下边界水平，在 t = 0 时刻线框的上边框以不同的初速度从磁场下方进入磁场。运动过程中，线框始终在纸面内且上下边框保持水平。以向上为速度的正方向，下列线框的速度 v 随时间 t 变化的图像中可能正确的是（　　）`,
+    officialAnswer: 'AC · 设线框质量 M、物块质量 m。受力分析：m·g − T = m·a；T − M·g − F_安 = M·a，其中 F_安 = B²L²v/R 反对运动。联立 a = [(m−M)g − B²L²v/R]/(M+m)。A：m≠M 且初速大于终速 → 加速度减小的减速到 v_term；C：m=M 时 v_term=0，进场减速到 0、完全在场无 EMF 匀速、出场反向加速度再次减速。B/D 不可能（不会突然匀减速或匀加速）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 上边进场', label_short:'阶段 1',
+     formula_tex: String.raw`a = \dfrac{(m-M)g - \frac{B^2L^2 v}{R}}{M+m}`,
+     note:'线框上边在场内、下边未进 → 有 EMF。安培力反对运动 → 加速度减小（v 减小但仍向上）。'},
+    {label:'阶段 2 · 全在场', label_short:'阶段 2',
+     formula_tex: String.raw`\Delta\Phi = 0 \;\Rightarrow\; F_\text{安} = 0,\quad a = \dfrac{(m-M)g}{M+m}`,
+     note:'全在场内 → 上下边都切割但 EMF 抵消 → 无安培力。当 m=M 时 a=0 匀速。'},
+    {label:'阶段 3 · 上边出场', label_short:'阶段 3',
+     formula_tex: String.raw`F_\text{安} = \dfrac{B^2L^2 v}{R}\text{（反向）}`,
+     note:'上边出场、下边在场内 → 再次有 EMF。安培力又反对运动 → 再减速到新终速。'},
+    {label:'阶段 4 · 全出场', label_short:'阶段 4',
+     formula_tex: String.raw`F_\text{安} = 0`,
+     note:'完全出场无 EMF。系统在重力差作用下以恒定加速度运动（或匀速若 m=M）。'}
+  ],
+  stats: [
+    {label:'当前 v',  fmt:s=>s.v?.toFixed(3)+' (单位)' || '—'},
+    {label:'当前 s',  fmt:s=>s.s?.toFixed(2) || '—'},
+    {label:'阶段',    fmt:s=>'阶段 '+s.phase}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'m>M 终速正',  note:'加速度减小的减速 → 匀速'},
+    {label_text:'B 错', value_text:'不可能匀减速', note:'a 与 v 耦合非恒定'},
+    {label_text:'C 对', value_tex: String.raw`m=M, v_\text{term}=0`,  note:'减速到 0 → 匀速 0 → 反向减速到 0'},
+    {label_text:'D 错', value_text:'不可能',     note:'物理不自洽'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'矩形线框（质量 M）'},
+    {swatch:{bg:'#12352d',border:'#12352d',type:'rect'}, text:'物块（质量 m）'},
+    {swatch:{bg:'rgba(63,111,143,.10)',border:'#3f6f8f',type:'rect'}, text:'磁场区域 B ⊗'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024甲卷-Q8-滑轮磁场'
+});
+
+// 切换 A/C 模型
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px;font-size:12px;color:var(--ppath-fg-2)">
+      <span style="display:block;margin-bottom:6px">模型选择</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-pri" data-model="A" style="font-size:11px;padding:6px 10px;flex:1">A · m&gt;M</button>
+        <button class="btn" data-model="C" style="font-size:11px;padding:6px 10px;flex:1">C · m=M</button>
+      </div>
+    </div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.querySelectorAll('[data-model]').forEach(b=>{
+    b.onclick = ()=>{
+      phaseModel = b.dataset.model;
+      simCache = null;     // 清缓存重新模拟
+      document.querySelectorAll('[data-model]').forEach(x=>x.classList.toggle('btn-pri', x===b));
+    };
+  });
+});
+</script>
+</body>
+</html>

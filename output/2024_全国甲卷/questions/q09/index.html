@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 9 题 · 电梯+弹簧测力计·超失重</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理:
+// 静止时 测力计示数 = mg = 5.0 N → m = 0.5 kg (g=10)
+// 上行减速 (失重): 测力计示数 = 4.5 N
+// 由 N - mg = m·a (取上为正)
+// 4.5 - 5.0 = 0.5·a → a = -1.0 m/s² (向下，即上行减速)
+// 失重: |a| = 1.0 m/s²
+const m_obj = 0.5;
+const g = 10;
+const N_static = 5.0;
+const N_moving = 4.5;
+const a_calc = (N_moving - m_obj*g) / m_obj;     // -1.0
+
+const T_total = 6;
+
+function evalState(t){
+  // 三阶段：静止 → 失重（上行减速）→ 静止
+  let phase, N_show, label;
+  if(t < 2){
+    phase = 1; N_show = N_static; label = '静止';
+  } else if(t < 4){
+    phase = 2; N_show = N_moving; label = '上行减速（失重）';
+  } else {
+    phase = 3; N_show = N_static; label = '静止';
+  }
+  return {phase, N_show, label};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 左：电梯+弹簧测力计示意
+  drawElevator(ctx, 0, 0, W*0.55, H, state, t);
+  // 右：受力分析 + 计算
+  drawForceAnalysis(ctx, W*0.55+10, 14, W*0.45-24, H-28, state);
+}
+
+function drawElevator(ctx, x, y, w, h, state, t){
+  const cx = x + w*0.5;
+  // 电梯轿厢
+  const elevW = w*0.55, elevH = h*0.65;
+  const elevX = cx - elevW/2;
+  const elevY = y + h*0.18 + (state.phase === 2 ? Math.sin(t*4) * 2 : 0);     // 失重时轻微抖动
+
+  // 电梯井
+  ctx.fillStyle = 'rgba(94,160,155,.05)';
+  ctx.fillRect(elevX-15, y+10, elevW+30, h-20);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+  ctx.strokeRect(elevX-15, y+10, elevW+30, h-20);
+
+  // 电梯外形
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(elevX, elevY, elevW, elevH);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2.5;
+  ctx.strokeRect(elevX, elevY, elevW, elevH);
+  // 楼层指示器
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(elevX+10, elevY+8, 40, 18);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",monospace';
+  ctx.fillText('▲', elevX+22, elevY+22);
+
+  // 测力计（弹簧+刻度+物体）
+  const meterX = cx;
+  const meterTopY = elevY + 30;
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(meterX-8, meterTopY); ctx.lineTo(meterX+8, meterTopY);
+  ctx.moveTo(meterX, meterTopY); ctx.lineTo(meterX, meterTopY+12);
+  ctx.stroke();
+  // 弹簧（拉伸量与示数对应）
+  const springLen = 30 + state.N_show * 8;
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let k=0; k<8; k++){
+    const yy = meterTopY + 12 + k*springLen/8;
+    const dx = (k%2===0) ? -6 : 6;
+    if(k===0) ctx.moveTo(meterX, yy);
+    else ctx.lineTo(meterX+dx, yy);
+  }
+  ctx.lineTo(meterX, meterTopY+12+springLen);
+  ctx.stroke();
+  // 钩子
+  ctx.fillStyle = '#5d6964';
+  ctx.fillRect(meterX-5, meterTopY+12+springLen, 10, 4);
+  // 物体
+  const objY = meterTopY + 12 + springLen + 4;
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(meterX-15, objY, 30, 22);
+  ctx.fillStyle = '#fdf3e6';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('m', meterX-4, objY+15);
+
+  // 刻度
+  const scaleX = elevX + elevW - 40;
+  const scaleY1 = meterTopY + 12;
+  const scaleY2 = meterTopY + 12 + 80;     // 0~10 N 对应 0~80 px
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(scaleX, scaleY1); ctx.lineTo(scaleX, scaleY2);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  for(let nn=0; nn<=10; nn+=2){
+    const sy = scaleY1 + nn*8;
+    ctx.beginPath();
+    ctx.moveTo(scaleX-4, sy); ctx.lineTo(scaleX, sy); ctx.stroke();
+    ctx.fillText(nn.toFixed(0), scaleX-22, sy+3);
+  }
+  // 当前指针
+  const ptrY = scaleY1 + state.N_show * 8;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(scaleX, ptrY); ctx.lineTo(scaleX-15, ptrY); ctx.stroke();
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 11px ui-monospace,monospace';
+  ctx.fillText(state.N_show.toFixed(1)+' N', scaleX-50, ptrY-4);
+
+  // 状态
+  const phaseColor = state.phase === 2 ? '#c2611f' : '#16613f';
+  ctx.fillStyle = phaseColor;
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText(state.label, x+15, y+24);
+
+  // 加速度方向
+  if(state.phase === 2){
+    PPath.arrow(ctx, x+w-50, y+h*0.4, x+w-50, y+h*0.4+30, '#c2611f', 2.5);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 12px "Cambria Math",serif';
+    ctx.fillText('a 方向 ↓', x+w-90, y+h*0.4+25);
+  }
+}
+
+function drawForceAnalysis(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('物体受力分析（取向上为正）', x+12, y+18);
+
+  // 力向量
+  const cx = x + w*0.4, cy = y + h*0.42;
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = '#fdf3e6';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('m', cx, cy+1);
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+
+  // 重力 mg
+  PPath.arrow(ctx, cx, cy+18, cx, cy+18+50, '#b4442e', 2.5);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('mg = 5.0 N', cx+8, cy+58);
+
+  // 拉力 N（弹簧测力示数）
+  const N_len = state.N_show * 10;
+  PPath.arrow(ctx, cx, cy-18, cx, cy-18-N_len, '#16613f', 2.5);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('N = '+state.N_show.toFixed(1)+' N', cx+8, cy-N_len);
+
+  // 公式
+  let yy = y + h*0.72;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('牛二定律：N − mg = m·a', x+12, yy);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  if(state.phase === 1 || state.phase === 3){
+    ctx.fillText('静止：N = mg = 5.0 N → m = 0.5 kg', x+12, yy+22);
+  } else {
+    ctx.fillText('运动：4.5 − 5.0 = 0.5·a → a = −1.0 m/s²', x+12, yy+22);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('a 向下，电梯上行 → 上行减速 → 失重', x+12, yy+44);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 9 题 · 6 分',
+  title: '电梯 + 弹簧测力计 · 超失重',
+  subtitle: '将弹簧测力计挂在电梯内，下端挂物体。静止读 5.0 N，电梯上行某段读 4.5 N。判断超重/失重 + 求加速度大小。',
+  deliv: {
+    title: '电梯 + 弹簧测力计',
+    sub: '牛二 + 视重 · 答案：(1) 5.0 N (2) 失重，1.0 m/s²'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 9 题 · 6 分',
+    image: '../../source/images/image82.png',
+    text: `学生小组为了探究超重和失重现象，将弹簧测力计挂在电梯内，测力计下端挂一物体。已知当地重力加速度大小为 <b>g = 10 m/s²</b>。`,
+    subQuestions: [
+      '(1) 电梯静止时测力计示数如图所示，读数为 _____ N（保留 1 位小数）；',
+      '(2) 电梯上行时，一段时间内测力计的示数为 4.5 N，则此段时间内物体处于 _____（"超重"或"失重"）状态，电梯加速度大小为 _____ m/s²（保留 1 位小数）。'
+    ],
+    officialAnswer: '(1) 5.0 N（弹簧测力计分度值 0.5 N，读数 5.0 N → 物体重力 mg = 5.0 N → 质量 m = 0.5 kg）　(2) 失重；1.0 m/s²。由 N − mg = ma → 4.5 − 5.0 = 0.5·a → a = −1.0 m/s²（负号表示加速度向下，电梯上行时 a 向下 = 上行减速 → 失重）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 静止', label_short:'阶段 1',
+     formula_tex: String.raw`N = mg = 5.0\,\text{N} \;\Rightarrow\; m = 0.5\,\text{kg}`,
+     note:'电梯静止 → 物体平衡 → 测力计示数 = 重力。'},
+    {label:'阶段 2 · 上行减速（失重）', label_short:'阶段 2',
+     formula_tex: String.raw`N - mg = ma \;\Rightarrow\; a = \dfrac{N-mg}{m} = \dfrac{4.5-5.0}{0.5} = -1.0\,\text{m/s}^2`,
+     note:'示数 N < mg → 视重小于真重 → 失重。a 负 = 向下 = 上行减速。'},
+    {label:'阶段 3 · 静止', label_short:'阶段 3',
+     formula_tex: String.raw`N = mg`,
+     note:'电梯停下，再次平衡。'}
+  ],
+  stats: [
+    {label:'物体 m',     fmt:()=>m_obj+' kg'},
+    {label:'g',          fmt:()=>g+' m/s²'},
+    {label:'静止 N',     fmt:()=>N_static.toFixed(1)+' N'},
+    {label:'运动 N',     fmt:()=>N_moving.toFixed(1)+' N'},
+    {label:'加速度 a',   fmt:()=>a_calc.toFixed(1)+' m/s² (= -1.0)'},
+    {label:'状态',       fmt:s=>s.label}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'5.0 N', note:'静止 N=mg → 读数 5.0'},
+    {label_text:'(2a)', value_text:'失重',  note:'N=4.5 < mg=5.0'},
+    {label_text:'(2b)', value_tex: String.raw`a = 1.0\,\text{m/s}^2`, note:'方向向下'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'弹簧测力计'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'物体 m=0.5 kg'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'重力 mg ↓'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'拉力 N ↑'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024甲卷-Q9-电梯失重'
+});
+</script>
+</body>
+</html>

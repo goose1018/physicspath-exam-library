@@ -1,0 +1,232 @@
+/* PhysicsPath Design System — Color & Type Tokens
+ * 名师 AI 解题教练 · A study tool for Chinese high school students
+ * 视觉关键词：可信、克制、学习感、方法感、轻智能感
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  /* ───────── Brand Colors ─────────
+   * Primary: deep ink-green. Used for headers, primary CTAs, brand mark.
+   *          Borrowed from traditional Chinese ink — feels scholarly and grounded.
+   * Accent:  warm orange. ONLY for diagnosis results, "下一步" callouts,
+   *          and the moment a student is asked to think. Never decorative.
+   */
+  --ppath-ink-green-900: #0e2a23;   /* darkest — body text on cream */
+  --ppath-ink-green-800: #12352d;   /* primary brand — buttons, headers */
+  --ppath-ink-green-700: #1f4a3f;   /* hover state for primary */
+  --ppath-ink-green-600: #2f6a5a;
+  --ppath-ink-green-500: #4f8c65;   /* eyebrows, soft labels */
+  --ppath-ink-green-100: #e7f0ea;   /* tag bg, soft fills */
+  --ppath-ink-green-50:  #f0f5f1;
+
+  /* Warm accent — used sparingly for "下一步 / 诊断结果 / 该你了" */
+  --ppath-amber-700: #a85219;
+  --ppath-amber-600: #c2611f;       /* primary accent */
+  --ppath-amber-500: #d97a3c;
+  --ppath-amber-100: #fbe9d6;
+  --ppath-amber-50:  #fdf3e6;
+
+  /* ───────── Neutrals ─────────
+   * Off-white / warm paper background — never #FFF.
+   * Cream stack carries a subtle warmth that reads "study desk", not "cloud SaaS".
+   */
+  --ppath-paper:        #fbfaf7;    /* main app background */
+  --ppath-paper-deep:   #f6f2ea;    /* welcome / hero canvas */
+  --ppath-card:         #ffffff;    /* cards sit on paper */
+  --ppath-card-soft:    #fbfaf7;    /* nested fills */
+  --ppath-line:         #eadfce;    /* warm hairline */
+  --ppath-line-soft:    #f0e9dc;    /* subtler divider */
+
+  /* Text */
+  --ppath-fg-1: #10201b;            /* primary body */
+  --ppath-fg-2: #5d6964;            /* secondary copy */
+  --ppath-fg-3: #8a958f;            /* meta, captions */
+  --ppath-fg-on-ink: #fbfaf7;       /* text on dark green */
+  --ppath-fg-on-amber: #ffffff;     /* text on amber */
+
+  /* ───────── Semantic States ───────── */
+  --ppath-success-700: #16613f;
+  --ppath-success-100: #d8eedf;
+  --ppath-warning-700: #92400e;
+  --ppath-warning-100: #fef3c7;
+  --ppath-danger-700:  #9b2226;
+  --ppath-danger-100:  #f7d8d8;
+  --ppath-info-700:    #1d4ed8;     /* used very sparingly — links only */
+  --ppath-info-100:    #eaf2ff;
+
+  /* Card status pills (mirror domain.ts CardStatus) */
+  --ppath-status-approved-fg: var(--ppath-success-700);
+  --ppath-status-approved-bg: var(--ppath-success-100);
+  --ppath-status-review-fg:   var(--ppath-warning-700);
+  --ppath-status-review-bg:   var(--ppath-warning-100);
+  --ppath-status-draft-fg:    var(--ppath-fg-2);
+  --ppath-status-draft-bg:    var(--ppath-line-soft);
+  --ppath-status-disabled-fg: var(--ppath-danger-700);
+  --ppath-status-disabled-bg: var(--ppath-danger-100);
+
+  /* ───────── Type Stacks ─────────
+   * Sans: Noto Sans SC — handles 简体中文 cleanly across weights.
+   * Display: Noto Serif SC — used only for hero numerals and the
+   *          marketing headline 「不是搜答案，而是训练你怎么想题。」
+   *          Serif gives the brand its "教材 / 讲义" feel.
+   * Mono: JetBrains Mono — for formula fragments, never decoration.
+   */
+  --ppath-font-sans: 'Noto Sans SC', -apple-system, 'PingFang SC',
+                     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --ppath-font-display: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+  --ppath-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Type scale — intentionally compact. We avoid display extremes
+   * because the product reads like a notebook, not a banner ad. */
+  --ppath-text-xs:   12px;
+  --ppath-text-sm:   13px;
+  --ppath-text-base: 15px;
+  --ppath-text-md:   17px;
+  --ppath-text-lg:   20px;
+  --ppath-text-xl:   24px;
+  --ppath-text-2xl:  32px;
+  --ppath-text-3xl:  44px;
+  --ppath-text-4xl:  64px;
+
+  --ppath-leading-tight: 1.15;
+  --ppath-leading-snug:  1.4;
+  --ppath-leading-body:  1.65;
+  --ppath-leading-loose: 1.8;
+
+  --ppath-tracking-display: -0.04em;
+  --ppath-tracking-hero:    -0.06em;
+  --ppath-tracking-eyebrow:  0.08em;
+
+  /* ───────── Radii ─────────
+   * Corners are softer than typical SaaS — round but never balloon.
+   * Cards = 18–24px. Buttons = 14px or pill.
+   */
+  --ppath-radius-xs:  8px;
+  --ppath-radius-sm:  12px;
+  --ppath-radius-md:  16px;
+  --ppath-radius-lg:  20px;
+  --ppath-radius-xl:  24px;
+  --ppath-radius-2xl: 30px;
+  --ppath-radius-pill: 999px;
+
+  /* ───────── Spacing ───────── */
+  --ppath-space-1:  4px;
+  --ppath-space-2:  8px;
+  --ppath-space-3:  12px;
+  --ppath-space-4:  16px;
+  --ppath-space-5:  20px;
+  --ppath-space-6:  24px;
+  --ppath-space-8:  32px;
+  --ppath-space-10: 40px;
+  --ppath-space-12: 48px;
+  --ppath-space-16: 64px;
+
+  /* ───────── Shadows ─────────
+   * Soft, warm shadow tinted with the paper hue. Never blue-grey.
+   */
+  --ppath-shadow-sm: 0 2px 6px rgba(48, 38, 22, 0.04);
+  --ppath-shadow-md: 0 8px 28px rgba(48, 38, 22, 0.06);
+  --ppath-shadow-lg: 0 18px 55px rgba(48, 38, 22, 0.08);
+  --ppath-shadow-xl: 0 30px 90px rgba(66, 48, 20, 0.12);
+  --ppath-shadow-amber: 0 14px 40px rgba(194, 97, 31, 0.18);
+
+  /* Borders */
+  --ppath-border: 1px solid var(--ppath-line);
+  --ppath-border-soft: 1px solid var(--ppath-line-soft);
+
+  /* Motion */
+  --ppath-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ppath-ease-snap: cubic-bezier(0.4, 0, 0.2, 1);
+  --ppath-dur-fast: 140ms;
+  --ppath-dur-base: 220ms;
+  --ppath-dur-slow: 400ms;
+}
+
+/* ──────── Semantic typography ────────
+ * Apply via class — no global tag overrides so existing demo isn't disrupted.
+ */
+
+.ppath-display-1 {
+  font-family: var(--ppath-font-display);
+  font-weight: 900;
+  font-size: clamp(48px, 7vw, 86px);
+  line-height: 0.96;
+  letter-spacing: var(--ppath-tracking-hero);
+  color: var(--ppath-fg-1);
+}
+
+.ppath-display-2 {
+  font-family: var(--ppath-font-display);
+  font-weight: 800;
+  font-size: clamp(36px, 5vw, 60px);
+  line-height: 1.02;
+  letter-spacing: var(--ppath-tracking-hero);
+  color: var(--ppath-fg-1);
+}
+
+.ppath-h1 {
+  font-family: var(--ppath-font-sans);
+  font-weight: 800;
+  font-size: var(--ppath-text-2xl);
+  line-height: var(--ppath-leading-tight);
+  letter-spacing: var(--ppath-tracking-display);
+  color: var(--ppath-fg-1);
+}
+
+.ppath-h2 {
+  font-family: var(--ppath-font-sans);
+  font-weight: 800;
+  font-size: var(--ppath-text-xl);
+  line-height: var(--ppath-leading-snug);
+  letter-spacing: var(--ppath-tracking-display);
+  color: var(--ppath-fg-1);
+}
+
+.ppath-h3 {
+  font-family: var(--ppath-font-sans);
+  font-weight: 700;
+  font-size: var(--ppath-text-lg);
+  line-height: var(--ppath-leading-snug);
+  color: var(--ppath-fg-1);
+}
+
+.ppath-body {
+  font-family: var(--ppath-font-sans);
+  font-weight: 400;
+  font-size: var(--ppath-text-base);
+  line-height: var(--ppath-leading-body);
+  color: var(--ppath-fg-1);
+}
+
+.ppath-body-lg {
+  font-family: var(--ppath-font-sans);
+  font-weight: 400;
+  font-size: var(--ppath-text-md);
+  line-height: var(--ppath-leading-body);
+  color: var(--ppath-fg-2);
+}
+
+.ppath-meta {
+  font-family: var(--ppath-font-sans);
+  font-weight: 500;
+  font-size: var(--ppath-text-sm);
+  line-height: var(--ppath-leading-snug);
+  color: var(--ppath-fg-2);
+}
+
+.ppath-eyebrow {
+  font-family: var(--ppath-font-sans);
+  font-weight: 700;
+  font-size: var(--ppath-text-xs);
+  line-height: 1;
+  letter-spacing: var(--ppath-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--ppath-ink-green-500);
+}
+
+.ppath-mono {
+  font-family: var(--ppath-font-mono);
+  font-size: var(--ppath-text-sm);
+  color: var(--ppath-fg-1);
+}

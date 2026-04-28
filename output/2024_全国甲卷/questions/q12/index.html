@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 12 题 · 金属棒+磁场+电容</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理（归一化 m=1, B=1, L=1, R=1, F=由 v_max 反推）
+const v0 = 2;                        // 最大速度
+const F_const = v0;                  // F = B²L²v₀/R = 2 (归一化)
+const C_cap = 0.5;                   // 电容
+const T_total = 12;
+const T_phase1 = 6;                  // 阶段 1：开关闭合，加速
+const T_phase2 = T_total - T_phase1; // 阶段 2：断 S 后过渡
+
+const v_at_part1 = v0 / 2;           // P_F=2P_R 时的速度（rigorous）
+
+let lastT = 0;
+let S_state = {v: 0, U_C: 0, phase: 1};
+
+function step(dt){
+  const v = S_state.v;
+  if(S_state.phase === 1){
+    // 开关闭合：F - BIL = ma, I = BLv/R
+    const I_R = v;     // BLv/R = v 归一化
+    const F_amp = I_R;     // BIL = I
+    S_state.v += (F_const - F_amp) * dt;
+  } else {
+    // 阶段 2：S 断开，匀速 v 不变（保持 part 1 中的 v_at_part1）
+    // 电容充电：BLv = U_C + I·R → I = (BLv - U_C)/R
+    S_state.v = v_at_part1;     // 保持匀速
+    const EMF = S_state.v;
+    const I = (EMF - S_state.U_C) / 1;     // R=1
+    S_state.U_C += I / C_cap * dt;     // dU_C/dt = I/C
+    if(S_state.U_C > EMF) S_state.U_C = EMF;
+  }
+}
+
+function evalState(t){
+  if(t < lastT){ S_state = {v:0, U_C:0, phase:1}; lastT = 0; }
+  // 阶段切换
+  if(t >= T_phase1 && S_state.phase === 1){
+    S_state.phase = 2;
+    S_state.v = v_at_part1;
+    S_state.U_C = 0;
+  }
+  const sub = 50;
+  const dt = (t - lastT)/sub;
+  for(let k=0; k<sub; k++) step(dt);
+  lastT = t;
+  return {phase: S_state.phase, v: S_state.v, U_C: S_state.U_C, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 上：导轨+棒+电路
+  drawRail(ctx, 0, 0, W, H*0.55, state, t);
+  // 下：能量/电量曲线
+  drawCurves(ctx, 14, H*0.56, W-28, H*0.42, state, t);
+}
+
+function drawRail(ctx, x, y, w, h, state, t){
+  // 导轨
+  const railY1 = y + h*0.30, railY2 = y + h*0.65;
+  const railX1 = x + 60, railX2 = x + w - 60;
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(railX1, railY1); ctx.lineTo(railX2, railY1);
+  ctx.moveTo(railX1, railY2); ctx.lineTo(railX2, railY2);
+  ctx.stroke();
+
+  // 磁场标记 (B 入纸面)
+  ctx.strokeStyle = 'rgba(63,111,143,.4)'; ctx.lineWidth = 1;
+  for(let i=0; i<8; i++){
+    for(let j=0; j<2; j++){
+      const cx = railX1 + 20 + (i+0.5)*(railX2-railX1-40)/8;
+      const cy = railY1 + (j+0.5)*(railY2-railY1)/2;
+      ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx-2.5,cy-2.5); ctx.lineTo(cx+2.5,cy+2.5);
+      ctx.moveTo(cx+2.5,cy-2.5); ctx.lineTo(cx-2.5,cy+2.5);
+      ctx.stroke();
+    }
+  }
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('B ⊗ 入纸面', railX1+10, y+24);
+
+  // 金属棒位置
+  const xMax = railX2 - railX1 - 60;
+  const xRod = railX1 + 30 + Math.min(0.7*xMax, state.v * 30);
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(xRod, railY1); ctx.lineTo(xRod, railY2);
+  ctx.stroke();
+  // L 标注
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Cambria Math",serif';
+  ctx.fillText('L', xRod+6, (railY1+railY2)/2);
+
+  // 速度向量
+  if(state.v > 0.05){
+    PPath.arrow(ctx, xRod, (railY1+railY2)/2-25, xRod + state.v*20, (railY1+railY2)/2-25, '#16613f', 2.5);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('v='+state.v.toFixed(2), xRod+state.v*20+6, (railY1+railY2)/2-30);
+  }
+
+  // 外力箭头
+  PPath.arrow(ctx, xRod, (railY1+railY2)/2+25, xRod+30, (railY1+railY2)/2+25, '#b4442e', 2.5);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(state.phase === 1 ? 'F (恒)' : 'F (变)', xRod+38, (railY1+railY2)/2+30);
+
+  // 左侧电路：开关 S + R + C
+  // 在导轨左端
+  const Sx = railX1 - 30, Sy = (railY1+railY2)/2;
+  // 开关
+  ctx.strokeStyle = state.phase === 1 ? '#16613f' : '#b4442e'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  if(state.phase === 1){
+    ctx.moveTo(Sx-12, Sy); ctx.lineTo(Sx+12, Sy);     // 闭合
+  } else {
+    ctx.moveTo(Sx-12, Sy); ctx.lineTo(Sx+10, Sy-10);  // 断开
+  }
+  ctx.stroke();
+  ctx.fillStyle = state.phase === 1 ? '#16613f' : '#b4442e';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('S '+(state.phase===1?'闭合':'断开'), Sx-20, Sy-14);
+
+  // R 在 S 上方
+  const Rx = Sx, Ry = railY1 - 30;
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(Rx-14, Ry-5); ctx.lineTo(Rx-14, Ry+5);
+  ctx.lineTo(Rx+14, Ry+5); ctx.lineTo(Rx+14, Ry-5);
+  ctx.lineTo(Rx-14, Ry-5);
+  ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('R', Rx-5, Ry-12);
+
+  // C 在 S 下方
+  const Cx = Sx, Cy = railY2 + 30;
+  ctx.strokeStyle = '#a85219'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(Cx-2, Cy-10); ctx.lineTo(Cx-2, Cy+10);
+  ctx.moveTo(Cx+2, Cy-10); ctx.lineTo(Cx+2, Cy+10);
+  ctx.stroke();
+  ctx.fillStyle = '#a85219';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('C', Cx+8, Cy);
+  // 显示 U_C
+  if(state.phase === 2 || state.U_C > 0.01){
+    ctx.fillStyle = '#a85219';
+    ctx.font = '600 10px ui-monospace,monospace';
+    ctx.fillText('U_C='+state.U_C.toFixed(2), Cx+15, Cy+12);
+  }
+
+  // 连线
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  // 棒上端 → R → S 上端
+  ctx.moveTo(railX1, railY1); ctx.lineTo(Rx, railY1);
+  ctx.lineTo(Rx, Ry+5);
+  ctx.moveTo(Rx, Ry-5); ctx.lineTo(Rx, Sy);
+  // S 下端 → C → 棒下端
+  ctx.moveTo(Sx+12, Sy); ctx.lineTo(Cx, Sy);
+  ctx.lineTo(Cx, Cy-10);
+  ctx.moveTo(Cx, Cy+10); ctx.lineTo(Cx, railY2);
+  ctx.lineTo(railX1, railY2);
+  ctx.stroke();
+
+  // 阶段标
+  const phaseColors = ['#16613f', '#3f6f8f'];
+  const phaseLabels = ['阶段 1 · 开关闭合 · 棒加速', '阶段 2 · 开关断开 · 匀速·电容充电'];
+  ctx.fillStyle = phaseColors[state.phase-1];
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabels[state.phase-1], x+15, y+h-12);
+}
+
+function drawCurves(ctx, x, y, w, h, state, t){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,12); ctx.fill(); ctx.stroke(); }
+  else ctx.fillRect(x,y,w,h);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('v(t) 与 U_C(t) 时间曲线', x+12, y+18);
+
+  const padL = 36, padR = 14, padT = 28, padB = 24;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const x0 = x + padL, y0 = y + padT;
+  const X = tt => x0 + tt/T_total * cw;
+  const Y = vv => y0+ch - vv/2.2 * ch;
+
+  // 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '10px ui-monospace,monospace';
+  for(let tt=0; tt<=T_total; tt+=2) ctx.fillText(tt.toFixed(0), X(tt)-4, y0+ch+12);
+  ctx.fillText('v₀=2', x0-30, Y(2)+3);
+  ctx.fillText('v₀/2=1', x0-30, Y(1)+3);
+
+  // v_at_part1 参考线
+  ctx.strokeStyle = 'rgba(194,97,31,.4)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(x0, Y(1)); ctx.lineTo(x0+cw, Y(1)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 阶段 1 / 阶段 2 分界
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(X(T_phase1), y0); ctx.lineTo(X(T_phase1), y0+ch); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 模拟 v(t) 完整曲线（缓存避免每帧重算）
+  if(!window.__q12_curves){
+    const data_v = [], data_UC = [];
+    let sim = {v:0, U_C:0, phase:1};
+    const dt = 0.05;
+    for(let tt=0; tt<=T_total; tt+=dt){
+      if(tt >= T_phase1 && sim.phase === 1){
+        sim.phase = 2;
+        sim.v = v_at_part1;
+        sim.U_C = 0;
+      }
+      if(sim.phase === 1){
+        const I_R = sim.v;
+        const F_amp = I_R;
+        sim.v += (F_const - F_amp) * dt;
+      } else {
+        sim.v = v_at_part1;
+        const EMF = sim.v;
+        const I = (EMF - sim.U_C);
+        sim.U_C += I / C_cap * dt;
+        if(sim.U_C > EMF) sim.U_C = EMF;
+      }
+      data_v.push({t:tt, v:sim.v});
+      data_UC.push({t:tt, UC:sim.U_C});
+    }
+    window.__q12_curves = {data_v, data_UC};
+  }
+  const data_v = window.__q12_curves.data_v;
+  const data_UC = window.__q12_curves.data_UC;
+
+  // v 曲线
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  data_v.forEach((p, i)=>{
+    if(i===0) ctx.moveTo(X(p.t), Y(p.v));
+    else ctx.lineTo(X(p.t), Y(p.v));
+  });
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('v(t)', X(T_total)-30, Y(v_at_part1)-6);
+
+  // U_C 曲线
+  ctx.strokeStyle = '#a85219'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  data_UC.forEach((p, i)=>{
+    if(i===0) ctx.moveTo(X(p.t), Y(p.UC));
+    else ctx.lineTo(X(p.t), Y(p.UC));
+  });
+  ctx.stroke();
+  ctx.fillStyle = '#a85219';
+  ctx.fillText('U_C(t)', X(T_total)-44, Y(v_at_part1)+18);
+
+  // 当前点
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(X(t), Y(state.v), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#a85219';
+  ctx.beginPath(); ctx.arc(X(t), Y(state.U_C), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+PathQuestion({
+  paperTitle: '2024 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 12 题 · B 级 · 单 agent 物理审',
+  title: '金属棒 + 磁场 + 电容',
+  subtitle: '导轨光滑无摩擦，竖直磁场 B。开关 S 闭合：恒力 F 推棒加速，达 v_max=v₀。当 P_外=2·P_R 时求 v。S 断开后改变外力使匀速，求 U_C 和外力做功 W。',
+  deliv: {
+    title: '金属棒 · 电容 · 综合',
+    sub: '严格物理推导 · (1) v=v₀/2 · (2) U_C=BLv₀/4 · W=½CU_C²+...'
+  },
+  originalProblem: {
+    meta: '2024 全国甲卷 · 第 12 题 · 14 分',
+    image: '../../source/images/image112.png',
+    text: `如图，金属导轨平行且水平放置，导轨间距为 <b>L</b>，导轨光滑无摩擦。定值电阻大小为 <b>R</b>，其余电阻忽略不计，电容大小为 <b>C</b>。在运动过程中，金属棒始终与导轨保持垂直。整个装置处于竖直方向且磁感应强度为 <b>B</b> 的匀强磁场中。`,
+    subQuestions: [
+      '(1) 开关 S 闭合时，对金属棒施加水平向右的恒力，金属棒能达到的最大速度为 v₀。当外力功率为定值电阻功率的两倍时，求金属棒速度 v 的大小。',
+      '(2) 当金属棒速度为 v 时，断开开关 S，改变水平外力并使金属棒匀速运动。当外力功率为定值电阻功率的两倍时，求电容器两端的电压以及从开关断开到此刻外力所做的功。'
+    ],
+    officialAnswer: '⚠ 物理 agent 严格推导 (P_F=2P_R, F=B²L²v₀/R 恒定)：(1) v = v₀/2（满足 P_F=F·v=2·B²L²v²/R=2P_R）。 (2) U_C 在过渡过程中 P_F=2P_R 时，U_C = BLv/2 = BL·v₀/4。W = 棒动能不变；电容储能 ½CU_C² + 电阻热 Q_R = CU_C²。注：若题面或官方答案另写 v₀/√2，物理上不自洽（不满足 F·v=2I²R 与 F=B²L²v₀/R 联立）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 加速 (S 闭合)', label_short:'阶段 1',
+     formula_tex: String.raw`F = ma + \dfrac{B^2L^2v}{R};\;\; F\!\cdot\!v = 2\!\cdot\!\dfrac{B^2L^2v^2}{R} \;\Rightarrow\; v = \dfrac{v_0}{2}`,
+     note:'恒力 F 推棒加速。最大速度时 F=B²L²v₀/R。中途 P_F=2P_R 时由 F·v=2·I²R 和 F=B²L²v₀/R 联立得 v=v₀/2。'},
+    {label:'阶段 2 · 匀速 (S 断开)', label_short:'阶段 2',
+     formula_tex: String.raw`U_C = \dfrac{BL v}{2} = \dfrac{BL v_0}{4},\quad W = C U_C^2`,
+     note:'S 断开 → C 与 R 串联进入电容充电过渡。匀速 v=v₀/2 不变。当 P_F=2P_R 时 I=BLv/(2R), U_C = BLv − IR = BLv/2。外力做功 = 电容储能 + 电阻热 = ½CU_C² + Q_R = CU_C²（Q_R=½CU_C²）。'}
+  ],
+  stats: [
+    {label:'最大速度 v₀',      fmt:()=>'2 (归一化)'},
+    {label:'恒力 F',           fmt:()=>'B²L²v₀/R = 2'},
+    {label:'当前 v',           fmt:s=>(s.v||0).toFixed(3)},
+    {label:'当前 U_C',         fmt:s=>(s.U_C||0).toFixed(3)},
+    {label:'阶段',             fmt:s=>'阶段 '+s.phase}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_tex: String.raw`v = \dfrac{v_0}{2}`,         note:'P_F=2P_R + F 恒定 → v₀=2v'},
+    {label_text:'(2a) U_C', value_tex: String.raw`U_C = \dfrac{BL v_0}{4}`, note:'匀速 v=v₀/2 时过渡 P_F=2P_R'},
+    {label_text:'(2b) W', value_tex: String.raw`W = C U_C^2`,             note:'电容储 ½CU_C² + 电阻热 ½CU_C²'}
+  ],
+  legend: [
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'光滑导轨'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'金属棒'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'定值电阻 R'},
+    {swatch:{bg:'#a85219',border:'#a85219',type:'rect'}, text:'电容 C'},
+    {swatch:{bg:'rgba(63,111,143,.10)',border:'#3f6f8f',type:'rect'}, text:'磁场 B ⊗'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024甲卷-Q12-金属棒电容'
+});
+</script>
+</body>
+</html>

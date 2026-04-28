@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 8 题 · 双缝干涉双色光</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+let mode = 'b';   // 'b' / 'r' / 'both'
+const lamB = 1.0, lamR = 1.413;     // 蓝/红波长比
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  // 暗色背景（光学风格）
+  ctx.fillStyle = '#0d1018';
+  ctx.fillRect(0, 0, W, H);
+
+  const slitX = W*0.18, screenX = W*0.78;
+  const cy = H/2;
+
+  // 双缝
+  ctx.fillStyle = '#94a09b';
+  ctx.fillRect(slitX-3, 0, 6, cy-22);
+  ctx.fillRect(slitX-3, cy-12, 6, 24);
+  ctx.fillRect(slitX-3, cy+22, 6, H-cy-22);
+
+  // 屏幕
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(screenX, 0, 4, H);
+
+  // 入射光（脉动）
+  ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1;
+  for(let i=0; i<10; i++){
+    const off = ((t*60 + i*40) % 80);
+    ctx.beginPath();
+    ctx.moveTo(20+off, cy-25 + Math.sin(off*0.05)*4);
+    ctx.lineTo(20+off+16, cy-25 + Math.sin((off+16)*0.05)*4);
+    ctx.stroke();
+  }
+
+  // 像素映射（屏幕条纹间距 in pixels）
+  const dyB = lamB * 100 / 30;
+  const dyR = lamR * 100 / 30;
+
+  function drawPattern(lamPix, color, alphaMul){
+    for(let y=0; y<H; y++){
+      const dy = y - cy;
+      const I = Math.cos(Math.PI * dy / lamPix);
+      const a = Math.max(0, I*I) * alphaMul;
+      ctx.fillStyle = color.replace('A', a.toFixed(2));
+      ctx.fillRect(screenX+4, y, 14, 1);
+    }
+    for(let k=-8; k<=8; k++){
+      const yy = cy + k*lamPix;
+      if(yy<8 || yy>H-8) continue;
+      const grd = ctx.createRadialGradient(screenX+18, yy, 1, screenX+18, yy, 14);
+      grd.addColorStop(0, color.replace('A','.7'));
+      grd.addColorStop(1, color.replace('A','0'));
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(screenX+18, yy, 14, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  if(mode==='b' || mode==='both') drawPattern(dyB, 'rgba(80,180,255,A)', mode==='both'?0.7:1);
+  if(mode==='r' || mode==='both') drawPattern(dyR, 'rgba(255,90,90,A)', mode==='both'?0.7:1);
+
+  if(mode==='both'){
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('重合点', screenX+34, cy + 7*dyB - 4);
+    ctx.beginPath();
+    ctx.arc(screenX+18, cy + 7*dyB, 7, 0, Math.PI*2);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // 双缝出来的光线
+  function rays(color){
+    ctx.strokeStyle = color; ctx.lineWidth = 0.4;
+    [-1, 1].forEach(s=>{
+      for(let k=-3; k<=3; k++){
+        ctx.beginPath();
+        ctx.moveTo(slitX, cy + s*17);
+        ctx.lineTo(screenX, cy + (s*17 + k*30));
+        ctx.stroke();
+      }
+    });
+  }
+  if(mode==='b' || mode==='both') rays('rgba(80,180,255,.18)');
+  if(mode==='r' || mode==='both') rays('rgba(255,90,90,.16)');
+
+  // 标注
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText('双缝', slitX-14, H-20);
+  ctx.fillText('屏', screenX+30, H-20);
+  ctx.fillStyle = '#fff';
+  ctx.font = '800 13px "Cambria Math",serif';
+  ctx.fillText('Δy = λD / d', 20, 26);
+}
+
+PathQuestion({
+  paperTitle: '陕晋宁青卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '双缝干涉 · 双色光',
+  subtitle: '蓝光 λ_b 与红光 λ_r 复合垂直照射双缝。比较条纹间距、找重合点。',
+  deliv: {
+    title: '双缝干涉 · 双色光',
+    sub: '蓝光波长 < 红光波长 · 答案 BC · 间距 Δy ∝ λ'
+  },
+  totalT: 8,
+  speedFactor: 0.5,
+  evalState(t){ return {phase:1, t}; },
+  drawScene,
+  phases: [
+    {label:'条纹间距与重合', label_short:'核心',
+     formula_tex: String.raw`\Delta y = \dfrac{\lambda D}{d},\quad k_b\,\lambda_b = k_r\,\lambda_r \Rightarrow \text{重合}`,
+     note:'条纹间距正比于波长 → 蓝光更密。两色亮纹重合需满足整数 k 比例。'}
+  ],
+  stats: [
+    {label:'蓝光 λ_b', fmt:()=>'460 nm'},
+    {label:'红光 λ_r', fmt:()=>'650 nm'},
+    {label:'比例 r:b', fmt:()=>'约 7:5'},
+    {label:'当前显示', fmt:()=>mode==='b'?'蓝光':mode==='r'?'红光':'叠加'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'频率不同',  note:'不能稳定干涉成新条纹'},
+    {label_text:'B 对', value_text:'蓝光更密',  note:'间距 ∝ λ'},
+    {label_text:'C 对', value_text:'整数 k 重合', note:'k_b·λ_b = k_r·λ_r'},
+    {label_text:'D 错', value_text:'距离不满足', note:'不是整数倍重合点'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(80,180,255,.6)',border:'#50b4ff',type:'rect'}, text:'蓝光条纹（密）'},
+    {swatch:{bg:'rgba(255,90,90,.6)',border:'#ff5a5a',type:'rect'}, text:'红光条纹（疏）'},
+    {swatch:{bg:'#fff',border:'#fff',type:'dot'}, text:'重合点'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '陕西卷-Q8-双缝干涉'
+});
+
+window.addEventListener('load', ()=>{
+  const ctrl = document.querySelector('.side-card');
+  if(!ctrl) return;
+  const html = `
+    <div style="margin-top:14px;border-top:1px solid var(--ppath-line-soft);padding-top:14px;font-size:12px;color:var(--ppath-fg-2)">
+      <span style="display:block;margin-bottom:6px">显示</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-pri" data-mode="b" style="font-size:11.5px;padding:6px 10px;flex:1">蓝</button>
+        <button class="btn" data-mode="r" style="font-size:11.5px;padding:6px 10px;flex:1">红</button>
+        <button class="btn" data-mode="both" style="font-size:11.5px;padding:6px 10px;flex:1">叠加</button>
+      </div>
+    </div>
+  `;
+  ctrl.insertAdjacentHTML('beforeend', html);
+  document.querySelectorAll('[data-mode]').forEach(b=>{
+    b.onclick = ()=>{
+      mode = b.dataset.mode;
+      document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('btn-pri', x===b));
+    };
+  });
+});
+</script>
+</body>
+</html>

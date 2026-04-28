@@ -1,0 +1,180 @@
+{
+  "exam": "2025年陕晋宁青卷物理",
+  "total_questions": 14,
+  "questions": [
+    {
+      "id": "q01",
+      "num": 1,
+      "type": "单选",
+      "topic": "静电场电场线分布",
+      "answer": "B",
+      "animatable": true,
+      "viz_type": "static_diagram_compare",
+      "tier": "S",
+      "summary": "判断四幅电场线图哪幅可能正确（电场线不相交、不闭合、平行须等间距）",
+      "needs_verifier": false
+    },
+    {
+      "id": "q02",
+      "num": 2,
+      "type": "单选",
+      "topic": "天问三号火星探测·万有引力",
+      "answer": "A",
+      "animatable": true,
+      "viz_type": "orbital_motion",
+      "tier": "A",
+      "summary": "由轨道半径r和周期T，结合G可推算出火星质量",
+      "needs_verifier": false
+    },
+    {
+      "id": "q03",
+      "num": 3,
+      "type": "单选",
+      "topic": "F-t图判断对应v-t图",
+      "answer": "A",
+      "animatable": true,
+      "viz_type": "graph_animation",
+      "tier": "A",
+      "summary": "20kg分拣机器人 F(t)→a(t)→v(t) 联动作图，机器人同步运动",
+      "needs_verifier": true
+    },
+    {
+      "id": "q04",
+      "num": 4,
+      "type": "单选",
+      "topic": "钢管悬绳静力平衡·摩擦力",
+      "answer": "D",
+      "animatable": true,
+      "viz_type": "force_diagram_interactive",
+      "tier": "S",
+      "summary": "钢管一端落地一端被竖直绳吊起，地面对其摩擦力为零（受力平衡分析）",
+      "needs_verifier": false
+    },
+    {
+      "id": "q05",
+      "num": 5,
+      "type": "单选",
+      "topic": "电子德布罗意波长",
+      "answer": "C",
+      "animatable": false,
+      "viz_type": "formula_only",
+      "tier": "X",
+      "summary": "λ ∝ 1/√U 公式题，无图可画",
+      "needs_verifier": false
+    },
+    {
+      "id": "q06",
+      "num": 6,
+      "type": "单选",
+      "topic": "甲乙线框进出磁场·电磁感应",
+      "answer": "D",
+      "animatable": true,
+      "viz_type": "dynamic_process",
+      "tier": "B",
+      "summary": "两不同电阻线框并排进入宽磁场区，比较合力、速度、焦耳热",
+      "needs_verifier": true
+    },
+    {
+      "id": "q07",
+      "num": 7,
+      "type": "多选",
+      "topic": "横波·根据振动图像求波形",
+      "answer": "AD",
+      "animatable": true,
+      "viz_type": "wave_propagation",
+      "tier": "A",
+      "summary": "已知a、b两质点振动图，分别考虑a→b和b→a传播，画t=T/4时波形",
+      "needs_verifier": true
+    },
+    {
+      "id": "q08",
+      "num": 8,
+      "type": "多选",
+      "topic": "双缝干涉·双色光",
+      "answer": "BC",
+      "animatable": true,
+      "viz_type": "interference_pattern",
+      "tier": "A",
+      "summary": "蓝、红激光复合光双缝干涉，比较条纹间距、寻找重叠点",
+      "needs_verifier": true
+    },
+    {
+      "id": "q09",
+      "num": 9,
+      "type": "多选",
+      "topic": "弹性绳+滑块+斜杆+定滑轮·力学综合",
+      "answer": "AC",
+      "animatable": true,
+      "viz_type": "dynamic_process",
+      "tier": "B",
+      "summary": "斜杆上滑块受重力、摩擦、弹性绳张力，分析下滑过程",
+      "needs_verifier": true
+    },
+    {
+      "id": "q10",
+      "num": 10,
+      "type": "实验",
+      "topic": "探究加速度与力、质量关系",
+      "answer": "(1)一端垫高 (2)AC (3)乙",
+      "animatable": true,
+      "viz_type": "experiment_setup",
+      "tier": "A",
+      "summary": "斜面补偿摩擦+a-1/m线性化判断+槽码移动法误差分析",
+      "needs_verifier": false
+    },
+    {
+      "id": "q11",
+      "num": 11,
+      "type": "实验",
+      "topic": "多用电表+串联电路定位",
+      "answer": "(1)B (2)串联,大阻 (3)2-3, 1-4, 1-2",
+      "animatable": true,
+      "viz_type": "circuit_diagnosis",
+      "tier": "A",
+      "summary": "用电压表测各接线柱间电压，反推E、C、电阻位置",
+      "needs_verifier": false
+    },
+    {
+      "id": "q12",
+      "num": 12,
+      "type": "计算",
+      "topic": "卡车轮胎气体·热力学第一定律",
+      "answer": "(1)P₂ (2)ΔU=Q-W",
+      "animatable": true,
+      "viz_type": "pv_diagram",
+      "tier": "A",
+      "summary": "P-V图线性变化，求终态压强；W=面积，ΔU=Q+W外",
+      "needs_verifier": true
+    },
+    {
+      "id": "q13",
+      "num": 13,
+      "type": "计算",
+      "topic": "电子比荷·磁控法（圆筒磁场）",
+      "answer": "(1)e/m=2v₀/(B₀R) (2)S=面积公式",
+      "animatable": true,
+      "viz_type": "3d_cylinder_motion",
+      "tier": "B",
+      "summary": "电子在圆筒内沿轴向匀强磁场中运动，临界条件求比荷+落点面积",
+      "needs_verifier": true
+    },
+    {
+      "id": "q14",
+      "num": 14,
+      "type": "计算",
+      "topic": "两带电粒子相互作用·动量+能量守恒",
+      "answer": "(1)v₀/3 (2)位移 (3)恒力作用时间",
+      "animatable": true,
+      "viz_type": "two_particle_dynamics",
+      "tier": "B",
+      "summary": "A以v₀追B，相互作用→共速→施加恒力到A停下、B速度v₀",
+      "needs_verifier": true
+    }
+  ],
+  "tier_definitions": {
+    "S": "静态可视化，无需动画引擎仿真",
+    "A": "动画但物理简单，单 verifier 检查",
+    "B": "复杂动力学/几何，需要双 agent 验证（物理+UI）",
+    "X": "纯公式题，跳过可视化"
+  }
+}
