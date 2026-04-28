@@ -13,7 +13,9 @@
 <div id="app"></div>
 <script src="../../../_shared/q-shell.js"></script>
 <script>
-const V1=1, p1=1, T1=300, V2=1.2, p2=1.4, T2=420;
+// 状态方程 p₁V₁/T₁ = p₂V₂/T₂ → p₂ = p₁V₁T₂/(V₂T₁)
+const V1=1, p1=1, T1=300, V2=1.2, T2=420;
+const p2 = p1*V1*T2/(V2*T1);     // ≈ 1.167（由状态方程算出，避免 hardcode 不自洽）
 const N_particles = 50;
 const particles = Array.from({length:N_particles}, ()=>({
   x: Math.random(), y: Math.random(),

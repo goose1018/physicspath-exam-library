@@ -24,10 +24,12 @@ const electrons = Array.from({length:36}, (_,i)=>({
 function pos(e, t, B){
   const vp = Math.sin(e.theta);
   const vz = Math.cos(e.theta);
-  const r = vp/(2*B);          // 半径 ∝ sinθ /B
+  const r = vp/(2*B);          // 半径 ∝ sinθ /B（单位制 v₀=R=1, e/m=2/B₀, B₀=1）
   const omega = 2*B;
-  const cxOff = -r*Math.sin(e.phi);
-  const cyOff =  r*Math.cos(e.phi);
+  // 圆心相对 O 的偏移：洛伦兹力 F=-ev×B（B 向下）使电子顺时针绕（俯视）
+  // 圆心方向 = v 方向顺时针 90° = (sinφ, -cosφ)，距 O 为 r → 圆经过 O ✓
+  const cxOff =  r*Math.sin(e.phi);
+  const cyOff = -r*Math.cos(e.phi);
   const ang = e.phi - omega*t + Math.PI/2;
   const x = cxOff + r*Math.cos(ang);
   const y = cyOff + r*Math.sin(ang);
@@ -40,6 +42,9 @@ function evalState(t){ return {phase:1, t}; }
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 全屏背景（防 GIF 边缘残影）
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // 左：俯视图（垂直 B 平面），右：侧视图（沿轴向）
   drawTopView(ctx, 14, 14, W*0.5-21, H-28, t);
   drawSideView(ctx, W*0.5+7, 14, W*0.5-21, H-28, t);
@@ -95,8 +100,9 @@ function drawTopView(ctx, x, y, w, h, t){
   electrons.forEach(e => {
     const p = pos(e, t, bRatio);
     const r = p.r;
-    const cxOff = -r*Math.sin(e.phi);
-    const cyOff =  r*Math.cos(e.phi);
+    // 与 pos() 中圆心定义保持一致（圆经过 O）
+    const cxOff =  r*Math.sin(e.phi);
+    const cyOff = -r*Math.cos(e.phi);
     // 圆轨道（淡）
     ctx.strokeStyle = p.willHit ? 'rgba(180,68,46,.20)' : 'rgba(22,97,63,.16)';
     ctx.lineWidth = 1;
@@ -141,10 +147,10 @@ function drawSideView(ctx, x, y, w, h, t){
   ctx.beginPath(); ctx.moveTo(cx, yTop); ctx.lineTo(cx, yBot); ctx.stroke();
   ctx.setLineDash([]);
 
-  // 磁场方向箭头
+  // 磁场方向箭头（题目：B 沿中心轴向下 → 屏幕上箭头朝下）
   ctx.strokeStyle = '#3f6f8f'; ctx.fillStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
   [yTop+30, (yTop+yBot)/2, yBot-30].forEach(yv => {
-    PPath.arrow(ctx, cx-Rpix-22, yv+10, cx-Rpix-22, yv-10, '#3f6f8f', 1.5);
+    PPath.arrow(ctx, cx-Rpix-22, yv-10, cx-Rpix-22, yv+10, '#3f6f8f', 1.5);
   });
   ctx.font = '600 11px ui-monospace,monospace'; ctx.fillStyle = '#3f6f8f';
   ctx.fillText('B', cx-Rpix-30, yTop+8);
@@ -177,10 +183,11 @@ function drawSideView(ctx, x, y, w, h, t){
     ctx.stroke();
   });
 
-  // 击壁带
+  // 击壁带（z_max = πR·cosθ_c/(2 sinθ_c)：θ_c 临界电子半周期击壁的轴向位移）
   if(bRatio < 1){
-    const zMax = Math.sqrt(1-bRatio*bRatio)/bRatio * Math.PI/(2*bRatio);
+    const zMax = Math.sqrt(1-bRatio*bRatio)/bRatio * Math.PI/2;   // 单位 R=1
     ctx.fillStyle = 'rgba(180,68,46,.20)';
+    // 左壁上下两侧 + 右壁上下两侧（4 矩形覆盖 ±z_max 完整环带）
     ctx.fillRect(cx-Rpix-2, cyTop-zMax*zScale, 4, zMax*zScale);
     ctx.fillRect(cx+Rpix-2, cyTop-zMax*zScale, 4, zMax*zScale);
     ctx.fillRect(cx-Rpix-2, cyTop, 4, zMax*zScale);
@@ -190,29 +197,29 @@ function drawSideView(ctx, x, y, w, h, t){
     ctx.fillText('击壁环带', cx+Rpix+8, cyTop);
     ctx.fillStyle = '#5d6964';
     ctx.font = '10px ui-monospace,monospace';
-    ctx.fillText('±'+zMax.toFixed(2), cx+Rpix+8, cyTop+14);
+    ctx.fillText('±'+zMax.toFixed(2)+'R', cx+Rpix+8, cyTop+14);
   }
 }
 
 PathQuestion({
   paperTitle: '陕晋宁青卷',
   paperHref: '../../index.html',
-  eyebrow: '计算 · 第 13 题 · B 级 · 双 agent 审',
+  eyebrow: '计算 · 第 13 题 · B 级',
   title: '磁控法测电子比荷',
   subtitle: '圆筒（半径 R）轴线 O 处电子源以 v₀ 各向发射。沿轴加匀强磁场 B。临界 B₀ 时恰好不击壁。',
   originalProblem: {
-    meta: '2025 陕晋宁青卷 · 第 13 题 · 12 分',
+    meta: '2025 陕晋宁青卷 · 第 13 题',
     image: '../../source/images/image163.png',
     text: `电子比荷是描述电子性质的重要物理量。在标准理想二极管中利用磁控法可测得比荷，一般其电极结构为圆筒面与中心轴线构成的圆柱体系统，结构简化如图（a）所示，圆筒足够长。在 O 点有一电子源，向空间中各个方向发射速度大小为 <b>v₀</b> 的电子，某时刻起筒内加大小可调节且方向沿中心轴向下的匀强磁场，筒的横截面及轴截面示意图如图（b）所示。当磁感应强度大小调至 <b>B₀</b> 时，恰好没有电子落到筒壁上。不计电子间相互作用及其重力的影响。<b>（R、v₀、B₀ 均为已知量）</b>`,
     subQuestions: [
       '求电子的比荷 e/m；',
       '当磁感应强度大小调至 B（B &lt; B₀）时，求筒壁上落有电子的区域面积 S。'
     ],
-    officialAnswer: '(1) e/m = 2v₀/(B₀R)（最坏情况是 v⊥=v₀ 横向发射，圆轨直径 ≤ R 临界 r=R/2）　(2) S = πR²·√(B₀²−B²)/B（B&lt;B₀ 时 sinθ ≥ B/B₀ 的电子击壁形成环带）'
+    officialAnswer: '(1) e/m = 2v₀/(B₀R)　(2) S = 2π²R²·√(B₀²−B²)/B'
   },
   deliv: {
     title: '磁控法测电子比荷 · 圆筒磁场',
-    sub: '所有电子（球面发射）· e/m = 2v₀/(B₀R)  ·  S = πR²√(B₀²−B²)/B'
+    sub: '所有电子（球面发射）· e/m = 2v₀/(B₀R)  ·  S = 2π²R²√(B₀²−B²)/B'
   },
   totalT: 4,
   speedFactor: 0.7,
@@ -220,8 +227,8 @@ PathQuestion({
   drawScene,
   phases: [
     {label:'临界条件 + 击壁面积', label_short:'核心',
-     formula_tex: String.raw`\dfrac{e}{m} = \dfrac{2v_0}{B_0 R},\quad S = \dfrac{\pi R^2 \sqrt{B_0^2 - B^2}}{B}`,
-     note:'最坏情况是横向发射（v⊥=v₀）：圆轨道直径 ≤ R，临界 r=R/2 → e/m = 2v₀/(B₀R)。当 B<B₀ 时部分电子 sinθ ≥ B/B₀ 击壁。'}
+     formula_tex: String.raw`\dfrac{e}{m} = \dfrac{2v_0}{B_0 R},\quad S = \dfrac{2\pi^2 R^2 \sqrt{B_0^2 - B^2}}{B}`,
+     note:'最坏情况横向发射（v⊥=v₀）：临界 r=R/2 → e/m=2v₀/(B₀R)。B&lt;B₀ 时 sinθ≥B/B₀ 的电子走半周期击壁，z_max=πR·√(B₀²-B²)/(2B)，S=2πR×2z_max。'}
   ],
   stats: [
     {label:'B / B₀',     fmt:()=>bRatio.toFixed(2)},
@@ -231,7 +238,7 @@ PathQuestion({
   ],
   conclusions: [
     {label_text:'(1)', value_tex: String.raw`\dfrac{e}{m} = \dfrac{2v_0}{B_0 R}`, note:'临界时 r=R/2，由 r = mv₀/(eB₀) 得'},
-    {label_text:'(2)', value_tex: String.raw`S = \dfrac{\pi R^2 \sqrt{B_0^2 - B^2}}{B}`, note:'B<B₀ 时部分电子击壁形成环带'}
+    {label_text:'(2)', value_tex: String.raw`S = \dfrac{2\pi^2 R^2 \sqrt{B_0^2 - B^2}}{B}`, note:'临界电子走半周期击壁，z_max=πR cosθ_c/(2sinθ_c)，环带宽 2z_max × 周长 2πR'}
   ],
   legend: [
     {swatch:{bg:'rgba(22,97,63,.16)',border:'#16613f',type:'rect'}, text:'未击壁电子（蜷在筒内）'},
