@@ -48,6 +48,7 @@ function PathQuestion(opts){
   // We'll BUILD the HTML from the opts to make each page tiny.
 
   const root = el('app') || document.body;
+  const autoplay = opts.autoplay !== false;     // 默认自动播放，opts.autoplay=false 可关闭
   // Original problem block (题面 + 原图)
   const origBlock = opts.originalProblem ? `
     <div class="orig-card">
@@ -192,7 +193,7 @@ function PathQuestion(opts){
   const cv = el('cv');
   const ctx = cv.getContext('2d');
   const dpr = Math.max(1, devicePixelRatio||1);
-  let t = 0, playing = false, last = 0;
+  let t = 0, playing = autoplay, last = 0;
   let speedMul = opts.defaults?.speed || 1.0;
   let lineW = opts.defaults?.lineW || 3.5;
   let showVec = opts.defaults?.vec !== false;
@@ -225,9 +226,9 @@ function PathQuestion(opts){
     if(playing){
       t += dt * speedMul * speedFactor;
       if(t >= opts.totalT){
-        t = opts.totalT;
-        playing = false;
-        updatePlayBtn();
+        // 自动循环：reset t 而不是停止
+        t = 0;
+        lastPhase = -1;
       }
     }
 

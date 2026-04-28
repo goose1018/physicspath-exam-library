@@ -151,6 +151,20 @@ function ExamLibrary({ go }) {
 }
 
 // ─────────────────────── PaperDetail (problem list) ───────────────────────
+// 模块 → V1 颜色（用于头部考点 donut）
+const MODULE_COLOR = {
+  '力学':     '#1f3a2e',
+  '电磁学':   '#7a3a26',
+  '振动波动': '#3a4a26',
+  '光学':     '#2c4858',
+  '热学':     '#6b4a26',
+  '实验':     '#5a4a6a',
+  '近代':     '#4a3a52',
+  '天体':     '#3a5860',
+  '运动学':   '#2a4a3a',
+  '原子物理': '#5a4a6a',
+};
+
 function PaperDetail({ params, go }) {
   const { year, paper } = params || {};
   const paperObj = window.PAPERS.find(p => p.id === paper);
@@ -160,64 +174,77 @@ function PaperDetail({ params, go }) {
     return <div className="exam-page"><p>卷型未找到。<button className="btn btn-line btn-sm" onClick={() => go('library')}>返回</button></p></div>;
   }
 
-  const counts = {
-    total: list.length,
-    anim: list.filter(p => p.hasAnim).length,
-    paid: list.filter(p => p.paid).length,
-    free: list.filter(p => !p.paid).length,
+  // ─── 数据转换：REAL_PROBLEMS schema → V1 schema ───
+  const problems = list.map(p => {
+    const m = (window.PROBLEM_META || {})[p.id] || {};
+    return {
+      id:     p.id,                       // 用于 onCard 跳详情
+      no:     p.no,
+      type:   m.type || 'choice-single',
+      title:  p.title,
+      answer: m.answer != null ? m.answer : '—',
+      topic:  [p.module || '其他'],
+      status: p.hasAnim ? 'anim' : 'static',
+      online: !!p.htmlPath || !!p.tplId,   // 有 htmlPath 或工坊模板都视为可点
+      note:   p.summary || '',
+    };
+  });
+
+  // ─── 考点 donut 分布 ───
+  const moduleCount = {};
+  problems.forEach(p => {
+    const k = p.topic[0];
+    moduleCount[k] = (moduleCount[k] || 0) + 1;
+  });
+  const topicDistribution = Object.keys(moduleCount).map(k => ({
+    key:   k,
+    count: moduleCount[k],
+    color: MODULE_COLOR[k] || '#5a4a6a',
+  }));
+
+  const onlineCount = problems.filter(p => p.online).length;
+
+  const meta = {
+    year,
+    paperShort:     paperObj.short,
+    paperFull:      `${year} 年普通高等学校招生全国统一考试 (${paperObj.name})`,
+    subject:        '物理',
+    totalQuestions: problems.length,
+    onlineCount,
+    topicDistribution,
   };
 
-  return (
-    <div className="paper-page" data-screen-label={`03 ${year} ${paperObj.short}`}>
-      <button className="paper-back" onClick={() => go('library')}>
-        <window.Icon name="arrow-left" size={13} /> 返回真题图库
-      </button>
-
-      <div className="paper-head">
-        <div>
-          <div className="eyebrow">{year} 高考 · {paperObj.region}卷</div>
-          <h1>{year} {paperObj.name}</h1>
-          <div className="sub">物理学科 · 需要画图分析的题目，按题号排序</div>
-        </div>
-        <div className="stats">
-          <div><b>{counts.total}</b><span>已上架</span></div>
-          <div><b>{counts.anim}</b><span>动态图</span></div>
-          <div><b style={{color:'var(--ppath-success-700)'}}>{counts.free}</b><span>免费查看</span></div>
-        </div>
-      </div>
-
-      {list.length === 0 ? (
-        <div style={{padding:'48px 24px', textAlign:'center', color:'var(--ppath-fg-3)', background:'var(--ppath-card)', border:'1px solid var(--ppath-line)', borderRadius:16}}>
+  if (problems.length === 0) {
+    return (
+      <div className="paper-page" data-screen-label={`03 ${year} ${paperObj.short}`}>
+        <button className="paper-back" onClick={() => go('library')}>
+          <window.Icon name="arrow-left" size={13} /> 返回真题图库
+        </button>
+        <div style={{padding:'48px 24px', textAlign:'center', color:'var(--ppath-fg-3)', background:'var(--ppath-card)', border:'1px solid var(--ppath-line)', borderRadius:16, margin:'24px 32px'}}>
           <window.Icon name="inbox" size={28}/>
           <p style={{marginTop:12, fontSize:14}}>这套卷暂无已上架的画图题。</p>
           <p style={{fontSize:12.5}}>我们会持续补充，可点击下方提交收录请求。</p>
           <button className="btn btn-line btn-sm" style={{marginTop:8}}>提交收录请求</button>
         </div>
-      ) : (
-        <div className="problem-list">
-          {list.map(p => (
-            <div key={p.id} className="problem-row" onClick={() => go('problem', { id: p.id })}>
-              <div className="no">{p.no}<small style={{display:'block', fontSize:10, color:'var(--ppath-fg-3)', fontWeight:600, marginTop:2, fontFamily:'inherit', letterSpacing:'0.04em'}}>题号</small></div>
-              <div className="body">
-                <h4>{p.title}</h4>
-                <div className="meta-row">
-                  <span className="tag tag-soft">{p.module}</span>
-                  <span className={`diff-pill ${p.diff}`}>{p.diff}</span>
-                  <span><window.Icon name="flame" size={10} /> {p.heat.toLocaleString()} 次查看</span>
-                  {p.hasAnim && <span style={{color:'var(--ppath-ink-green-800)', fontWeight:600}}>● 含动态图</span>}
-                </div>
-                <p className="summary">{p.summary}</p>
-              </div>
-              <div className="end">
-                {p.paid
-                  ? <span className="lock-tag"><window.Icon name="lock" size={10}/>会员</span>
-                  : <span className="free-tag">免费</span>}
-                <window.Icon name="chevron-right" size={16} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
+    );
+  }
+
+  // ─── 渲染 V1 ───
+  if (!window.PaperListV1) {
+    return <div style={{padding:32}}>正在加载…</div>;
+  }
+  return (
+    <div data-screen-label={`03 ${year} ${paperObj.short}`}>
+      <window.PaperListV1
+        meta={meta}
+        problems={problems}
+        density="loose"
+        palette="cream"
+        titleFont="sans"
+        onCard={p => go('problem', { id: p.id })}
+        onBack={() => go('library')}
+      />
     </div>
   );
 }
@@ -311,8 +338,9 @@ function ProblemDetail({ params, go, openModal }) {
         </div>
       </div>
 
-      <div className="problem-body">
-        {/* LEFT: 题干 */}
+      <div className="problem-body" style={problem.htmlPath ? {gridTemplateColumns: '1fr'} : undefined}>
+        {/* LEFT: 题干（真实题 htmlPath 模式下，iframe 内已经自带原题面，避免重复挤占空间） */}
+        {!problem.htmlPath && (
         <aside className="problem-stem">
           <div>
             <div className="e">题号 {problem.no} · {problem.module} · 难度{problem.diff}</div>
@@ -353,6 +381,7 @@ function ProblemDetail({ params, go, openModal }) {
             </div>
           </div>
         </aside>
+        )}
 
         {/* RIGHT: 动画 + 参数 */}
         <section className="problem-stage-wrap">

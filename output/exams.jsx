@@ -107,6 +107,39 @@ const REAL_PROBLEMS = [
 
 PROBLEMS.push(...REAL_PROBLEMS);
 
+// ─── 题型 + 官方答案（PaperListV1 列表页用）───
+// type: choice-single | choice-multi | experiment | calc
+// answer: 字符串（选择题）或 [{sub,val},...]（实验/计算分小问）
+const PROBLEM_META = {
+  // 2024 全国甲卷
+  '2024-gk1-q01': { type:'choice-single', answer:'C' },
+  '2024-gk1-q02': { type:'choice-single', answer:'D' },
+  '2024-gk1-q03': { type:'choice-single', answer:'D' },
+  '2024-gk1-q04': { type:'choice-single', answer:'C' },
+  '2024-gk1-q05': { type:'choice-single', answer:'B' },
+  '2024-gk1-q06': { type:'choice-multi',  answer:'AC' },
+  '2024-gk1-q07': { type:'choice-multi',  answer:'BD' },
+  '2024-gk1-q08': { type:'choice-multi',  answer:'AC' },
+  '2024-gk1-q09': { type:'experiment',    answer:[{sub:'(1)',val:'5.0 N'},{sub:'(2)',val:'失重'},{sub:'(3)',val:'1.0 m/s²'}] },
+  '2024-gk1-q10': { type:'experiment',    answer:[{sub:'(1)',val:'b 端'},{sub:'(2)',val:'1.40 V'},{sub:'(3)',val:'17%'}] },
+  '2024-gk1-q11': { type:'calc',          answer:[{sub:'v =',val:'20 m/s'},{sub:'x =',val:'680 m'}] },
+  '2024-gk1-q12': { type:'calc',          answer:[{sub:'v =',val:'v₀/2'},{sub:'U_C =',val:'BLv₀/4'},{sub:'W =',val:'CU_C²'}] },
+  // 2025 陕晋宁青卷
+  '2025-xgk2-q01': { type:'choice-single', answer:'B' },
+  '2025-xgk2-q02': { type:'choice-single', answer:'A' },
+  '2025-xgk2-q03': { type:'choice-single', answer:'A' },
+  '2025-xgk2-q04': { type:'choice-single', answer:'D' },
+  '2025-xgk2-q06': { type:'choice-single', answer:'D' },
+  '2025-xgk2-q07': { type:'choice-multi',  answer:'AD' },
+  '2025-xgk2-q08': { type:'choice-multi',  answer:'BC' },
+  '2025-xgk2-q09': { type:'choice-multi',  answer:'AC' },
+  '2025-xgk2-q10': { type:'experiment',    answer:[{sub:'(1)',val:'一端垫高'},{sub:'(2)',val:'AC'},{sub:'(3)',val:'乙'}] },
+  '2025-xgk2-q11': { type:'experiment',    answer:[{sub:'(1)',val:'B(②④③)'},{sub:'(2) R =',val:'U/I_g − R_g'},{sub:'(3)',val:'E:2-3, C:1-4, R:1-2'}] },
+  '2025-xgk2-q12': { type:'calc',          answer:[{sub:'p₂ =',val:'p₁T₂V₁/(T₁V₂)'},{sub:'ΔU =',val:'Q − W′'}] },
+  '2025-xgk2-q13': { type:'calc',          answer:[{sub:'e/m =',val:'2v₀/(B₀R)'},{sub:'S =',val:'πR²√(B₀²−B²)/B'}] },
+  '2025-xgk2-q14': { type:'calc',          answer:[{sub:'v_P =',val:'v₀/3'},{sub:'s_B =',val:'v₀t₀/3 − r₀/6'},{sub:'t_F =',val:'2r₀/v₀'}] },
+};
+
 // 按 year×paper 计数
 function countsFor() {
   const m = {};
@@ -117,4 +150,4 @@ function countsFor() {
   return m;
 }
 
-Object.assign(window, { PAPERS, YEARS, PROBLEMS, examCounts: countsFor() });
+Object.assign(window, { PAPERS, YEARS, PROBLEMS, PROBLEM_META, examCounts: countsFor() });

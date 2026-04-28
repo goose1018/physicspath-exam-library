@@ -72,9 +72,13 @@ body.export-mode .mode-pill .dot{background:var(--ppath-amber-600)}
 .layout{display:grid;grid-template-columns:320px minmax(0,1fr) 280px;gap:18px;align-items:start;
   transition:grid-template-columns .3s ease}
 .layout.no-orig{grid-template-columns:minmax(0,1fr) 280px}
-@media(max-width:1100px){.layout{grid-template-columns:300px minmax(0,1fr);gap:16px}
+@media(max-width:1100px){.layout{grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:12px}
   .layout .side-panel{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;flex-direction:initial}}
-@media(max-width:760px){.layout{grid-template-columns:1fr}
+@media(max-width:760px){.layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:10px}
+  .orig-fig img{max-height:160px}
+  .orig-text{font-size:12.5px;line-height:1.65}
+  body{padding:18px 16px}}
+@media(max-width:480px){.layout{grid-template-columns:1fr}
   .layout .side-panel{grid-template-columns:1fr}}
 body.export-mode .layout{grid-template-columns:320px minmax(0,1fr) 0px}
 body.export-mode .layout.no-orig{grid-template-columns:minmax(0,1fr) 0px}
