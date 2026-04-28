@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 6 题 · 双线圈互感</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 4 阶段循环：
+// 1) 闭合开关瞬间：M 中电流由 0 → 稳态，磁通 ↑，P 中感应电流方向使其磁场反向 → 排斥 (A 错)
+// 2) 稳态：M 中电流稳定 → 磁通不变 → P 中感应电流 = 0，电流表读 0 (B 对)
+// 3) 断开开关瞬间：M 磁通 ↓，P 感应电流方向使磁场维持原向 (向右) → 电流方向 b→a (C 错说 a→b)
+// 4) 同上：感应磁场方向向右 (D 错说向左)
+
+const T_total = 12;
+const stageDur = 3;
+
+function evalState(t){
+  const stage = Math.floor((t / stageDur) % 4);
+  const u = (t - stage*stageDur)/stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const cy = H*0.46;
+  const cx = W/2;
+
+  // 铁芯（横向 U）
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(cx-180, cy-60, 360, 16);     // 顶
+  ctx.fillRect(cx-180, cy+44, 360, 16);     // 底
+  ctx.fillRect(cx-180, cy-60, 16, 120);     // 左
+  ctx.fillRect(cx+164, cy-60, 16, 120);     // 右
+
+  // 线圈 M（左）— 多匝
+  for(let i=0; i<6; i++){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    const yy = cy-30 + i*12;
+    ctx.beginPath(); ctx.arc(cx-110, yy, 12, 0, Math.PI*2); ctx.stroke();
+  }
+  // 线圈 P（右）— 较少匝
+  for(let i=0; i<4; i++){
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    const yy = cy-20 + i*14;
+    ctx.beginPath(); ctx.arc(cx+110, yy, 12, 0, Math.PI*2); ctx.stroke();
+  }
+
+  // 电源 + 开关 (M 侧)
+  drawBattery(ctx, cx-200, cy+90, '#c2611f');
+  drawSwitch(ctx, cx-110, cy+90, state.stage === 0 || state.stage === 1, '#1d1d1f');
+  // 引线
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx-110, cy+30); ctx.lineTo(cx-110, cy+90);     // 线圈 M 下端→开关
+  ctx.moveTo(cx-110, cy+30); ctx.lineTo(cx-200, cy+30);
+  ctx.lineTo(cx-200, cy+90);
+  ctx.stroke();
+
+  // 电流表 + 引线 (P 侧)
+  drawAmmeter(ctx, cx+170, cy+90, state, '#3f6f8f');
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx+110, cy+30); ctx.lineTo(cx+110, cy+90);
+  ctx.lineTo(cx+150, cy+90);
+  ctx.moveTo(cx+110, cy+30); ctx.lineTo(cx+50, cy+30);
+  ctx.lineTo(cx+50, cy+90);
+  ctx.lineTo(cx+150, cy+90);     // 不实际，但简化
+  ctx.stroke();
+
+  // 标 a / b 接线柱
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('a', cx+200, cy+85);
+  ctx.fillText('b', cx+200, cy+105);
+
+  // 磁场动画（贯穿铁芯）
+  let phi_dir = 0;     // 0=无磁通 +1=向右 -1=向左
+  let dPhi_dt = 0;
+  if(state.stage === 0){     // 闭合瞬间
+    phi_dir = 1;
+    dPhi_dt = 1;
+  } else if(state.stage === 1){     // 稳态
+    phi_dir = 1;
+    dPhi_dt = 0;
+  } else if(state.stage === 2 || state.stage === 3){     // 断开瞬间 / 持续
+    phi_dir = 1;
+    dPhi_dt = -1;
+  }
+  // 画磁通箭头沿铁芯
+  if(phi_dir !== 0){
+    const opacity = 0.5 + Math.abs(dPhi_dt)*0.4;
+    ctx.strokeStyle = `rgba(31,74,63,${opacity})`;
+    ctx.fillStyle = `rgba(31,74,63,${opacity})`;
+    ctx.lineWidth = 2;
+    PPath.arrow(ctx, cx-50, cy-52, cx+50, cy-52, ctx.fillStyle, 2);
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText('Φ', cx-5, cy-58);
+  }
+
+  // 顶部说明 + 阶段
+  const stageNames = [
+    '阶段 1：闭合开关瞬间 · M 磁场建立 · P 感应电流方向反向 → 互推',
+    '阶段 2：稳态 · M 磁场不变 · P 中无感应电流 · 电流表读 0',
+    '阶段 3：断开开关瞬间 · M 磁场消失 · P 感应电流维持原向 → b→a',
+    '阶段 4：（断开后过渡）· 楞次定律给出 P 中感应电流方向 b→a'
+  ];
+  const stageColors = ['#c2611f', '#16613f', '#b4442e', '#b4442e'];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('双线圈共绕铁芯（M = 主线圈，P = 副线圈）', 24, 22);
+  ctx.fillStyle = stageColors[state.stage];
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(stageNames[state.stage], 24, 44);
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · 闭合瞬间相互吸引', verdict:'错（楞次 → 排斥）'},
+    {opt:'B · 稳态电流表读 0', verdict:'对 ✓（Φ 不变）'},
+    {opt:'C · 断开瞬间 a→b', verdict:'错（应 b→a）'},
+    {opt:'D · 断开瞬间感应磁场向左', verdict:'错（应向右）'}
+  ];
+  let yy = H-130;
+  judgments.forEach((j, i) => {
+    const correct = (i === 1);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 12px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, 24, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.fillText(j.verdict, 200, yy);
+    yy += 22;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, H-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · 稳态 I_P = 0', W-188, H-22);
+}
+
+function drawBattery(ctx, x, y, color){
+  ctx.fillStyle = color;
+  ctx.fillRect(x-2, y-12, 4, 24);
+  ctx.fillRect(x-12, y-6, 4, 12);
+  ctx.fillStyle = color;
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('E', x+10, y+5);
+}
+function drawSwitch(ctx, x, y, closed, color){
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x-15, y); ctx.lineTo(x-3, y);
+  if(closed){
+    ctx.lineTo(x+15, y);
+  } else {
+    ctx.lineTo(x+10, y-12);
+  }
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x-3, y, 2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+15, y, 2, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('S', x-3, y+18);
+}
+function drawAmmeter(ctx, x, y, state, color){
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('A', x-4, y+5);
+  // 指针：根据阶段显示偏转
+  let needle = 0;
+  if(state.stage === 0) needle = 0.6;     // 正向偏转（短暂）
+  else if(state.stage === 1) needle = 0;
+  else if(state.stage === 2) needle = -0.6;     // 反向偏转
+  else needle = 0;
+  const ang = -Math.PI/2 + needle * Math.PI/3;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 12*Math.cos(ang), y + 12*Math.sin(ang));
+  ctx.stroke();
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 6 题 · 3 分',
+  title: '双线圈互感 · 楞次定律',
+  subtitle: '线圈 M 和线圈 P 共绕一铁芯。开关切换时 P 中电流方向？',
+  deliv: {
+    title: '互感 + 楞次定律',
+    sub: '稳态 I_P=0 · 答案 B'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 6 题 · 3 分',
+    image: '../../source/images/image17.png',
+    text: `如图所示，<b>线圈 M</b> 和<b>线圈 P</b> 绕在同一个铁芯上，下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 闭合开关瞬间，线圈 M 和线圈 P 相互吸引',
+      'B. 闭合开关，达到稳定后，电流表的示数为 0',
+      'C. 断开开关瞬间，流过电流表的电流方向由 a 到 b',
+      'D. 断开开关瞬间，线圈 P 中感应电流的磁场方向向左'
+    ],
+    officialAnswer: 'B · A 错：闭合瞬间 P 中感应电流磁场反向 → 互推（不吸引）。B 对：稳态 Φ_M 恒定 → P 中无感应电流。CD 错：断开瞬间 Φ 减小，感应电流磁场维持原向（向右） → 流向 b → a。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 闭合开关瞬间', label_short:'闭合',
+     formula_tex: String.raw`\dot\Phi > 0 \Rightarrow I_P\text{ 反向} \Rightarrow \text{互推}`,
+     note:'M 中电流由 0 升到稳态值 → 磁通增 → P 感应电流方向反向，与 M 排斥（A 错说"吸引"）。'},
+    {label:'阶段 2 · 稳态', label_short:'稳态',
+     formula_tex: String.raw`\dot\Phi = 0 \Rightarrow I_P = 0\;\checkmark`,
+     note:'M 中电流稳定 → Φ 不变 → P 中无感应电流，电流表读 0（B 对）。'},
+    {label:'阶段 3 · 断开开关瞬间', label_short:'断开',
+     formula_tex: String.raw`\dot\Phi < 0 \Rightarrow I_P\text{ 维持原向} \Rightarrow b\to a`,
+     note:'M 中电流瞬时归 0 → Φ 减 → P 感应电流方向让 Φ 维持（向右）→ 实际流过 A 表方向 b→a（C 错）。'},
+    {label:'阶段 4 · 楞次定律小结', label_short:'楞次',
+     formula_tex: String.raw`I_P\text{ 方向阻碍 }\Phi\text{ 变化}`,
+     note:'D 错：感应电流磁场方向向右（不是向左）。'}
+  ],
+  stats: [
+    {label:'阶段',          fmt:s=>['闭合瞬间','稳态','断开瞬间','断开后'][s.stage]},
+    {label:'M 电流',        fmt:s=>['0→I_max','I_max','I_max→0','0'][s.stage]},
+    {label:'磁通 Φ',        fmt:s=>['增','恒','减','0'][s.stage]},
+    {label:'P 感应电流',     fmt:s=>['反向','0','维持原向','0'][s.stage]},
+    {label:'电流表方向',     fmt:s=>['偏转(短暂)','0','b→a','0'][s.stage]}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'排斥不吸引',  note:''},
+    {label_text:'B 对', value_text:'稳态 I=0',    note:'Φ 不变'},
+    {label_text:'C 错', value_text:'b→a 方向',    note:'非 a→b'},
+    {label_text:'D 错', value_text:'磁场向右',    note:'楞次定律'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'线圈 M（主）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'线圈 P（副）'},
+    {swatch:{bg:'rgba(31,74,63,0.6)',border:'#1f3a2e',type:'rect'}, text:'磁通 Φ（铁芯）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024北京-Q6-双线圈互感'
+});
+</script>
+</body>
+</html>

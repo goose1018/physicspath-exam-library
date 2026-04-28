@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 7 题 · 电动汽车制动 · 磁极旋转</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 模型：磁极绕固定线圈旋转。某瞬间 B 与线圈平面垂直 → 磁通量最大 Φ_max
+// 转过 90° → B 平行于线圈 → Φ = 0 → 此时变化率 dΦ/dt 最大 → I 最大
+// 方向（楞次定律）：磁通量减少 → 感应电流方向使磁场维持原方向 → 右手定则给出 Q→P
+
+const T_total = 8;            // 4 周期演示
+const T_period = 2;           // 一周期 2s
+const omega = 2*Math.PI/T_period;
+
+function evalState(t){
+  const angle = omega * t;     // 磁极转过的角度（rad）
+  // 磁通量：Φ = Φ_max · cos(angle)
+  // 电动势 ε = -dΦ/dt = Φ_max · ω · sin(angle)
+  const fluxNorm = Math.cos(angle);     // -1..1
+  const emfNorm = Math.sin(angle);      // -1..1，对应电流方向
+  // 阶段：t=0 时 angle=0 (Φ_max, I=0)；t=T/4 时 angle=π/2 (Φ=0, I_max)
+  const phaseAngle = angle % (2*Math.PI);
+  let phase;
+  if(Math.abs(Math.cos(phaseAngle)) > 0.9) phase = 1;     // 接近最大磁通
+  else if(Math.abs(Math.sin(phaseAngle)) > 0.9) phase = 2; // 接近最大电流
+  else phase = 3;
+  return {phase, angle, fluxNorm, emfNorm, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：磁极 + 线圈示意
+  drawApparatus(ctx, 14, 14, W*0.45, H-28, state);
+  // 右：Φ-t 与 I-t 双曲线
+  drawGraphs(ctx, W*0.46, 14, W*0.52, H-28, state);
+}
+
+function drawApparatus(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('磁极旋转 + 线圈', x+12, y+18);
+
+  const cx = x + w/2, cy = y + h*0.55;
+  const R = Math.min(w, h)*0.32;
+  const angle = state.angle;     // 磁极转过角度
+
+  // 线圈（固定）— 从 P 到 Q 的矩形
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 3;
+  ctx.fillStyle = 'rgba(31,74,63,0.08)';
+  const coilW = R*1.6, coilH = R*0.5;
+  ctx.fillRect(cx-coilW/2, cy-coilH/2, coilW, coilH);
+  ctx.strokeRect(cx-coilW/2, cy-coilH/2, coilW, coilH);
+  // P / Q 标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillText('P', cx-coilW/2-15, cy+5);
+  ctx.fillText('Q', cx+coilW/2+5, cy+5);
+
+  // 磁极（旋转中）：N 极、S 极一对
+  // 磁场方向：从 N 指向 S（穿过线圈中央）
+  const Nx = cx + R*Math.cos(angle - Math.PI/2);
+  const Ny = cy + R*Math.sin(angle - Math.PI/2);
+  const Sx = cx + R*Math.cos(angle + Math.PI/2);
+  const Sy = cy + R*Math.sin(angle + Math.PI/2);
+
+  // 磁场线（从 N 到 S 穿过线圈）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  for(let s=-1; s<=1; s+=0.4){
+    const px0 = Nx + s*15*Math.cos(angle);
+    const py0 = Ny + s*15*Math.sin(angle);
+    const px1 = Sx + s*15*Math.cos(angle);
+    const py1 = Sy + s*15*Math.sin(angle);
+    PPath.arrow(ctx, px0, py0, px1, py1, '#3f6f8f', 1.2);
+  }
+
+  // N 极
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(Nx, Ny, 16, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('N', Nx, Ny+5);
+  // S 极
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(Sx, Sy, 16, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.fillText('S', Sx, Sy+5);
+  ctx.textAlign = 'left';
+
+  // 旋转轴
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+  // 旋转方向箭头
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R*0.55, angle-0.5, angle, false);
+  ctx.stroke();
+  PPath.arrow(ctx, cx+R*0.55*Math.cos(angle-0.05), cy+R*0.55*Math.sin(angle-0.05),
+              cx+R*0.55*Math.cos(angle+0.05), cy+R*0.55*Math.sin(angle+0.05), '#94a09b', 1);
+
+  // 电流方向指示（线圈下方文字）
+  const I = state.emfNorm;
+  let arrowMsg = '电流 ≈ 0';
+  let arrowColor = '#94a09b';
+  if(Math.abs(I) > 0.1){
+    if(I > 0){ arrowMsg = '电流  Q → P'; arrowColor = '#c2611f'; }
+    else      { arrowMsg = '电流  P → Q'; arrowColor = '#16613f'; }
+  }
+  ctx.fillStyle = arrowColor;
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(arrowMsg, cx-coilW/2, cy+coilH/2+30);
+
+  // 当前角度
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText(`角度 ${(state.angle*180/Math.PI).toFixed(0)}° · Φ/Φ_max = ${state.fluxNorm.toFixed(2)}`, x+12, y+h-12);
+}
+
+function drawGraphs(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('磁通量 Φ(t)  与  感应电流 I(t)', x+12, y+18);
+
+  const padL=46, padR=20, padT=32, padB=28;
+  const cw = w-padL-padR;
+  const ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch/2;     // y 中心
+  const xToPx = T => x0 + (T/(T_period*2)) * cw;     // 显示 2 周期
+  const yToPx = Y => y0 - Y * ch/2 * 0.85;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y+padT); ctx.lineTo(x0, y+padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  ctx.fillText('t', x0+cw+4, y0+12);
+  // T 刻度
+  for(let k=0; k<=2; k+=0.25){
+    const px = xToPx(k*T_period);
+    ctx.beginPath(); ctx.moveTo(px, y0-3); ctx.lineTo(px, y0+3); ctx.stroke();
+    if(k % 0.5 === 0) ctx.fillText(k+'T', px-6, y0+16);
+  }
+
+  // Φ(t) 曲线（蓝）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let s=0; s<=T_period*2; s+=0.01){
+    const phi = Math.cos(omega*s);
+    const px = xToPx(s), py = yToPx(phi);
+    if(s===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // I(t) 曲线 = -dΦ/dt（橙）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let s=0; s<=T_period*2; s+=0.01){
+    const I = Math.sin(omega*s);
+    const px = xToPx(s), py = yToPx(I);
+    if(s===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 标签
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('Φ(t) = Φ_max·cos(ωt)', x0+8, y+padT+14);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('I(t) ∝ sin(ωt)', x0+8, y+padT+30);
+
+  // 当前时刻竖线
+  const tMod = state.t % (T_period*2);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(xToPx(tMod), y+padT); ctx.lineTo(xToPx(tMod), y+padT+ch); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 当前点
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(xToPx(tMod), yToPx(state.fluxNorm), 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(xToPx(tMod), yToPx(state.emfNorm), 4, 0, Math.PI*2); ctx.fill();
+
+  // 关键时刻标注
+  // t=0: Φ_max, I=0 → "题目初始" (B 与线圈平面垂直)
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('B⊥线圈', xToPx(0)+4, yToPx(1)-4);
+  // t=T/4: Φ=0, |I|_max → 答案：转过 90° 时电流最大
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('转 90° → I_max', xToPx(T_period/4)+4, yToPx(0)-8);
+
+  // 答案标
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-180, y+h-44, 168, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 BD · I 最大 + Q→P', x+w-170, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '电动汽车制动 · 磁极旋转 + 线圈',
+  subtitle: '磁极绕固定线圈匀速转动。某瞬间磁场方向与线圈平面垂直 → 再转 90° 时电流如何？',
+  deliv: {
+    title: '磁极旋转感应电动势',
+    sub: 'I_max 在 Φ=0 时刻 · 楞次定律给方向 · 答案 BD'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 7 题 · 6 分',
+    image: '../../source/images/image35.png',
+    text: `电动汽车制动时可利用车轮转动将其动能转换成电能储存起来。车轮转动时带动磁极绕固定的线圈旋转，在线圈中产生电流。<b>磁极匀速转动的某瞬间，磁场方向恰与线圈平面垂直</b>，如图所示。将两磁极间的磁场视为匀强磁场，则<b>磁极再转过 90° 时</b>，线圈中（　　）`,
+    subQuestions: [
+      'A. 电流最小',
+      'B. 电流最大',
+      'C. 电流方向由 P 指向 Q',
+      'D. 电流方向由 Q 指向 P'
+    ],
+    officialAnswer: 'BD · 初始 B⊥线圈平面 → 此时穿过线圈磁通 Φ_max 但 dΦ/dt = 0 → 电流为 0（不是最小化的反义"最小"，而是恰好 0）。再转 90°：磁场与线圈共面 → Φ = 0 但 |dΦ/dt| 最大 → 电流最大。方向由楞次定律：磁通量正在减小 → 感应电流方向使磁场维持 → 右手定则给出 Q → P。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · B⊥线圈 (Φ_max)', label_short:'起始',
+     formula_tex: String.raw`\Phi = \Phi_{\max},\quad \dot\Phi = 0,\quad I = 0`,
+     note:'磁场垂直穿过线圈面 → 磁通量最大但变化率为 0 → 电流为 0。'},
+    {label:'阶段 2 · 转过 90° (I_max)', label_short:'I_max',
+     formula_tex: String.raw`\Phi = 0,\quad |\dot\Phi| = \Phi_{\max}\omega,\quad |I| = I_{\max}`,
+     note:'磁场与线圈共面 → 磁通量为 0 但变化率最大 → 电流最大。方向（楞次）：Q→P。'},
+    {label:'阶段 3 · 中间', label_short:'变化',
+     formula_tex: String.raw`\Phi = \Phi_{\max}\cos(\omega t)`,
+     note:'磁通量随余弦变化，电流随正弦变化，两者相位差 π/2。'}
+  ],
+  stats: [
+    {label:'周期 T',          fmt:()=>T_period+' s（演示）'},
+    {label:'当前角度',         fmt:s=>(s.angle*180/Math.PI).toFixed(0)+'°'},
+    {label:'Φ / Φ_max',       fmt:s=>s.fluxNorm.toFixed(2)},
+    {label:'I / I_max',        fmt:s=>s.emfNorm.toFixed(2)},
+    {label:'电流方向',         fmt:s=>Math.abs(s.emfNorm)<0.1?'≈ 0':(s.emfNorm>0?'Q → P':'P → Q')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'I 最大', note:'是最大不是最小'},
+    {label_text:'B 对', value_text:'I_max',  note:'Φ=0 处 dΦ/dt 最大'},
+    {label_text:'C 错', value_text:'方向反', note:'P→Q 是反向'},
+    {label_text:'D 对', value_text:'Q → P', note:'楞次定律 + 右手'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'磁极 N'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'磁极 S'},
+    {swatch:{bg:'rgba(31,74,63,0.3)',border:'#1d1d1f',type:'rect'}, text:'固定线圈（P-Q）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁通量 Φ(t)'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'感应电流 I(t)'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024新课标-Q7-磁极旋转'
+});
+</script>
+</body>
+</html>

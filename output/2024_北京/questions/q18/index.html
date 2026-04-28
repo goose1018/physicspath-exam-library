@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 18 题 · 动量守恒（斜槽碰撞 + 摆球）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 两版动量守恒验证：
+// 版本 1（斜槽 + 平抛）：m₁·OP = m₁·OM + m₂·ON
+// 版本 2（摆球碰撞）：ml₁ = -ml₂ + Ml₃ (l 是弦长，正比于速度)
+
+const T_total = 8;
+const stageDur = 4;     // 两版各 4s
+
+function evalState(t){
+  const stage = Math.floor((t/stageDur) % 2);
+  const u = (t - stage*stageDur)/stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  if(state.stage === 0){
+    drawProjectileVersion(ctx, state);
+  } else {
+    drawPendulumVersion(ctx, state);
+  }
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-360, H-44, 348, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) AC  (2) m₁·OP = m₁·OM + m₂·ON  (3) ml₁ = -ml₂ + Ml₃', W-348, H-22);
+}
+
+function drawProjectileVersion(ctx, state){
+  const W = ctx.canvas.width / (devicePixelRatio||1);
+  const H = ctx.canvas.height / (devicePixelRatio||1);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('版本 1：斜槽 + 平抛 · m₁·OP = m₁·OM + m₂·ON', 24, 22);
+
+  // 桌面 + 斜槽 + 木板
+  const tableY = H*0.35;
+  const tableX0 = 30, tableX1 = W*0.4;
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(tableX0, tableY, tableX1-tableX0, 8);
+  // 斜槽
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(tableX0+30, tableY-80);
+  ctx.quadraticCurveTo(tableX0+50, tableY+10, tableX1-30, tableY-2);
+  ctx.lineTo(tableX1, tableY-2);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('S', tableX0+15, tableY-78);
+
+  // 木板（地面）
+  const boardY = H*0.78;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(tableX1-30, boardY, W-tableX1, 8);
+  ctx.fillStyle = '#fdfaf2';
+  ctx.fillRect(tableX1-30, boardY-3, W-tableX1, 3);
+
+  // O 点
+  const Ox = tableX1, Oy = boardY;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Ox, Oy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('O', Ox-12, Oy+18);
+
+  // 三个落点 P, M, N
+  const Px = Ox + 240, Mx = Ox + 80, Nx = Ox + 280;
+  drawHit(ctx, Px, Oy, '#3f6f8f', 'P  (m₁ 单独)');
+  drawHit(ctx, Mx, Oy, '#c2611f', 'M  (m₁ 碰后)');
+  drawHit(ctx, Nx, Oy, '#16613f', 'N  (m₂ 碰后)');
+
+  // 距离尺
+  drawRulerLine(ctx, Ox, Px, Oy+30, '#3f6f8f', 'OP');
+  drawRulerLine(ctx, Ox, Mx, Oy+50, '#c2611f', 'OM');
+  drawRulerLine(ctx, Ox, Nx, Oy+70, '#16613f', 'ON');
+
+  // 公式
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-150, 360, 100, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 实验前提：A 末端水平 + C 大碰小（不反弹）', 32, H-130);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('平抛 t 相同 → v ∝ x（水平位移）', 32, H-110);
+  ctx.fillText('动量守恒：m₁·v₀ = m₁·v_a\' + m₂·v_b\'', 32, H-90);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('m₁·OP = m₁·OM + m₂·ON', 32, H-66);
+}
+
+function drawPendulumVersion(ctx, state){
+  const W = ctx.canvas.width / (devicePixelRatio||1);
+  const H = ctx.canvas.height / (devicePixelRatio||1);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('版本 2：双摆球碰撞 · 弦长 l 正比于速度 → ml₁ = -ml₂ + Ml₃', 24, 22);
+
+  // 双摆挂点 O 和 O'
+  const xL = W*0.35, xR = W*0.55;
+  const yCeil = 50;
+  const L_rope = 200;
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(xL-50, yCeil-10, (xR-xL)+100, 8);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(xL, yCeil-2, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(xR, yCeil-2, 3, 0, Math.PI*2); ctx.fill();
+
+  // 用 state.u (0..1) 演示：
+  // u in [0, 0.3]: 球 1 从 A 摆到 B（最低点）
+  // u in [0.3, 0.4]: 碰撞瞬间
+  // u in [0.4, 1.0]: 球 1 反弹到 A'，球 2 摆到 D
+  const phaseU = state.u;
+  let theta1, theta2;
+  const angA = -Math.PI/4;     // 起始角（A 在 B 左侧 45°）
+  const angAp = Math.PI/8;     // 碰后回弹（小一点）
+  const angD = -Math.PI/6;     // 球 2 摆到 D 的角（向左？反，反向）
+  // 实际：球 1 在右挂点 (...) 实际太复杂，简化两球分别挂左右
+  if(phaseU < 0.4){
+    // 球 1 从 A 到 B
+    const k = phaseU / 0.4;
+    theta1 = angA * (1 - k);     // 从 -π/4 → 0
+    theta2 = 0;                   // 球 2 静止
+  } else {
+    const k = (phaseU - 0.4) / 0.6;
+    theta1 = angAp * k;     // 球 1 反弹（左侧小角度）
+    theta2 = -angD * k;      // 球 2 向右（D 方向）
+  }
+
+  // 球 1 (m, 小球)
+  const ball1_x = xL + L_rope*Math.sin(theta1);
+  const ball1_y = yCeil + L_rope*Math.cos(theta1);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(xL, yCeil); ctx.lineTo(ball1_x, ball1_y); ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(ball1_x, ball1_y, 10, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('m', ball1_x, ball1_y+4);
+
+  // 球 2 (M, 大球)
+  const ball2_x = xR + L_rope*Math.sin(theta2);
+  const ball2_y = yCeil + L_rope*Math.cos(theta2);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(xR, yCeil); ctx.lineTo(ball2_x, ball2_y); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(ball2_x, ball2_y, 13, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.fillText('M', ball2_x, ball2_y+4);
+  ctx.textAlign = 'left';
+
+  // 标记 A, B, A', D
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('A (起始)', xL + L_rope*Math.sin(angA) - 30, yCeil + L_rope*Math.cos(angA) + 18);
+  ctx.fillText('B (碰撞)', xL - 25, yCeil + L_rope + 18);
+  ctx.fillText('D (右最高)', xR + L_rope*Math.sin(-angD) - 5, yCeil + L_rope*Math.cos(-angD) + 18);
+
+  // 公式
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-150, 380, 100, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('弦长正比于速度（动能定理 + 几何）', 32, H-130);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('½m·v² = mg·h，h = L(1-cosθ)，l = 2L·sin(θ/2)', 32, H-110);
+  ctx.fillText('→ v ∝ l，所以 m₁·v₁ = -m·v₂ + M·v₃ ⇔', 32, H-90);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('ml₁ = -ml₂ + Ml₃', 32, H-66);
+}
+
+function drawHit(ctx, x, y, color, label){
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, x-25, y-12);
+}
+function drawRulerLine(ctx, x0, x1, y, color, label){
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x0, y-3); ctx.lineTo(x0, y+3); ctx.moveTo(x1, y-3); ctx.lineTo(x1, y+3); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText(label, (x0+x1)/2-12, y-6);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 18 题',
+  title: '动量守恒 · 斜槽碰撞 + 摆球',
+  subtitle: '两种装置验证动量守恒：(a) 斜槽 + 平抛落点；(b) 双摆球碰撞 + 弦长。',
+  deliv: {
+    title: '动量守恒 · 双方案',
+    sub: 'm₁·OP = m₁·OM + m₂·ON · ml₁ = -ml₂ + Ml₃'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 18 题',
+    image: '../../source/images/image60.png',
+    text: `让两个小球在斜槽末端碰撞来验证动量守恒定律。`,
+    subQuestions: [
+      '(1) 实验做法正确的是 ____ ：A 末端水平、B 半径相同、C 大碰小',
+      '(2) 平均落点确定方法 + 验证关系式 ____',
+      '(3) 受启发的双摆方案，弦长 AB = l₁、A\'B = l₂、CD = l₃，验证关系式 ____'
+    ],
+    officialAnswer: '(1) AC（A 对：保证平抛；B 错：半径需相同；C 对：避免反弹）。(2) 用最小圆覆盖落点取圆心；m₁·OP = m₁·OM + m₂·ON。(3) ml₁ = -ml₂ + Ml₃（弦长 ∝ 速度）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'版本 1 · 斜槽 + 平抛', label_short:'平抛',
+     formula_tex: String.raw`m_1\!\cdot\!OP = m_1\!\cdot\!OM + m_2\!\cdot\!ON`,
+     note:'两球离开斜槽末端 h 相同 → t 相同 → v ∝ 水平位移。动量守恒等价于 OP = OM + (m₂/m₁)·ON。'},
+    {label:'版本 2 · 双摆 + 弦长', label_short:'摆球',
+     formula_tex: String.raw`ml_1 = -m l_2 + M l_3`,
+     note:'摆球摆到最高点 h = L(1-cosθ)，弦长 l = 2L·sin(θ/2)。由 ½v² = gh + 几何 → v ∝ l。所以动量方程换成弦长方程。'}
+  ],
+  stats: [
+    {label:'方案 1',  fmt:()=>'斜槽 + 平抛'},
+    {label:'方案 2',  fmt:()=>'双摆球 + 弦长'},
+    {label:'核心',    fmt:()=>'v ∝ 可测距离'},
+    {label:'(1) 答',  fmt:()=>'AC'},
+    {label:'(2) 答',  fmt:()=>'m₁·OP = m₁·OM + m₂·ON'},
+    {label:'(3) 答',  fmt:()=>'ml₁ = -ml₂ + Ml₃'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'AC',                       note:'末端水平+大碰小'},
+    {label_text:'(2)', value_text:'m₁·OP = m₁·OM + m₂·ON',    note:'平抛 v∝x'},
+    {label_text:'(3)', value_text:'ml₁ = -ml₂ + Ml₃',         note:'摆 v∝l'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'P 落点（单球）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'M / 球 1（碰后）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'N / 球 2（被碰）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024北京-Q18-动量守恒'
+});
+</script>
+</body>
+</html>

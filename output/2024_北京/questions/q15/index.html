@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 15 题 · 玻璃折射率</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 折射定律：n = sin(i) / sin(r)
+// 演示：i=60°, r ≈ 35° → n ≈ √3/sin(35°)·... 让 n=1.5
+// sin(i) = n·sin(r) → 给定 i 求 r 或反之
+
+const i_angle = 60 * Math.PI/180;     // 入射角
+const n_glass = 1.5;
+const r_angle = Math.asin(Math.sin(i_angle) / n_glass);     // 折射角
+
+const T_total = 5;
+
+function evalState(t){
+  // 阶段 1：入射光画下来 (0~1.5s)
+  // 阶段 2：折射光画下去 (1.5~3s)
+  // 阶段 3：标角度 + 公式 (3~5s)
+  let phase, lightPos;
+  if(t < 1.5){
+    phase = 1;
+    lightPos = t/1.5;
+  } else if(t < 3){
+    phase = 2;
+    lightPos = (t-1.5)/1.5;
+  } else {
+    phase = 3;
+    lightPos = 1;
+  }
+  return {phase, lightPos, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const cx = W*0.45, cy = H*0.45;
+  const interfaceY = cy;
+  const surfaceLen = 220;
+
+  // 玻璃 (下半)
+  ctx.fillStyle = 'rgba(108,142,162,0.18)';
+  ctx.fillRect(cx-surfaceLen/2, interfaceY, surfaceLen, H-interfaceY-100);
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.strokeRect(cx-surfaceLen/2, interfaceY, surfaceLen, H-interfaceY-100);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('玻璃 (n)', cx-30, interfaceY+25);
+  ctx.fillText('空气 (n=1)', cx-40, interfaceY-12);
+
+  // 法线（垂直于界面）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(cx, interfaceY-100); ctx.lineTo(cx, interfaceY+120); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 入射光线
+  const incidentLen = 130;
+  const inc_x_start = cx - incidentLen*Math.sin(i_angle);
+  const inc_y_start = interfaceY - incidentLen*Math.cos(i_angle);
+  if(state.phase === 1){
+    // 渐进绘制
+    const cur_x = inc_x_start + (cx - inc_x_start)*state.lightPos;
+    const cur_y = inc_y_start + (interfaceY - inc_y_start)*state.lightPos;
+    drawLightArrow(ctx, inc_x_start, inc_y_start, cur_x, cur_y, '#c2611f');
+  } else {
+    drawLightArrow(ctx, inc_x_start, inc_y_start, cx, interfaceY, '#c2611f');
+  }
+
+  // 折射光线
+  const refrLen = 130;
+  const refr_x_end = cx + refrLen*Math.sin(r_angle);
+  const refr_y_end = interfaceY + refrLen*Math.cos(r_angle);
+  if(state.phase === 2){
+    const cur_x = cx + (refr_x_end - cx)*state.lightPos;
+    const cur_y = interfaceY + (refr_y_end - interfaceY)*state.lightPos;
+    drawLightArrow(ctx, cx, interfaceY, cur_x, cur_y, '#16613f');
+  } else if(state.phase === 3){
+    drawLightArrow(ctx, cx, interfaceY, refr_x_end, refr_y_end, '#16613f');
+  }
+
+  // 角度弧
+  if(state.phase >= 3 || state.phase === 2){
+    // 入射角 i (法线与入射光线之间的角，在玻璃上方)
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, interfaceY, 38, -Math.PI/2, -Math.PI/2 - i_angle, true);
+    ctx.stroke();
+    ctx.fillStyle = '#c2611f';
+    ctx.font = 'italic 700 13px Georgia,serif';
+    ctx.fillText('i', cx-22, interfaceY-30);
+  }
+  if(state.phase >= 3){
+    // 折射角 r (法线与折射光线之间的角，在玻璃下方)
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, interfaceY, 38, Math.PI/2, Math.PI/2 - r_angle, true);
+    ctx.stroke();
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 700 13px Georgia,serif';
+    ctx.fillText('r', cx+12, interfaceY+34);
+  }
+
+  // 法线标
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 600 11px Georgia,serif';
+  ctx.fillText('法线', cx+5, interfaceY-110);
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('折射定律：n = sin(i) / sin(r)', 24, 22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-110, 360, 88, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('折射定律推导', 32, H-88);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12.5px "Cambria Math",serif';
+  ctx.fillText('sin(i) / sin(r) = n_2 / n_1', 32, H-66);
+  ctx.fillText('空气 → 玻璃：n_1 = 1, n_2 = n', 32, H-46);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('n = sin(i) / sin(r)', 32, H-22);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, H-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 n = sin(i)/sin(r)', W-188, H-22);
+
+  // 实时数值
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(`i = ${(i_angle*180/Math.PI).toFixed(0)}° · r = ${(r_angle*180/Math.PI).toFixed(1)}° · n = ${n_glass}（演示）`, W-280, 22);
+}
+
+function drawLightArrow(ctx, x0, y0, x1, y1, color){
+  ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  // 中段箭头
+  const mx = (x0+x1)/2, my = (y0+y1)/2;
+  const dx = x1-x0, dy = y1-y0, len = Math.hypot(dx,dy);
+  if(len > 30){
+    const a = Math.atan2(dy, dx);
+    PPath.arrow(ctx, mx-10*Math.cos(a), my-10*Math.sin(a), mx+10*Math.cos(a), my+10*Math.sin(a), color, 1.5);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 15 题',
+  title: '玻璃折射率测量',
+  subtitle: '已测出入射角 i 和折射角 r。求玻璃折射率 n。',
+  deliv: {
+    title: '折射率测量',
+    sub: 'n = sin(i) / sin(r)'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 15 题',
+    image: '../../source/images/image51.png',
+    text: `某同学测量玻璃的折射率，作出了如图所示的光路图，测出了<b>入射角 i</b> 和<b>折射角 r</b>，则此玻璃的折射率 <b>n = ?</b>`,
+    subQuestions: [],
+    officialAnswer: 'n = sin(i) / sin(r) · 由折射定律 n_1·sin(i) = n_2·sin(r)，空气 n_1 = 1，玻璃 n_2 = n → n = sin(i) / sin(r)。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 入射光（空气中）', label_short:'入射',
+     formula_tex: String.raw`\text{光从空气进入玻璃，与法线成角 } i`,
+     note:'入射光线沿空气方向射向玻璃表面，与法线夹角 i。'},
+    {label:'阶段 2 · 折射光（玻璃中）', label_short:'折射',
+     formula_tex: String.raw`\text{光在玻璃中弯向法线，角 } r < i`,
+     note:'光进入更密介质，弯向法线（折射角 r 小于入射角 i）。'},
+    {label:'阶段 3 · 折射定律', label_short:'公式',
+     formula_tex: String.raw`n = \dfrac{\sin i}{\sin r}`,
+     note:'折射定律：n_1·sin(i) = n_2·sin(r)。空气 n_1 = 1 → n = sin(i)/sin(r)。'}
+  ],
+  stats: [
+    {label:'入射角 i',  fmt:()=>(i_angle*180/Math.PI).toFixed(0)+'°（演示）'},
+    {label:'折射角 r',  fmt:()=>(r_angle*180/Math.PI).toFixed(1)+'°（演示）'},
+    {label:'空气 n_1',  fmt:()=>'1'},
+    {label:'玻璃 n_2',  fmt:()=>n_glass+'（演示）'},
+    {label:'公式',       fmt:()=>'n = sin(i)/sin(r)'}
+  ],
+  conclusions: [
+    {label_text:'答案', value_text:'n = sin(i)/sin(r)', note:'折射定律'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'入射光线（空气中）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'折射光线（玻璃中）'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'法线（虚线）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024北京-Q15-折射率'
+});
+</script>
+</body>
+</html>

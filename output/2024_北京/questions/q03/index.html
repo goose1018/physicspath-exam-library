@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 题 · 气泡上浮 · 等温膨胀</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 气泡从底部缓慢上浮：恒温水槽
+// p = p₀ + ρgh，h ↓ → p ↓
+// 等温 pV = const → p ↓ → V ↑
+// 等温过程内能不变（理想气体）
+// 气体对外做功 W_气>0（V↑），ΔU=0 → Q = ΔU - (-W_气) = W_气 → Q > 0 吸热
+
+const T_total = 6;
+
+function evalState(t){
+  const u = (t / T_total) % 1;     // 0..1 完整上升一次
+  const depthFrac = 1 - u;     // 1=底部, 0=水面
+  const p_rel = 0.4 + depthFrac * 0.6;     // 压强（相对）
+  const V_rel = 0.6 / p_rel;     // 玻意耳定律 pV=const=0.6 (在 p=1, V=0.6 时) → 在 p=0.4, V=1.5
+  const phase = depthFrac > 0.5 ? 1 : 2;
+  return {phase, depthFrac, p_rel, V_rel, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：水槽 + 气泡
+  drawTank(ctx, 14, 14, W*0.4-21, H-28, state);
+  // 右：p-V 图 + 4 个判断
+  drawPVAndJudge(ctx, W*0.4+7, 14, W*0.6-21, H-28, state);
+}
+
+function drawTank(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('恒温水槽（T 不变）', x+12, y+18);
+
+  const tankX0 = x+30, tankY0 = y+34, tankW = w-60, tankH = h-90;
+  // 水
+  const grd = ctx.createLinearGradient(0, tankY0, 0, tankY0+tankH);
+  grd.addColorStop(0, '#cfe0e8');
+  grd.addColorStop(1, '#88a4ae');
+  ctx.fillStyle = grd;
+  ctx.fillRect(tankX0, tankY0, tankW, tankH);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.strokeRect(tankX0, tankY0, tankW, tankH);
+
+  // 水面波纹
+  ctx.strokeStyle = '#fff8'; ctx.lineWidth = 1;
+  for(let xi=tankX0; xi<tankX0+tankW; xi+=15){
+    ctx.beginPath();
+    ctx.moveTo(xi, tankY0+3);
+    ctx.quadraticCurveTo(xi+5, tankY0, xi+10, tankY0+3);
+    ctx.stroke();
+  }
+
+  // 气泡（位置 + 大小）
+  const bubX = tankX0 + tankW/2;
+  const bubY = tankY0 + tankH * state.depthFrac;
+  const bubR = 8 + state.V_rel * 12;     // 体积越大半径越大
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(bubX, bubY, bubR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // 高光
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.beginPath(); ctx.arc(bubX-bubR*0.3, bubY-bubR*0.3, bubR*0.25, 0, Math.PI*2); ctx.fill();
+
+  // 深度标
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(tankX0+tankW+5, tankY0); ctx.lineTo(tankX0+tankW+5, bubY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#fdfaf2';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText('h', tankX0+tankW+10, (tankY0+bubY)/2);
+
+  // 数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px ui-monospace,monospace';
+  ctx.fillText(`p = ${state.p_rel.toFixed(2)} p_atm`, x+12, y+h-44);
+  ctx.fillText(`V/V₀ = ${state.V_rel.toFixed(2)}`, x+12, y+h-26);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('深度越浅 → 压强越小 → 体积越大', x+12, y+h-10);
+}
+
+function drawPVAndJudge(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('p-V 图 · 等温线 pV = const', x+12, y+18);
+
+  // p-V 图
+  const padL=44, padR=20, padT=32, padB=130;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('p', x0-12, y+padT-2);
+  ctx.fillText('V', x0+cw+4, y0+12);
+
+  // 等温曲线 pV=k (k=0.6)
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let V=0.5; V<=2.5; V+=0.02){
+    const p = 0.6 / V;
+    const px = x0 + (V/3) * cw;
+    const py = y0 - (p/1.2) * ch;
+    if(V===0.5) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('等温线 (T = const)', x0+cw*0.5, y+padT+12);
+
+  // 当前点
+  const pxNow = x0 + (state.V_rel/3)*cw;
+  const pyNow = y0 - (state.p_rel/1.2)*ch;
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(pxNow, pyNow, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 上升箭头：从底部起点到水面终点
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(x0+(0.6/3)*cw, y0-(1/1.2)*ch); ctx.lineTo(x0+(1.5/3)*cw, y0-(0.4/1.2)*ch);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · 内能变大', verdict:'错（T 不变 → 内能不变）'},
+    {opt:'B · 压强变大', verdict:'错（h 减 → p 减）'},
+    {opt:'C · 体积不变', verdict:'错（pV=C → V 增）'},
+    {opt:'D · 从水中吸热', verdict:'对 ✓（W>0 ΔU=0 → Q>0）'}
+  ];
+  let yy = y0 + 50;
+  judgments.forEach((j, i) => {
+    const correct = (i === 3);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 12px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+12, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.font = '700 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+118, yy);
+    yy += 22;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-160, y+h-44, 148, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 D · 吸热', x+w-140, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 3 分',
+  title: '气泡上浮 · 等温膨胀',
+  subtitle: '气泡从恒温水槽底部缓慢上浮，分子数与外界大气压不变。气泡内气体如何变化？',
+  deliv: {
+    title: '气泡上浮 · 等温过程',
+    sub: 'p ↓ V ↑ ΔU=0 → Q > 0 吸热 · 答案 D'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 3 题 · 3 分',
+    text: `一个气泡从<b>恒温水槽</b>的底部缓慢上浮，将气泡内的气体视为理想气体，且气体分子个数不变，外界大气压不变。在上浮过程中气泡内气体（　　）`,
+    subQuestions: ['A. 内能变大','B. 压强变大','C. 体积不变','D. 从水中吸热'],
+    officialAnswer: 'D · A 错（恒温 → 内能不变）。B 错（深度减小 p = p₀ + ρgh 也减）。C 错（pV=const → V 增）。D 对：气体对外做功 W>0，等温 ΔU=0，由热一律 Q = ΔU + W_对外 = W > 0 → 吸热。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 深处（高 p 小 V）', label_short:'底',
+     formula_tex: String.raw`p_1 V_1 = p_2 V_2 \;(\text{等温})`,
+     note:'气泡在底部：压强大（p₀+ρgh），体积小。'},
+    {label:'阶段 2 · 浅处（低 p 大 V）', label_short:'顶',
+     formula_tex: String.raw`Q = \Delta U + W = 0 + W > 0`,
+     note:'上浮时 V 增 → 气体对外做功 → 等温 ΔU=0 → 吸热。'}
+  ],
+  stats: [
+    {label:'温度 T',      fmt:()=>'恒定（题设）'},
+    {label:'内能 ΔU',     fmt:()=>'0（理想气体等温）'},
+    {label:'当前 p',      fmt:s=>s.p_rel.toFixed(2)+' p_atm'},
+    {label:'当前 V',      fmt:s=>s.V_rel.toFixed(2)+' V₀'},
+    {label:'对外做功 W',  fmt:()=>'> 0（V 增）'},
+    {label:'热量 Q',      fmt:()=>'> 0（吸热）'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'内能不变', note:'T 不变'},
+    {label_text:'B 错', value_text:'压强减',   note:'h 减'},
+    {label_text:'C 错', value_text:'体积增',   note:'pV=C'},
+    {label_text:'D 对', value_text:'吸热',     note:'W>0,ΔU=0'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(255,255,255,0.6)',border:'#1d1d1f',type:'dot'}, text:'气泡（理想气体）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'等温线 pV=const'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024北京-Q3-气泡上浮'
+});
+</script>
+</body>
+</html>

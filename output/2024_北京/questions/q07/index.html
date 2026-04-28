@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 7 题 · 弹簧 + 半圆轨道</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：恰好能到 C → C 处只受重力且重力提供向心力
+// mg = mv²/r → v_C² = gr → v_C = √(gr)
+// 在 C：a_向心 = v²/r = g (C 答案对)
+// 弹性势能 E_p = ½mv_C² + mg·2r = ½mgr + 2mgr = 2.5mgr (D 错说仅 = 动能)
+
+const r_circle = 1.0;     // 半圆半径
+const g = 10;
+const v_C = Math.sqrt(g * r_circle);     // 顶点速度
+const v_B = Math.sqrt(v_C*v_C + 2*g*2*r_circle);     // sqrt(gr + 4gr) = sqrt(5gr)
+
+const T_total = 6;
+
+function evalState(t){
+  // 沿 A→B→C→D→B→A 路径动画
+  // 我们简单地把整个轨道参数化
+  // 总长 = AB + 半圆周 = (let AB=2r) + πr ≈ 2 + π
+  const total = 2*r_circle + Math.PI*r_circle;
+  const u = (t / T_total) % 1;
+  const dist = u * total;
+  let phase, x, y, v, a;
+  if(dist < 2*r_circle){
+    // AB 段水平
+    phase = 1;
+    x = dist;     // 0..2
+    y = 0;
+    v = v_B;
+    a = 0;
+  } else {
+    // 半圆 BC: B 在底部，C 在顶部
+    phase = 2;
+    const arcD = dist - 2*r_circle;
+    const ang = arcD / r_circle;     // 0..π
+    // 圆心在 (2r, r)，从 B(2r, 0) 顺时针到 C(2r, 2r)
+    x = 2*r_circle + r_circle*Math.sin(ang);
+    y = r_circle - r_circle*Math.cos(ang);
+    // 由能量守恒：½mv² + mgy = E_total
+    // v_at_y² = v_B² - 2gy
+    const v2 = Math.max(0, v_B*v_B - 2*g*y);
+    v = Math.sqrt(v2);
+    a = v2/r_circle;     // 向心加速度
+  }
+  return {phase, x, y, v, a, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 像素 / 米
+  const pxPerM = Math.min((W-200)/4.5, (H-200)/2.5);
+  const cx0 = 80;
+  const cy0 = H*0.78;     // 水平轨道 y 位置（地面）
+  const xToPx = X => cx0 + X*pxPerM;
+  const yToPx = Y => cy0 - Y*pxPerM;
+
+  // 弹簧（A 点）
+  const xA = -0.4;
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 2;
+  // 弹簧（左侧固定壁）
+  ctx.fillStyle = '#444a52';
+  ctx.fillRect(xToPx(-0.6), cy0-30, 5, 60);
+  // 弹簧
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.05){
+    const xx = xToPx(-0.55 + 0.55*s);
+    const yy = cy0 + Math.sin(s*Math.PI*8)*5;
+    if(s===0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  }
+  ctx.stroke();
+
+  // 水平轨道 AB
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(xToPx(0), yToPx(0));
+  ctx.lineTo(xToPx(2*r_circle), yToPx(0));
+  ctx.stroke();
+
+  // 半圆轨道 BC
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(xToPx(2*r_circle), yToPx(r_circle), r_circle*pxPerM, Math.PI/2, -Math.PI/2);
+  ctx.stroke();
+
+  // 标 A B C 三点
+  drawPointLabel(ctx, xToPx(0), yToPx(0)+20, 'A', '#3f6f8f');
+  drawPointLabel(ctx, xToPx(2*r_circle), yToPx(0)+20, 'B', '#3f6f8f');
+  drawPointLabel(ctx, xToPx(2*r_circle), yToPx(2*r_circle)-12, 'C (顶)', '#c2611f');
+  // 半径
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(xToPx(2*r_circle), yToPx(r_circle)); ctx.lineTo(xToPx(3*r_circle), yToPx(r_circle));
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('r', xToPx(2.5*r_circle), yToPx(r_circle)-6);
+
+  // 物体当前位置
+  const px = xToPx(state.x);
+  const py = yToPx(state.y);
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // 在顶点 C 时显示力分析
+  if(state.phase === 2 && Math.abs(state.y - 2*r_circle) < 0.05){
+    // 重力 mg
+    PPath.arrow(ctx, px, py, px, py+30, '#b4442e', 2);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '900 12px "Cambria Math",serif';
+    ctx.fillText('mg', px+5, py+25);
+    // 向心加速度 g
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('a = g (向心)', px+15, py+45);
+  }
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('恰好到达 C 点 → C 处只受重力且重力提供向心力', 24, 22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, 36, 360, 110, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('在 C 点（顶点）：', 32, 56);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('mg = mv_C² / r  →  v_C² = g·r ≠ 0', 32, 76);
+  ctx.fillText('向心加速度 a = v_C²/r = g  ✓ C 对', 32, 94);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量：E_弹 = ½mv_C² + mg·2r = 2.5 mgr', 32, 114);
+  ctx.fillText('       (不只 = 动能 → D 错)', 32, 132);
+
+  // 数据
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`v = ${state.v.toFixed(2)} m/s, a_向心 = ${state.a.toFixed(2)} m/s²`, 24, H-44);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, H-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 C · a_C = g (向心)', W-188, H-22);
+}
+
+function drawPointLabel(ctx, x, y, label, color){
+  ctx.fillStyle = color;
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText(label, x-6, y);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 7 题 · 3 分',
+  title: '弹簧 + 光滑半圆轨道',
+  subtitle: '物体在 A 弹簧释放 → 水平 AB → 半圆 BC，恰好到达 C 顶点。判断 C 处力学量。',
+  deliv: {
+    title: '半圆顶点临界条件',
+    sub: '重力=向心力 → a_C = g · 答案 C'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 7 题 · 3 分',
+    image: '../../source/images/image18.png',
+    text: `如图所示，光滑水平轨道 AB 与竖直面内的光滑半圆形轨道 BC 在 B 点平滑连接。一小物体将轻弹簧压缩至 A 点后由静止释放，物体脱离弹簧后进入半圆形轨道，<b>恰好能够到达最高点 C</b>。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 物体在 C 点所受合力为零',
+      'B. 物体在 C 点的速度为零',
+      'C. 物体在 C 点的向心加速度等于重力加速度',
+      'D. 物体在 A 点时弹簧的弹性势能等于物体在 C 点的动能'
+    ],
+    officialAnswer: 'C · 恰好到 C → 在 C 处只受重力且 mg 全部用作向心力。mg = mv_C²/r → v_C² = gr → v_C ≠ 0（B 错）。AB 错（合力 = mg ≠ 0；速度也非 0）。C 对：a_C = v_C²/r = g。D 错：弹性势能 = 动能 + 重力势能（增高 2r），不止动能。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 水平 AB 滑行', label_short:'AB',
+     formula_tex: String.raw`v_B = \sqrt{5gr}`,
+     note:'弹性势能全部转化为 B 点动能（光滑水平 + AB 无高度差）。'},
+    {label:'阶段 2 · 半圆 BC 上升', label_short:'BC',
+     formula_tex: String.raw`v^2(y) = v_B^2 - 2gy,\quad v_C^2 = gr`,
+     note:'机械能守恒。在 C 点重力恰好提供向心力 → v_C² = gr → a_C = g。'}
+  ],
+  stats: [
+    {label:'r 半径',     fmt:()=>r_circle+' m'},
+    {label:'g',          fmt:()=>g+' m/s²'},
+    {label:'v_C',        fmt:()=>v_C.toFixed(2)+' m/s = √(gr)'},
+    {label:'a_C',        fmt:()=>'g (向心)'},
+    {label:'当前 v',     fmt:s=>s.v.toFixed(2)+' m/s'},
+    {label:'E_弹',       fmt:()=>'2.5 mgr'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'合力=mg', note:'非零'},
+    {label_text:'B 错', value_text:'v_C≠0',   note:'临界不停'},
+    {label_text:'C 对', value_text:'a=g',     note:'mg=mv²/r'},
+    {label_text:'D 错', value_text:'E≠KE',    note:'还有势能'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'物体'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'光滑轨道'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'重力 mg'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'向心加速度 a=g'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024北京-Q7-弹簧半圆'
+});
+</script>
+</body>
+</html>

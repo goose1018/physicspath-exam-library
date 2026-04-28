@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 22 题 · 霍尔推进器</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// (1) 氙离子加速度 a = qE/M（电场推动）
+// (2) 电子动能定理 qE·d = ½m·v_e² → v_e = √(2qEd/m)
+//     电子圆周运动 R：m·v_e²/R = q·v_e·B' → B' = m·v_e/(qR) = √(2mE·d/q) / R
+// (3) 单位时间被电离离子数 = nk，每个离子喷出速率 v_出 = √(2qE·d/M)
+//     推力 F = nk·M·v_出 = nk·√(2qE·d·M)
+
+const T_total = 6;
+
+function evalState(t){
+  const u = (t / T_total) % 1;
+  // 演示：电子圆周运动 + 氙离子加速喷出
+  return {phase:1, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上半：放电室示意（圆筒侧视）
+  drawChamber(ctx, 14, 14, W-28, H*0.45-21, state);
+  // 下半：3 小问公式
+  drawFormulas(ctx, 14, H*0.45+7, W-28, H*0.55-21, state);
+}
+
+function drawChamber(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('霍尔推进器放电室（同轴圆筒间）', x+12, y+18);
+
+  const cy = y + h/2;
+  const chamX0 = x+80, chamX1 = x+w-100;
+  const chamW = chamX1 - chamX0;
+
+  // 圆筒（轴向截面，两条平行线）
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(chamX0, cy-40); ctx.lineTo(chamX1, cy-40);
+  ctx.moveTo(chamX0, cy+40); ctx.lineTo(chamX1, cy+40);
+  ctx.stroke();
+
+  // 阳极（左）+ 阴极（右）
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(chamX0-10, cy-40, 6, 80);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(chamX1+4, cy-40, 6, 80);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('阳极', chamX0-32, cy+62);
+  ctx.fillText('阴极', chamX1, cy+62);
+  ctx.font = '600 10px "Cambria Math",serif';
+  ctx.fillText('+', chamX0-12, cy);
+  ctx.fillText('−', chamX1+13, cy);
+
+  // 间距 d
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(chamX0, cy-50); ctx.lineTo(chamX1, cy-50); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('d', (chamX0+chamX1)/2, cy-54);
+
+  // 电场 E（轴向向右）
+  ctx.strokeStyle = '#6b4a26'; ctx.lineWidth = 1;
+  for(let xi=chamX0+15; xi<chamX1-15; xi+=40){
+    PPath.arrow(ctx, xi, cy+25, xi+25, cy+25, '#6b4a26', 1.2);
+  }
+  ctx.fillStyle = '#6b4a26';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('E →', chamX0+10, cy+38);
+
+  // 电子（在阳极附近做圆周运动）
+  const e_R = 18;
+  const e_cx = chamX0 + 35;
+  const e_cy = cy;
+  const ang = state.u * 2 * Math.PI;
+  ctx.strokeStyle = 'rgba(63,111,143,0.4)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(e_cx, e_cy, e_R, 0, Math.PI*2); ctx.stroke();
+  // 电子位置
+  const ex = e_cx + e_R*Math.cos(ang);
+  const ey = e_cy + e_R*Math.sin(ang);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('e⁻ 圆周 (R)', e_cx-30, e_cy+e_R+18);
+
+  // 径向磁场 B' (径向向外，对截面来说是出和入纸面)
+  // 简化：在圆周外画 ⊙ 标记
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText("B'", e_cx+e_R+12, e_cy);
+  ctx.font = '700 14px "Cambria Math",serif';
+  ctx.fillText('⊙', e_cx+e_R+8, e_cy+13);
+
+  // 氙离子（从中间发出 → 加速到右端）
+  const ion_count = 5;
+  for(let i=0; i<ion_count; i++){
+    const phase_i = ((state.u + i*0.2) % 1);
+    const ion_x = chamX0 + 80 + phase_i * (chamW - 100);
+    const ion_y = cy + (i-2)*5;
+    ctx.fillStyle = '#c2611f';
+    ctx.beginPath(); ctx.arc(ion_x, ion_y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 9px "Noto Sans SC",sans-serif';
+    if(i === 0) ctx.fillText('Xe⁺', ion_x+8, ion_y+3);
+  }
+
+  // 喷出箭头
+  PPath.arrow(ctx, chamX1+15, cy+30, chamX1+45, cy+30, '#c2611f', 2.5);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('Xe⁺ 喷出', chamX1+15, cy+50);
+
+  // 反作用 = 推力 F (向左，作用在飞行器)
+  PPath.arrow(ctx, chamX0-15, cy+62, chamX0-45, cy+62, '#c2611f', 2.5);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('推力 F', chamX0-50, cy+58);
+}
+
+function drawFormulas(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('3 小问 · 公式推导', x+12, y+18);
+
+  const colW = (w-30)/3;
+
+  // (1) 氙离子加速度
+  drawCard(ctx, x+10, y+34, colW-5, h-50,
+    '#c2611f',
+    '(1) 氙离子加速度',
+    [
+      'F_Xe = qE',
+      '由 ma = F：',
+      'a = qE / M',
+    ],
+    'a = qE / M'
+  );
+  // (2) 径向磁场
+  drawCard(ctx, x+10+colW+5, y+34, colW-5, h-50,
+    '#3f6f8f',
+    '(2) 径向磁场 B\'',
+    [
+      '电子动能定理：qE·d = ½m·v_e²',
+      'v_e = √(2qEd/m)',
+      '阳极圆周：m·v_e²/R = q·v_e·B\'',
+      'B\' = m·v_e/(qR) = √(2mEd/q)/R',
+    ],
+    "B' = √(2mEd/q) / R"
+  );
+  // (3) 推力
+  drawCard(ctx, x+10+2*colW+10, y+34, colW-5, h-50,
+    '#16613f',
+    '(3) 推力 F',
+    [
+      'v_出 = √(2qE·d/M)（氙离子）',
+      '每秒电离离子数 = nk',
+      'F = nk·M·v_出',
+      '   = nk·√(2qE·d·M)',
+    ],
+    'F = nk·√(2qEdM)'
+  );
+}
+
+function drawCard(ctx, x, y, w, h, color, title, lines, answer){
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = color; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x, y, w, h, 8);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = color;
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(title, x+10, y+18);
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  lines.forEach((line, i) => {
+    ctx.fillText(line, x+10, y+38 + i*16);
+  });
+
+  // 答案条
+  ctx.fillStyle = color;
+  ctx.font = '900 11.5px "Cambria Math",serif';
+  ctx.fillText('答：' + answer, x+10, y+h-12);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 22 题',
+  title: '霍尔推进器 · 电子圆周 + 氙离子加速',
+  subtitle: '空间站推进器：电子在阳极附近圆周运动电离氙原子，氙离子被电场加速喷出。',
+  deliv: {
+    title: '霍尔推进器三问',
+    sub: 'a=qE/M · B\'=√(2mEd/q)/R · F=nk√(2qEdM)'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 22 题',
+    image: '../../source/images/image104.png',
+    text: `天宫空间站霍尔推进器放电室。两端阳极、阴极间距 <b>d</b>，电场 <b>E</b> 沿轴向向右，磁场沿径向向外大小 <b>B'</b> 处处相等。阴极发电子，部分进入放电室，在阳极附近垂直于轴线做半径 <b>R</b> 的匀速圆周运动并电离氙原子。每氙离子质量 <b>M</b>，电荷 <b>q</b>，初速度 0。氙离子被电场加速从右端喷出。已知电子质量 <b>m</b>、电荷 <b>q</b>。仅考虑氙离子受电场作用。`,
+    subQuestions: [
+      '(1) 求氙离子在放电室内运动的加速度 a；',
+      '(2) 求径向磁场的磁感应强度 B\'；',
+      '(3) 设被电离氙原子数与进入放电室电子数之比为常数 k，单位时间内阴极发射电子总数为 n。求推力 F。'
+    ],
+    officialAnswer: '(1) 氙离子仅受电场力 → a = qE/M。(2) 电子由阴极加速：qE·d = ½m·v_e² → v_e = √(2qE·d/m)。圆周运动：m·v_e²/R = q·v_e·B\' → B\' = m·v_e/(qR) = √(2mEd/q)/R。(3) 离子喷出速率 v_出 = √(2qEd/M)。每秒电离离子数 = nk。F = nk·M·v_出 = nk·√(2qE·d·M)。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'霍尔推进器三阶段', label_short:'三问',
+     formula_tex: String.raw`a = \dfrac{qE}{M},\;\; B' = \dfrac{\sqrt{2mEd/q}}{R},\;\; F = nk\sqrt{2qEdM}`,
+     note:'阶段 1：氙离子加速。阶段 2：电子动能定理 + 圆周运动给径向磁场。阶段 3：动量定理给推力。'}
+  ],
+  stats: [
+    {label:'间距 d',     fmt:()=>'d'},
+    {label:'电场 E',     fmt:()=>'E'},
+    {label:'电子半径 R', fmt:()=>'R'},
+    {label:'氙离子 M',   fmt:()=>'M'},
+    {label:'电子质量 m', fmt:()=>'m'},
+    {label:'(1) a',     fmt:()=>'qE/M'},
+    {label:'(2) B\'',     fmt:()=>'√(2mEd/q)/R'},
+    {label:'(3) F',     fmt:()=>'nk√(2qEdM)'}
+  ],
+  conclusions: [
+    {label_text:'(1) a',  value_text:'qE/M',           note:'电场加速'},
+    {label_text:'(2) B\'',  value_text:'√(2mEd/q)/R',    note:'圆周 + 动能'},
+    {label_text:'(3) F',  value_text:'nk√(2qEdM)',     note:'动量定理'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'电子（圆周运动）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'氙离子（被加速喷出）'},
+    {swatch:{bg:'#6b4a26',border:'#6b4a26',type:'rect'}, text:'轴向电场 E'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'径向磁场 B\''}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024北京-Q22-霍尔推进器'
+});
+</script>
+</body>
+</html>

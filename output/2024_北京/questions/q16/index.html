@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 16 题 · 楞次定律实验</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 楞次定律：磁通量变化 → 感应电流方向阻碍变化
+// N 极插入：内部 Φ 向下增加 → 感应电流方向使 Φ 反 (向上) → 顺时针看（电流表指针偏一向）
+// S 极插入：方向反过来
+
+const T_total = 8;
+const stageDur = 2;     // 4 阶段：N插, N拔, S插, S拔
+
+function evalState(t){
+  const stage = Math.floor((t/stageDur) % 4);
+  const u = (t - stage*stageDur)/stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 螺线管（中央）
+  const cx = W/2, cy = H*0.45;
+  const coilW = 200, coilH = 60;
+  // 线圈
+  ctx.fillStyle = 'rgba(195, 165, 110, 0.3)';
+  ctx.fillRect(cx-coilW/2, cy-coilH/2, coilW, coilH);
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 2;
+  ctx.strokeRect(cx-coilW/2, cy-coilH/2, coilW, coilH);
+  // 螺纹
+  for(let xi=cx-coilW/2; xi<cx+coilW/2; xi+=10){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(xi, cy, 4, coilH/2, 0, 0, Math.PI*2);
+    ctx.stroke();
+  }
+
+  // 磁铁动画
+  // stage 0: N 插入（向右移）, stage 1: N 拔出（向左）, stage 2: S 插入, stage 3: S 拔出
+  const isInserting = (state.stage % 2 === 0);
+  const isN = (state.stage < 2);
+  const magnetX0 = cx - coilW/2 - 100;
+  const magnetX1 = cx - coilW/2 + 30;
+  let magnetX;
+  if(isInserting){
+    magnetX = magnetX0 + (magnetX1 - magnetX0) * state.u;
+  } else {
+    magnetX = magnetX1 - (magnetX1 - magnetX0) * state.u;
+  }
+
+  // 磁铁
+  const magW = 80, magH = 30;
+  // N 极（红）+ S 极（蓝）
+  const nColor = '#b4442e', sColor = '#3f6f8f';
+  if(isN){
+    // N 在右
+    ctx.fillStyle = sColor;
+    ctx.fillRect(magnetX, cy-magH/2, magW/2, magH);
+    ctx.fillStyle = nColor;
+    ctx.fillRect(magnetX+magW/2, cy-magH/2, magW/2, magH);
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('S', magnetX+magW/4, cy+5);
+    ctx.fillText('N', magnetX+3*magW/4, cy+5);
+    ctx.textAlign = 'left';
+  } else {
+    // S 在右（先 S 进）
+    ctx.fillStyle = nColor;
+    ctx.fillRect(magnetX, cy-magH/2, magW/2, magH);
+    ctx.fillStyle = sColor;
+    ctx.fillRect(magnetX+magW/2, cy-magH/2, magW/2, magH);
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('N', magnetX+magW/4, cy+5);
+    ctx.fillText('S', magnetX+3*magW/4, cy+5);
+    ctx.textAlign = 'left';
+  }
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.strokeRect(magnetX, cy-magH/2, magW, magH);
+
+  // 移动方向箭头
+  const dir = isInserting ? 1 : -1;
+  PPath.arrow(ctx, magnetX+magW+5*dir, cy-30, magnetX+magW+25*dir, cy-30, '#1d1d1f', 2);
+
+  // 电流方向（基于楞次）
+  // N 插入：磁通量向右增（按图） → 感应电流反对 → 在线圈内部产生向左磁场 → 电流方向（前面看）逆时针
+  // 演示：电流表指针向左/右偏
+  let needleDir = 0;     // -1 = 左偏, +1 = 右偏
+  if(state.stage === 0) needleDir = 1;       // N 插入
+  else if(state.stage === 1) needleDir = -1; // N 拔出
+  else if(state.stage === 2) needleDir = -1; // S 插入
+  else needleDir = 1;                         // S 拔出
+
+  // 电流表
+  drawAmmeter2(ctx, cx+coilW/2+60, cy, needleDir, state.u);
+
+  // 引线
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx+coilW/2, cy-15); ctx.lineTo(cx+coilW/2+45, cy-15);
+  ctx.moveTo(cx+coilW/2, cy+15); ctx.lineTo(cx+coilW/2+45, cy+15);
+  ctx.stroke();
+
+  // 顶部说明
+  const stageNames = [
+    'N 极插入（磁通增 → 感应电流反向）',
+    'N 极拔出（磁通减 → 感应电流维持原向）',
+    'S 极插入（磁通方向反，反向变化）',
+    'S 极拔出（与 S 插入相反）'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('探究感应电流方向的因素：N/S 极 + 插入/拔出', 24, 22);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(stageNames[state.stage], 24, 44);
+
+  // 3 选项判定
+  const judgments = [
+    {opt:'A · 需要记录感应电流大小', verdict:'错（只关心方向）'},
+    {opt:'B · 通过指针偏转方向确定感应电流方向', verdict:'对 ✓'},
+    {opt:'C · N/S 极插入电流方向不同 → 与极性有关', verdict:'对 ✓'}
+  ];
+  let yy = H-110;
+  judgments.forEach((j, i) => {
+    const correct = (i > 0);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 12px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, 24, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.font = '600 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, 280, yy);
+    yy += 24;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-180, H-44, 168, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 BC', W-150, H-22);
+}
+
+function drawAmmeter2(ctx, cx, cy, dir, u){
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.fillStyle = '#fdfaf2';
+  ctx.beginPath(); ctx.arc(cx, cy, 24, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // 半圆刻度
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 18, Math.PI, 2*Math.PI);
+  ctx.stroke();
+  // 0 刻度（中央）
+  for(let k=-2; k<=2; k++){
+    const ang = -Math.PI/2 + k*Math.PI/8;
+    const x1 = cx + 18*Math.cos(ang), y1 = cy + 18*Math.sin(ang);
+    const x2 = cx + 22*Math.cos(ang), y2 = cy + 22*Math.sin(ang);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  }
+  // 指针
+  const swing = dir * Math.sin(u*Math.PI) * Math.PI/3;     // 摇摆
+  const ang = -Math.PI/2 + swing;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + 16*Math.cos(ang), cy + 16*Math.sin(ang));
+  ctx.stroke();
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+  // 标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('A', cx-3, cy+38);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 16 题',
+  title: '楞次定律实验 · N/S 插入螺线管',
+  subtitle: '探究感应电流方向的因素。把 N/S 极分别插入/拔出螺线管，看电流表指针变化。',
+  deliv: {
+    title: '楞次定律实验',
+    sub: '指针偏转方向 = 电流方向 · BC 对'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 16 题',
+    image: '../../source/images/image54.png',
+    text: `用如图所示的实验装置探究影响感应电流方向的因素。分别把<b>条形磁体的 N 极或 S 极</b>插入、拔出螺线管，观察并标记感应电流的方向。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 需要记录感应电流的大小',
+      'B. 通过观察电流表指针的偏转方向确定感应电流的方向',
+      'C. 图甲和乙表明，感应电流的方向与条形磁体的插入端是 N 极还是 S 极有关'
+    ],
+    officialAnswer: 'BC · A 错：本实验只关心方向，不需记录大小。B 对：通过指针偏转方向（左/右）判断电流方向。C 对：N 极和 S 极插入时电流方向不同，说明与极性有关。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · N 插入', label_short:'N 插',
+     formula_tex: String.raw`\dot\Phi > 0 \to I\text{ 反向（楞次）}`,
+     note:'磁通增 → 感应电流方向使内部磁场反向。'},
+    {label:'阶段 2 · N 拔出', label_short:'N 拔',
+     formula_tex: String.raw`\dot\Phi < 0 \to I\text{ 维持原向}`,
+     note:'磁通减 → 感应电流方向使原磁场维持。'},
+    {label:'阶段 3 · S 插入', label_short:'S 插',
+     formula_tex: String.raw`\text{磁场方向反} \to I\text{ 也反}`,
+     note:'S 极插入相当于 N 极拔出方向。'},
+    {label:'阶段 4 · S 拔出', label_short:'S 拔',
+     formula_tex: String.raw`\text{方向再反}`,
+     note:'S 拔出方向与 N 插入相同。'}
+  ],
+  stats: [
+    {label:'实验目的',  fmt:()=>'探究方向'},
+    {label:'记录',      fmt:()=>'指针方向（不记大小）'},
+    {label:'变量',      fmt:()=>'极性 + 插/拔'},
+    {label:'依据',      fmt:()=>'楞次定律'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'不记大小',  note:''},
+    {label_text:'B 对', value_text:'指针定向', note:'实验方法'},
+    {label_text:'C 对', value_text:'极性影响', note:'N/S 不同'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'磁铁 N 极'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁铁 S 极'},
+    {swatch:{bg:'rgba(195,165,110,0.3)',border:'#86868b',type:'rect'}, text:'螺线管'},
+    {swatch:{bg:'#fdfaf2',border:'#1d1d1f',type:'rect'}, text:'电流表（看方向）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024北京-Q16-楞次实验'
+});
+</script>
+</body>
+</html>

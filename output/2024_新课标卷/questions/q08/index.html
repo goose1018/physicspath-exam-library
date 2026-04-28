@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 8 题 · 理想气体 4 冲程循环</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 4 个过程（柴油机循环示意）：
+// 1→2 绝热压缩 (V 减, p 增, T 增) — Q=0, W外>0, ΔU>0 → 内能增加 ✓
+// 2→3 等压膨胀 (V 增, T 增) — p 不变, W气>0, ΔU>0, 由 ΔU=Q-W气 → Q>0 吸热（B 错说放热）
+// 3→4 绝热膨胀 (V 增, p 减, T 减) — Q=0, W气>0, ΔU<0 → 内能减小（C 错说"不变"）
+// 4→1 等容降温 (V 不变, p 减, T 减) — W=0, ΔU<0, Q<0 → 放热 ✓ D
+
+// 4 个状态点（V, p）— 示意值
+const states = [
+  {V: 0.10, p: 1.0, T: 300, name: '1 · 起始'},
+  {V: 0.025, p: 8.0, T: 600, name: '2 · 绝热压缩末'},     // V 减 4 倍，p 增 8 倍 (绝热 γ≈1.4)
+  {V: 0.045, p: 8.0, T: 1100, name: '3 · 等压膨胀末'},    // V 增 1.8 倍, T↑
+  {V: 0.10,  p: 2.5, T: 720, name: '4 · 绝热膨胀末'},     // 回到 V_1, p<p_2
+];
+
+const T_total = 12;     // 总演示时长
+const stageDur = T_total / 4;     // 每段 3s
+
+function evalState(t){
+  const stage = Math.floor(t / stageDur) % 4;     // 0..3
+  const u = (t - stage*stageDur) / stageDur;       // 0..1 在阶段内
+  const i0 = stage, i1 = (stage+1) % 4;
+  // 在 (V,p) 空间插值，但 1→2 和 3→4 是绝热曲线，2→3 是等压，4→1 是等容
+  let V, p;
+  if(stage === 0){
+    // 1→2 绝热：pV^γ = const, γ=1.4
+    const gamma = 1.4;
+    const C = states[0].p * Math.pow(states[0].V, gamma);
+    V = states[0].V * Math.pow(states[1].V/states[0].V, u);
+    p = C / Math.pow(V, gamma);
+  } else if(stage === 1){
+    // 2→3 等压
+    p = states[1].p;
+    V = states[1].V + (states[2].V - states[1].V)*u;
+  } else if(stage === 2){
+    // 3→4 绝热
+    const gamma = 1.4;
+    const C = states[2].p * Math.pow(states[2].V, gamma);
+    V = states[2].V * Math.pow(states[3].V/states[2].V, u);
+    p = C / Math.pow(V, gamma);
+  } else {
+    // 4→1 等容
+    V = states[3].V;
+    p = states[3].p + (states[0].p - states[3].p)*u;
+  }
+  // 温度 T ∝ pV
+  const T = p*V/(states[0].p*states[0].V) * states[0].T;
+  const phase = stage + 1;
+  return {phase, stage, u, V, p, T, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：气缸 + 活塞示意
+  drawCylinder(ctx, 14, 14, W*0.35, H-28, state);
+  // 右：P-V 图
+  drawPVDiagram(ctx, W*0.36, 14, W*0.62, H-28, state);
+}
+
+function drawCylinder(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('气缸 + 活塞', x+12, y+18);
+
+  const cylX = x + w/2 - 50;
+  const cylY = y + 50;
+  const cylW = 100;
+  const cylH = h - 100;
+
+  // 气缸壁
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(cylX-10, cylY, 10, cylH);
+  ctx.fillRect(cylX+cylW, cylY, 10, cylH);
+  ctx.fillRect(cylX-10, cylY+cylH, cylW+20, 10);
+
+  // 活塞位置：V 越大活塞越上
+  const Vmax = 0.10, Vmin = 0.025;
+  const fracV = (state.V - Vmin)/(Vmax - Vmin);     // 0..1
+  const pistonY = cylY + cylH - 30 - fracV*(cylH-50);
+  const gasH = cylY + cylH - pistonY;
+  const pistonH = 22;
+
+  // 气体（颜色温度感）
+  const tempFrac = Math.min(1, (state.T - 300)/(1100 - 300));
+  const r = Math.floor(255*tempFrac);
+  const b = Math.floor(255*(1-tempFrac));
+  ctx.fillStyle = `rgba(${r}, ${100+30*tempFrac}, ${b*0.4}, 0.4)`;
+  ctx.fillRect(cylX, pistonY, cylW, gasH);
+  // 气体粒子（动画）
+  ctx.fillStyle = `rgba(${r}, ${50}, ${b*0.5}, 0.85)`;
+  for(let i=0; i<20; i++){
+    const phaseI = (state.t*1.5 + i*0.4) % 1;
+    const px = cylX + 8 + (Math.sin(i*5.7+state.t*3)*0.5+0.5)*(cylW-16);
+    const py = pistonY + 8 + (Math.cos(i*2.3+state.t*5)*0.5+0.5)*(gasH-16);
+    ctx.beginPath(); ctx.arc(px, py, 2.5+tempFrac*1.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 活塞
+  ctx.fillStyle = '#5d6064';
+  ctx.fillRect(cylX, pistonY, cylW, pistonH);
+  ctx.fillStyle = '#3a3e42';
+  ctx.fillRect(cylX+cylW/2-5, pistonY-30, 10, 30);
+
+  // 标
+  ctx.fillStyle = '#5d6064';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('活塞', cylX+cylW+18, pistonY+15);
+
+  // 当前阶段名
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  const stageNames = ['1→2 绝热压缩', '2→3 等压膨胀', '3→4 绝热膨胀', '4→1 等容降温'];
+  ctx.fillText(stageNames[state.stage], x+12, y+h-44);
+
+  // 实时数值
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(`V = ${state.V.toFixed(3)} m³`, x+12, y+h-26);
+  ctx.fillText(`p = ${state.p.toFixed(2)}  T = ${state.T.toFixed(0)} K`, x+12, y+h-12);
+}
+
+function drawPVDiagram(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('p-V 图（柴油机循环）', x+12, y+18);
+
+  const padL=46, padR=24, padT=32, padB=42;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+  const xToPx = V => x0 + V/0.12 * cw;
+  const yToPx = P => y0 - P/9 * ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('p', x0-12, y+padT-2);
+  ctx.fillText('V', x0+cw+4, y0+12);
+
+  // 4 段循环
+  const drawSegment = (s0, s1, color, label, dashed) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+    if(dashed) ctx.setLineDash([4,3]); else ctx.setLineDash([]);
+    ctx.beginPath();
+    if(label === '等压'){
+      ctx.moveTo(xToPx(s0.V), yToPx(s0.p));
+      ctx.lineTo(xToPx(s1.V), yToPx(s1.p));
+    } else if(label === '等容'){
+      ctx.moveTo(xToPx(s0.V), yToPx(s0.p));
+      ctx.lineTo(xToPx(s1.V), yToPx(s1.p));
+    } else {
+      // 绝热 pV^γ = const
+      const gamma = 1.4;
+      const C = s0.p * Math.pow(s0.V, gamma);
+      for(let s=0; s<=1; s+=0.02){
+        const V = s0.V + (s1.V - s0.V)*s;
+        const p = C / Math.pow(V, gamma);
+        if(s===0) ctx.moveTo(xToPx(V), yToPx(p));
+        else ctx.lineTo(xToPx(V), yToPx(p));
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  drawSegment(states[0], states[1], '#b4442e', '绝热', false);
+  drawSegment(states[1], states[2], '#16613f', '等压', false);
+  drawSegment(states[2], states[3], '#3f6f8f', '绝热', false);
+  drawSegment(states[3], states[0], '#c2611f', '等容', false);
+
+  // 4 个状态点 + 标签
+  states.forEach((s, i) => {
+    const px = xToPx(s.V), py = yToPx(s.p);
+    ctx.fillStyle = '#1d1d1f';
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '900 13px "Cambria Math",serif';
+    ctx.fillText((i+1).toString(), px-3, py-10);
+  });
+
+  // 当前位置（动画点）
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(xToPx(state.V), yToPx(state.p), 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 阶段判定 + 答案
+  const stage = state.stage;
+  const judgments = [
+    {opt:'A · 1→2 内能增加', verdict:'对', color:'#16613f'},
+    {opt:'B · 2→3 向外放热', verdict:'错（吸热）', color:'#b4442e'},
+    {opt:'C · 3→4 内能不变', verdict:'错（减小）', color:'#b4442e'},
+    {opt:'D · 4→1 向外放热', verdict:'对', color:'#16613f'}
+  ];
+  ctx.fillStyle = judgments[stage].color;
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(judgments[stage].opt + '  →  ' + judgments[stage].verdict, x+14, y+h-22);
+
+  // 答案标
+  if(state.t > T_total*0.6){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-160, y+h-50, 148, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 AD', x+w-130, y+h-30);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '理想气体循环 · 4 冲程柴油机',
+  subtitle: '4 过程：1→2 绝热, 2→3 等压, 3→4 绝热, 4→1 等容。判断各段内能/吸放热。',
+  deliv: {
+    title: '柴油机循环 4 阶段',
+    sub: '热力学第一定律 + 4 过程类型 · 答案 AD'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 8 题 · 6 分',
+    image: '../../source/images/image36.png',
+    text: `如图，一定量理想气体的循环由下面 4 个过程组成：1→2 为<b>绝热过程</b>，2→3 为<b>等压过程</b>，3→4 为<b>绝热过程</b>，4→1 为<b>等容过程</b>。上述四个过程是四冲程柴油机工作循环的主要过程。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 1→2 过程中，气体内能增加',
+      'B. 2→3 过程中，气体向外放热',
+      'C. 3→4 过程中，气体内能不变',
+      'D. 4→1 过程中，气体向外放热'
+    ],
+    officialAnswer: 'AD · A 对：1→2 绝热压缩 (V减,T升) → ΔU > 0。B 错：2→3 等压膨胀 (V增,T升) → 气体对外做功且温度升 → 必须吸热。C 错：3→4 绝热膨胀 → ΔU < 0。D 对：4→1 等容降温 (V不变,T降) → ΔU < 0,W=0 → Q < 0 放热。'
+  },
+  totalT: T_total,
+  speedFactor: 0.8,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 1→2 绝热压缩', label_short:'1→2',
+     formula_tex: String.raw`Q=0,\;W_{ext}>0 \Rightarrow \Delta U > 0 \;\checkmark`,
+     note:'活塞压缩气体，无热交换。外界对气体做功 → 内能增加，温度升高。A 对。'},
+    {label:'阶段 2 · 2→3 等压膨胀', label_short:'2→3',
+     formula_tex: String.raw`p\,\text{不变},\;V\uparrow,\;T\uparrow \Rightarrow Q > 0 \text{ 吸热}`,
+     note:'气体在恒压下膨胀做功，同时温度升高内能增 → 必须吸热。B 错（题说"放热"）。'},
+    {label:'阶段 3 · 3→4 绝热膨胀', label_short:'3→4',
+     formula_tex: String.raw`Q=0,\;W_{gas}>0 \Rightarrow \Delta U < 0`,
+     note:'气体绝热膨胀，对外做功 → 内能减小，温度下降。C 错（题说"内能不变"）。'},
+    {label:'阶段 4 · 4→1 等容降温', label_short:'4→1',
+     formula_tex: String.raw`V\text{不变},\;W=0,\;\Delta U<0 \Rightarrow Q<0\;\text{放热}\;\checkmark`,
+     note:'体积不变 → 不做功；温度下降 → 内能减 → 必然放热。D 对。'}
+  ],
+  stats: [
+    {label:'当前过程',  fmt:s=>['1→2 绝热','2→3 等压','3→4 绝热','4→1 等容'][s.stage]},
+    {label:'V',          fmt:s=>s.V.toFixed(3)+' m³'},
+    {label:'p (相对)',   fmt:s=>s.p.toFixed(2)},
+    {label:'T',          fmt:s=>s.T.toFixed(0)+' K'},
+    {label:'热量 Q',     fmt:s=>['Q=0','吸热','Q=0','放热'][s.stage]},
+    {label:'内能 ΔU',    fmt:s=>['↑','↑','↓','↓'][s.stage]}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'1→2 ΔU > 0', note:'外界做功'},
+    {label_text:'B 错', value_text:'2→3 吸热',    note:'不是放热'},
+    {label_text:'C 错', value_text:'3→4 ΔU < 0',  note:'内能减小'},
+    {label_text:'D 对', value_text:'4→1 放热',    note:'等容降温'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'1→2 绝热压缩'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'2→3 等压膨胀'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'3→4 绝热膨胀'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'4→1 等容降温'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024新课标-Q8-柴油机循环'
+});
+</script>
+</body>
+</html>

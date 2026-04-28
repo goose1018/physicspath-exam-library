@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 题 · 红矮星质量 · 开普勒第三定律</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 开普勒第三定律：T² ∝ r³/M
+// (T₁/T₂)² = (r₁/r₂)³ × (M₂/M₁)
+// 已知 r₁ = 0.07 r₂，T₁ = 0.06 T₂
+// → (0.06)² = (0.07)³ × (M₂/M₁)
+// → 0.0036 = 0.000343 × (M₂/M₁)
+// → M₂/M₁ = 0.0036/0.000343 ≈ 10.5
+// → M₁/M₂ ≈ 0.0954 ≈ 0.1 倍
+
+const r_sun = 1.0;     // 日地距离 1 AU
+const T_sun = 1.0;     // 地球周期 1 年
+const r_red = 0.07;
+const T_red = 0.06;
+
+// 演示周期：让两套系统都在 totalT 内转一圈以便对比
+const T_total = 4;
+const omega_red = 2*Math.PI / T_red;     // 真实角速度
+const omega_sun = 2*Math.PI / T_sun;
+// 演示放慢：把太阳系一年压成 4s
+const demoOmegaSun = 2*Math.PI / 4;       // 4s = 1 年
+const demoOmegaRed = demoOmegaSun * (T_sun/T_red);  // 红矮星更快
+
+function evalState(t){
+  const phaseSun = (t * demoOmegaSun) % (2*Math.PI);
+  const phaseRed = (t * demoOmegaRed) % (2*Math.PI);
+  const orbits = Math.floor(t * demoOmegaRed / (2*Math.PI));
+  return {phase: 1, phaseSun, phaseRed, orbits, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 背景：星空（左半红、右半蓝）
+  for(let i=0;i<60;i++){
+    const x = (Math.sin(i*7.3)*0.5+0.5)*W;
+    const y = (Math.cos(i*5.1)*0.5+0.5)*H;
+    const r = 0.5 + (Math.sin(i*2.7)*0.5+0.5)*1.2;
+    ctx.fillStyle = '#94a09b';
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+
+  const cyMid = H*0.5;
+  const xMid = W/2;
+  // 中线
+  ctx.strokeStyle = '#eadfce'; ctx.setLineDash([3,5]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(xMid, 30); ctx.lineTo(xMid, H-30); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 左半：太阳-地球（不缩放，作为参考尺度）
+  drawSystem(ctx, W*0.27, cyMid, '太阳系', '太阳 M', '地球 r=1 AU, T=1 年', '#c2611f', '#3f6f8f', state.phaseSun, 130, 28, true);
+
+  // 右半：红矮星-GJ1002c（同样可视化半径——但提示真实半径只有 0.07 倍）
+  drawSystem(ctx, W*0.74, cyMid, '红矮星 + GJ1002c', '红矮星 M\'', "GJ1002c r'=0.07 AU, T'=0.06 年", '#b4442e', '#3a4a26', state.phaseRed, 130, 28, false);
+
+  // 顶部说明 / 公式推导
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, 16, W-40, 56, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('开普勒第三定律：T² / r³ = 4π² / (G·M)  →  M ∝ r³ / T²', 36, 36);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText("M_red / M_sun = (r'/r)³ × (T/T')² = 0.07³ × (1/0.06)² = 0.000343 × 277.8 ≈ 0.0954", 36, 56);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, H-44, 200, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · ≈ 0.1 倍太阳质量', W-208, H-22);
+
+  // 底部计数
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 12px ui-monospace,monospace';
+  ctx.fillText(`红矮星系统已运行 ${state.orbits} 个公转周期 (≈ ${(state.orbits*0.06).toFixed(2)} 真年)`, 24, H-22);
+}
+
+function drawSystem(ctx, cx, cy, title, starLbl, planetLbl, starColor, planetColor, phase, orbitR, starR, isLeft){
+  // 标题
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(title, cx, cy-orbitR-18);
+  ctx.textAlign = 'left';
+
+  // 轨道圆
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.arc(cx, cy, orbitR, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 恒星
+  const grd = ctx.createRadialGradient(cx, cy, 2, cx, cy, starR);
+  grd.addColorStop(0, '#fff');
+  grd.addColorStop(0.4, starColor);
+  grd.addColorStop(1, starColor+'20');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(cx, cy, starR, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = starColor;
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(starLbl, cx, cy-starR-6);
+  ctx.textAlign = 'left';
+
+  // 行星
+  const px = cx + orbitR*Math.cos(phase);
+  const py = cy + orbitR*Math.sin(phase);
+  ctx.fillStyle = planetColor;
+  ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // 行星标
+  ctx.fillStyle = planetColor;
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText(planetLbl, cx-65, cy+orbitR+18);
+
+  // 半径线 + 标注
+  ctx.strokeStyle = starColor+'80'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 600 11px Georgia,serif';
+  ctx.fillText('r', (cx+px)/2+4, (cy+py)/2-4);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '红矮星 + GJ1002c · 开普勒第三定律',
+  subtitle: '已知 r\'=0.07 AU、T\'=0.06 年。由 M ∝ r³/T² 求红矮星质量与太阳质量比。',
+  deliv: {
+    title: '红矮星质量估算',
+    sub: 'M ∝ r³/T² · M_red ≈ 0.1 M_sun · 答案 B'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 3 题 · 6 分',
+    text: `天文学家发现，在太阳系外的一颗红矮星有两颗行星绕其运行，其中行星 <b>GJ1002c</b> 的轨道近似为圆，<b>轨道半径约为日地距离的 0.07 倍</b>，<b>周期约为 0.06 年</b>，则这颗红矮星的质量约为太阳质量的（　　）`,
+    subQuestions: [
+      'A. 0.001 倍',
+      'B. 0.1 倍',
+      'C. 10 倍',
+      'D. 1000 倍'
+    ],
+    officialAnswer: 'B · 由开普勒第三定律 T²/r³ = 4π²/(GM) → M ∝ r³/T²。代入 r\'/r = 0.07，T\'/T = 0.06，得 M_red/M_sun = 0.07³/0.06² = 0.000343/0.0036 ≈ 0.0954 ≈ 0.1。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 同时公转对比', label_short:'公转',
+     formula_tex: String.raw`\dfrac{T^2}{r^3} = \dfrac{4\pi^2}{GM}\;\Rightarrow\; M \propto \dfrac{r^3}{T^2}`,
+     note:'开普勒第三定律：周期平方 / 轨道半径立方 = 4π²/(G·M)。两端同时知 r 和 T 即可解 M。'}
+  ],
+  stats: [
+    {label:'r\' / r',     fmt:()=>'0.07'},
+    {label:'T\' / T',     fmt:()=>'0.06'},
+    {label:'(r\'/r)³',    fmt:()=>(0.07**3).toExponential(2)},
+    {label:'(T\'/T)²',    fmt:()=>(0.06**2).toExponential(2)},
+    {label:'M_red/M_sun', fmt:()=>(0.07**3/0.06**2).toFixed(4)+' ≈ 0.1'}
+  ],
+  conclusions: [
+    {label_text:'A 错',  value_text:'0.001 倍', note:''},
+    {label_text:'B 对',  value_text:'≈ 0.1 倍', note:'r³/T² 计算'},
+    {label_text:'C 错',  value_text:'10 倍',     note:'忘记代入或弄反'},
+    {label_text:'D 错',  value_text:'1000 倍',   note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'太阳（参照）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'地球'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'红矮星'},
+    {swatch:{bg:'#3a4a26',border:'#3a4a26',type:'dot'}, text:'GJ1002c（行星）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024新课标-Q3-红矮星'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 12 题 · 薄板 + 物块 · 滑动 + 平抛</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 参数（取自答案 v0=4 m/s 反推 + 典型设定）：
+// 板长 l = 1 m，板移动距离 d = 0.25 m，动摩擦 μ = 0.5，g = 10 m/s²
+// 物块、板等质量 m
+// 板加速 a_板 = μg = 5 m/s²；物块减速 a_块 = -5 m/s²
+// 板移动 d = ½ a_板 t1² → t1 = √(2d/(μg)) = √(0.5/5) ≈ 0.316 s
+// 物块飞出条件 v0·t1 - ½μg·t1² = l → v0 = (l + d)/t1 = 1.25/0.316 = 4 m/s ✓
+// 板末速度 v_板 = μg·t1 = 1.58 m/s
+// 物块末速度 v_块 = v0 - μg·t1 = 2.42 m/s
+// 飞出后板匀速。物块平抛。落地时板中心到 O：
+// 板中心初始在 O - l/2 = O - 0.5（板右端 O，板中心向左 l/2）
+// 飞出时板中心在 O - 0.5 + d = O - 0.25（向右移 d）
+// 要让板中心到 O：还需向右 0.25 m → 0.25 = v_板 · t2 → t2 = 0.158 s
+// H = ½ g t2² ≈ 0.125 m
+
+const l = 1.0;
+const d = 0.25;
+const mu = 0.5;
+const g = 10;
+const t1 = Math.sqrt(2*d/(mu*g));     // 0.316 s
+const v0 = (l + d)/t1;                 // 4 m/s
+const a = mu*g;                        // 5
+const v_plate_end = a*t1;              // 1.58
+const v_block_end = v0 - a*t1;         // 2.42
+// 落地阶段
+const dx_plate = l/2 - d;              // 0.25
+const t2 = dx_plate / v_plate_end;     // 0.158 s
+const H = 0.5*g*t2*t2;                 // 0.125 m
+
+const T_total = (t1 + t2) * 1.5;       // 慢放
+const slowFactor = 1.5;
+
+function evalState(t){
+  const tReal = t / slowFactor;     // 真物理时间
+  let phase, blockX, plateX, blockY, blockVx, plateV;
+  // 板坐标：板初始右端在 O。我们用板中心 X_pc，初始 X_pc = -l/2
+  // 物块坐标：物块初始在板左端 = X_pc - l/2 = -l。我们用物块中心 X_b
+  if(tReal <= t1){
+    // 阶段 1：板加速 + 物块减速 (物块在板上)
+    phase = 1;
+    plateX = -l/2 + 0.5*a*tReal*tReal;
+    blockX = -l + v0*tReal - 0.5*a*tReal*tReal;
+    blockY = 0;
+    blockVx = v0 - a*tReal;
+    plateV = a*tReal;
+  } else {
+    // 阶段 2：物块平抛 + 板匀速
+    phase = 2;
+    const tau = tReal - t1;
+    plateX = -l/2 + d + v_plate_end*tau;
+    blockX = -l + v0*t1 - 0.5*a*t1*t1 + v_block_end*tau;     // 物块从板右端开始飞
+    blockY = 0.5*g*tau*tau;
+    if(tau >= t2) phase = 3;
+    blockVx = v_block_end;
+    plateV = v_plate_end;
+  }
+  return {phase, plateX, blockX, blockY, blockVx, plateV, tReal, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 像素 / 米
+  const pxPerM = 220;
+  const cx_O = W*0.45;     // O 点 x
+  const yTable = H*0.42;   // 平台高度
+  const yGround = H*0.85;  // 地面
+
+  // 平台
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(0, yTable, cx_O, 8);
+  // O 点标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx_O, yTable+4, 4, 0, Math.PI*2); ctx.fill();
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('O', cx_O+5, yTable-4);
+
+  // 地面
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(0, yGround, W, H-yGround);
+
+  // 高度标
+  ctx.strokeStyle = '#94a09b'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx_O, yTable+8); ctx.lineTo(cx_O, yGround); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText(`H = ${H.toFixed(3)} m`, cx_O+8, (yTable+yGround)/2);
+
+  // 板（薄板）
+  const plateLeft = cx_O + (state.plateX - l/2)*pxPerM;
+  const plateRight = cx_O + (state.plateX + l/2)*pxPerM;
+  ctx.fillStyle = '#86868b';
+  ctx.fillRect(plateLeft, yTable-6, plateRight-plateLeft, 6);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.strokeRect(plateLeft, yTable-6, plateRight-plateLeft, 6);
+  // 板中心标
+  ctx.fillStyle = '#3f6f8f';
+  const pc_x = cx_O + state.plateX*pxPerM;
+  ctx.beginPath(); ctx.arc(pc_x, yTable-3, 3, 0, Math.PI*2); ctx.fill();
+
+  // 物块
+  let block_x = cx_O + state.blockX*pxPerM;
+  let block_y = (state.phase === 1 ? yTable - 22 : yTable - 22 + state.blockY*pxPerM);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(block_x-12, block_y, 24, 22);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.strokeRect(block_x-12, block_y, 24, 22);
+  ctx.fillStyle = '#fdfaf2';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('m', block_x-4, block_y+15);
+
+  // 速度箭头
+  if(state.blockVx > 0.05){
+    PPath.arrow(ctx, block_x+12, block_y+11, block_x+12+state.blockVx*15, block_y+11, '#c2611f', 1.5);
+  }
+  if(state.plateV > 0.05){
+    PPath.arrow(ctx, pc_x, yTable+12, pc_x+state.plateV*15, yTable+12, '#3f6f8f', 1.5);
+  }
+
+  // 平抛轨迹（阶段 2/3）
+  if(state.phase >= 2){
+    ctx.strokeStyle = '#c2611f80'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const tau_now = Math.min(state.tReal - t1, t2);
+    for(let s=0; s<=tau_now; s+=0.005){
+      const xm = -l + v0*t1 - 0.5*a*t1*t1 + v_block_end*s;
+      const ym = 0.5*g*s*s;
+      const xp = cx_O + xm*pxPerM;
+      const yp = yTable - 22 + ym*pxPerM;
+      if(s===0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
+    }
+    ctx.stroke();
+  }
+
+  // 顶部信息
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(`板长 l=${l}m · 板移 d=${d}m · μ=${mu} · g=${g} m/s²`, 20, 22);
+  const stageNames = [
+    `阶段 1：板加速 + 物块减速 · 共在板上 t1=${t1.toFixed(3)}s`,
+    `阶段 2：物块平抛飞出 + 板匀速 · 落地 t2=${t2.toFixed(3)}s`,
+    `阶段 3：物块落地 · 板中心恰到 O · 高度 H=${H.toFixed(3)}m`
+  ];
+  ctx.fillStyle = ['#c2611f','#3f6f8f','#16613f'][state.phase-1];
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(stageNames[state.phase-1], 20, 42);
+
+  // 数据卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, 56, 290, 96, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('阶段 1：t1 = √(2d/μg) = 0.316 s', 32, 76);
+  ctx.fillText('物块位移 = l → v_0·t_1 − ½μg·t_1² = l', 32, 92);
+  ctx.fillText('解得 v_0 = (l+d)/t_1 = 4 m/s', 32, 108);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('阶段 2：v_板 t_2 = l/2 − d = 0.25 m → t_2 = 0.158 s', 32, 130);
+  ctx.fillStyle = '#16613f';
+  ctx.fillText('H = ½g·t_2² = 0.125 m', 32, 148);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-280, 60, 270, 60, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) v_0 = 4 m/s · t_1 ≈ 0.32 s', W-270, 80);
+  ctx.fillText('(2) H ≈ 0.125 m', W-270, 102);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 12 题',
+  title: '薄板 + 物块 · 滑动 + 平抛',
+  subtitle: '物块从板左端 v₀ 向右滑。板移 d 时物块从右端飞出。落地时板中心恰到 O。求 v₀ 和高度。',
+  deliv: {
+    title: '薄板物块组合',
+    sub: 'v₀ = 4 m/s · t₁ ≈ 0.32 s · H ≈ 0.125 m'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 12 题',
+    image: '../../source/images/image91.png',
+    text: `如图，一长度为 l 的均匀薄板初始时<b>静止</b>在一<b>光滑平台</b>上，薄板的右端与平台的边缘 O 对齐。薄板上的一小物块从薄板的左端以某一初速度 v₀ 向右滑动，<b>当薄板运动距离 d 时</b>，物块从薄板右端水平飞出；<b>当物块落到地面时，薄板中心恰好运动到 O 点</b>。已知物块与薄板的<b>质量相等</b>，它们之间的<b>动摩擦因数 μ</b>，重力加速度 g。`,
+    subQuestions: [
+      '(1) 求物块初速度 v₀ 大小及其在薄板上运动的时间 t₁；',
+      '(2) 求平台距地面的高度 H。'
+    ],
+    officialAnswer: '(1) 板加速 a_板 = μg；物块减速 a_块 = -μg。板移 d：½μg·t_1² = d → t_1 = √(2d/μg)。物块在板上位移 = l：v_0·t_1 − ½μg·t_1² = l → v_0 = (l+d)/t_1。代入示意值 l=1, d=0.25, μ=0.5, g=10 → t_1 ≈ 0.32 s, v_0 = 4 m/s。(2) 飞出后板匀速 v_板 = μg·t_1，物块平抛。板中心从 O-l/2+d 移到 O 需走 l/2-d → t_2 = (l/2-d)/v_板。H = ½g·t_2² ≈ 0.125 m。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 板加速 + 物块减速', label_short:'共面',
+     formula_tex: String.raw`\tfrac{1}{2}\mu g\, t_1^2 = d,\quad v_0 t_1 - \tfrac{1}{2}\mu g\, t_1^2 = l`,
+     note:'板和物块由摩擦各加速/减速。板移动 d 时物块到达板右端飞出。'},
+    {label:'阶段 2 · 平抛 + 板匀速', label_short:'平抛',
+     formula_tex: String.raw`v_{\text{板}} t_2 = \tfrac{l}{2} - d,\quad H = \tfrac{1}{2} g\, t_2^2`,
+     note:'物块离开板后做平抛。板光滑平台无摩擦 → 匀速。板中心从 O-l/2+d 移到 O。'},
+    {label:'阶段 3 · 物块落地', label_short:'落地',
+     formula_tex: String.raw`H \approx 0.125\;\text{m}`,
+     note:'落地瞬间板中心恰到 O，验证一致性。'}
+  ],
+  stats: [
+    {label:'l 板长',     fmt:()=>l+' m'},
+    {label:'d 板移',     fmt:()=>d+' m'},
+    {label:'μ',          fmt:()=>mu},
+    {label:'t₁',         fmt:()=>t1.toFixed(3)+' s'},
+    {label:'v₀',         fmt:()=>v0.toFixed(2)+' m/s'},
+    {label:'v_板末',     fmt:()=>v_plate_end.toFixed(2)+' m/s'},
+    {label:'t₂',         fmt:()=>t2.toFixed(3)+' s'},
+    {label:'H',          fmt:()=>H.toFixed(3)+' m'}
+  ],
+  conclusions: [
+    {label_text:'(1) v₀',   value_text:'4 m/s',     note:'(l+d)/t₁'},
+    {label_text:'(1) t₁',   value_text:'0.316 s',    note:'√(2d/μg)'},
+    {label_text:'(2) H',    value_text:'0.125 m',    note:'½g·t₂²'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'物块（v₀ 向右滑）'},
+    {swatch:{bg:'#86868b',border:'#86868b',type:'rect'}, text:'薄板（光滑平台上）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'板中心（动量演示）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024新课标-Q12-薄板物块'
+});
+</script>
+</body>
+</html>

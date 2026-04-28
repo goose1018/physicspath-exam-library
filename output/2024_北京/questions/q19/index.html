@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 19 题 · 排水管平抛 · 流量</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 平抛：水从管口水平射出
+// t = √(2h/g)
+// v = d/t = d·√(g/(2h))
+// Q = S·v = S·d·√(g/(2h))
+
+const h = 1.25;     // 演示
+const d = 1.5;
+const g = 10;
+const S = 0.001;     // 1 cm² = 0.001 m² 演示
+const t_fall = Math.sqrt(2*h/g);
+const v_water = d / t_fall;
+const Q_flow = S * v_water;
+
+const T_total = 5;
+const slowFactor = T_total / (t_fall * 1.5);
+
+function evalState(t){
+  const tReal = t / slowFactor;
+  return {phase:1, tReal, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 水池 + 排水管
+  const tankX = 60, tankY0 = H*0.55, tankH = H*0.32;
+  ctx.fillStyle = '#cfe0e8';
+  ctx.fillRect(tankX, tankY0+30, 220, tankH);
+  ctx.strokeStyle = '#88a4ae'; ctx.lineWidth = 2;
+  ctx.strokeRect(tankX, tankY0+30, 220, tankH);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('水池', tankX+90, tankY0+50);
+  // 水面
+  ctx.fillStyle = '#a3c4d2';
+  ctx.fillRect(tankX, tankY0+30, 220, 4);
+
+  // 排水管（横放）
+  const pipeY = tankY0;
+  const pipeX0 = 30, pipeX1 = 200;
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(pipeX0, pipeY-10, pipeX1-pipeX0, 20);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.strokeRect(pipeX0, pipeY-10, pipeX1-pipeX0, 20);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('S 截面', pipeX0+10, pipeY-15);
+
+  // 像素 / 米
+  const pxPerM_x = (W - pipeX1 - 80) / d * 0.85;
+  const pxPerM_y = (tankY0+30 - pipeY) / h;
+
+  // 落点位置
+  const landX = pipeX1 + d * pxPerM_x;
+  const landY = tankY0 + 30;     // 水面
+
+  // 平抛轨迹（像水柱）
+  ctx.strokeStyle = '#6cb0c8'; ctx.lineWidth = 5;
+  ctx.beginPath();
+  for(let s=0; s<=t_fall; s+=0.005){
+    const xx = pipeX1 + v_water*s*pxPerM_x;
+    const yy = pipeY + 0.5*g*s*s*pxPerM_y;
+    if(s===0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  }
+  ctx.stroke();
+  // 水滴流动（动画）
+  for(let i=0; i<8; i++){
+    const phase = ((state.tReal*1.5 + i*0.15) % 1) * t_fall;
+    const xx = pipeX1 + v_water*phase*pxPerM_x;
+    const yy = pipeY + 0.5*g*phase*phase*pxPerM_y;
+    ctx.fillStyle = '#3f6f8f';
+    ctx.beginPath(); ctx.arc(xx, yy, 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 高度尺
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pipeX1+10, pipeY); ctx.lineTo(pipeX1+10, landY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.save();
+  ctx.translate(pipeX1+18, (pipeY+landY)/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText(`h = ${h} m`, -15, 0);
+  ctx.restore();
+
+  // 距离尺
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pipeX1, landY+15); ctx.lineTo(landX, landY+15); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText(`d = ${d} m`, (pipeX1+landX)/2-15, landY+30);
+
+  // 落点
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(landX, landY, 6, 0, Math.PI*2); ctx.fill();
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('排水管满口排水（截面 S，离水面 h，落点距 d，假设平抛）', 24, 22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-150, 380, 130, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('平抛公式 + 流量公式：', 32, H-130);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('(1) 竖直 h = ½g·t²  →  t = √(2h/g)', 32, H-110);
+  ctx.fillText('(2) 水平 d = v·t   →  v = d·√(g/(2h))', 32, H-90);
+  ctx.fillText('(3) 单位时间体积 Q = S·v = S·d·√(g/(2h))', 32, H-70);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText(`代入 h=${h}, d=${d}, S=10⁻³ → Q ≈ ${Q_flow.toFixed(4)} m³/s`, 32, H-46);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-280, H-44, 268, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('t=√(2h/g) · v=d√(g/2h) · Q=Sv', W-268, H-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 19 题',
+  title: '排水管满口排水 · 平抛 + 流量',
+  subtitle: '管口截面 S，离水面 h，落点距管口水平距 d。求 t、v、Q。',
+  deliv: {
+    title: '排水管平抛',
+    sub: 't=√(2h/g) · v=d/t · Q=Sv'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 19 题',
+    image: '../../source/images/image71.png',
+    text: `水平放置的排水管满口排水，管口的横截面积为 <b>S</b>，管口离水池水面的高度为 <b>h</b>，水在水池中的落点与管口的水平距离为 <b>d</b>。假定水在空中做平抛运动，已知重力加速度为 g，h 远大于管口内径。求：`,
+    subQuestions: [
+      '(1) 水从管口到水面的运动时间 t；',
+      '(2) 水从管口排出时的速度大小 v；',
+      '(3) 管口单位时间内流出水的体积 Q。'
+    ],
+    officialAnswer: '(1) 竖直方向 h = ½g·t² → t = √(2h/g)。(2) 水平方向 d = v·t → v = d/t = d·√(g/(2h))。(3) 流量 Q = S·v = S·d·√(g/(2h))。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'平抛 + 流量', label_short:'平抛',
+     formula_tex: String.raw`t = \sqrt{\dfrac{2h}{g}},\;\; v = \dfrac{d}{t},\;\; Q = Sv`,
+     note:'水平射出后做平抛。流量 = 截面积 × 水速。'}
+  ],
+  stats: [
+    {label:'h',  fmt:()=>h+' m（演示）'},
+    {label:'d',  fmt:()=>d+' m（演示）'},
+    {label:'S',  fmt:()=>'10⁻³ m²（演示）'},
+    {label:'t',  fmt:()=>t_fall.toFixed(3)+' s'},
+    {label:'v',  fmt:()=>v_water.toFixed(2)+' m/s'},
+    {label:'Q',  fmt:()=>Q_flow.toFixed(4)+' m³/s'}
+  ],
+  conclusions: [
+    {label_text:'(1) t', value_text:'√(2h/g)',       note:''},
+    {label_text:'(2) v', value_text:'d·√(g/2h)',     note:'d/t'},
+    {label_text:'(3) Q', value_text:'S·d·√(g/2h)',   note:'Sv'}
+  ],
+  legend: [
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'排水管'},
+    {swatch:{bg:'#6cb0c8',border:'#6cb0c8',type:'rect'}, text:'水平抛射的水柱'},
+    {swatch:{bg:'#cfe0e8',border:'#88a4ae',type:'rect'}, text:'水池水面'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024北京-Q19-排水管'
+});
+</script>
+</body>
+</html>

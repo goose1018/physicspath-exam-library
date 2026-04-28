@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 题 · 双小球水平电场静电平衡</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 设 P 在右侧（与电场同向偏），Q 在左侧。两球都带正电。
+// 受力（取右为 +x）：
+//   P (右侧)：张力水平分量 -T_P sinθ；电场力 +qP·E；库仑力 +F (Q 推 P 离开 Q，向右)
+//     T_P sinθ = qP·E + F
+//   Q (左侧)：张力水平分量 +T_Q sinθ；电场力 +qQ·E；库仑力 -F (P 推 Q 远离 P，向左)
+//     T_Q sinθ = F - qQ·E   (要 > 0 必须 F > qQ·E)
+//   竖直：T·cosθ = m·g
+// 由两绳与竖直夹角相等：
+//   tanθ = (qP·E + F)/(m_P·g) = (F - qQ·E)/(m_Q·g)
+//   m_Q (qP·E + F) = m_P (F - qQ·E)
+//   m_P (F - qQ·E) - m_Q (qP·E + F) = 0
+//   F(m_P - m_Q) = E(m_P·qQ + m_Q·qP)
+//   右边正 → m_P > m_Q  ✓
+// 电荷量无法判断（因为 m·g 和 q·E、F 的关系太复杂）。
+
+const T_total = 4;
+
+function evalState(t){
+  // 简单状态：从初始（无电场，对称）到加电场后的平衡
+  const phase = t < 1.0 ? 1 : t < 2.5 ? 2 : 3;
+  return {phase, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 天花板
+  const cx = W/2;
+  const yCeil = H*0.12;
+  ctx.fillStyle = '#444a52';
+  ctx.fillRect(cx-110, yCeil-12, 220, 8);
+  // 锯齿装饰
+  ctx.strokeStyle = '#444a52'; ctx.lineWidth = 1;
+  for(let xi=cx-105; xi<cx+105; xi+=10){
+    ctx.beginPath(); ctx.moveTo(xi, yCeil-4); ctx.lineTo(xi+5, yCeil+4); ctx.stroke();
+  }
+
+  // O 点
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, yCeil-4, 4, 0, Math.PI*2); ctx.fill();
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('O', cx-12, yCeil-8);
+
+  // 角度（动画过渡）
+  const L = 130;     // 绳长（像素）
+  let theta;
+  if(state.phase === 1){
+    theta = 0.05;     // 初始几乎竖直
+  } else if(state.phase === 2){
+    theta = 0.05 + (state.t - 1.0)/1.5 * (0.30 - 0.05);   // 从 0.05 渐到 0.30
+  } else {
+    theta = 0.30;     // 平衡角
+  }
+
+  // P 在右侧，Q 在左侧
+  const P_x = cx + L*Math.sin(theta);
+  const P_y = yCeil + L*Math.cos(theta);
+  const Q_x = cx - L*Math.sin(theta);
+  const Q_y = yCeil + L*Math.cos(theta);
+
+  // 绳
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(cx, yCeil); ctx.lineTo(P_x, P_y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, yCeil); ctx.lineTo(Q_x, Q_y); ctx.stroke();
+
+  // 竖直参考线
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.moveTo(cx, yCeil); ctx.lineTo(cx, yCeil+L+10); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 角度弧
+  if(state.phase >= 2){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, yCeil, 30, Math.PI/2-theta, Math.PI/2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, yCeil, 30, Math.PI/2, Math.PI/2+theta); ctx.stroke();
+    ctx.fillStyle = '#c2611f';
+    ctx.font = 'italic 700 12px Georgia,serif';
+    ctx.fillText('θ', cx+18, yCeil+45);
+    ctx.fillText('θ', cx-28, yCeil+45);
+  }
+
+  // 球 P（右）
+  drawBall(ctx, P_x, P_y, 'P', '#c2611f', 'm_P (大)');
+  // 球 Q（左）
+  drawBall(ctx, Q_x, Q_y, 'Q', '#3f6f8f', 'm_Q (小)');
+
+  // 电场（仅 phase>=2）
+  if(state.phase >= 2){
+    ctx.strokeStyle = '#6b4a26'; ctx.lineWidth = 1;
+    for(let yi=yCeil+10; yi<H-30; yi+=18){
+      PPath.arrow(ctx, 30, yi, 80, yi, '#6b4a26', 1);
+      PPath.arrow(ctx, W-90, yi, W-40, yi, '#6b4a26', 1);
+    }
+    ctx.fillStyle = '#6b4a26';
+    ctx.font = '900 12px "Cambria Math",serif';
+    ctx.fillText('E →', 90, yCeil+30);
+    ctx.fillText('E →', W-130, yCeil+30);
+    ctx.font = '600 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('匀强电场水平向右', W*0.36, H-30);
+  }
+
+  // 受力分析（仅 phase=3）
+  if(state.phase === 3){
+    drawForces(ctx, P_x, P_y, 'P', 1);    // P 在右，电场推它远离 O，库仑也推右
+    drawForces(ctx, Q_x, Q_y, 'Q', -1);   // Q 在左，电场推右拉它向 O，库仑推左推它远离 O
+  }
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('两正电球均挂在 O，匀强电场水平向右，平衡时两绳与竖直夹角相等', 20, 20);
+
+  // 关键推导
+  if(state.phase >= 2){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W*0.55, H-122, W*0.42, 100, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#a85219';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('对 P (右)：T sinθ = q_P·E + F', W*0.55+10, H-100);
+    ctx.fillText('对 Q (左)：T sinθ = F − q_Q·E', W*0.55+10, H-82);
+    ctx.fillText('竖直：T·cosθ = m·g  →  T = mg/cosθ', W*0.55+10, H-64);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('两 tanθ 相等 →  m_P > m_Q  ✓ 答案 B', W*0.55+10, H-40);
+  }
+}
+
+function drawBall(ctx, x, y, label, color, sublabel){
+  // 球
+  const grd = ctx.createRadialGradient(x-3, y-3, 1, x, y, 14);
+  grd.addColorStop(0, '#fff');
+  grd.addColorStop(0.5, color);
+  grd.addColorStop(1, color+'70');
+  ctx.fillStyle = grd;
+  ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // 正电符号
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('+', x, y+5);
+  ctx.textAlign = 'left';
+
+  // 标签
+  ctx.fillStyle = color;
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, x+18, y-4);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText(sublabel, x+18, y+10);
+}
+
+function drawForces(ctx, x, y, label, side){
+  // side: P=+1 (right), Q=-1 (left)
+  // 重力 mg 向下
+  PPath.arrow(ctx, x, y, x, y+36, '#b4442e', 2);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('mg', x+5, y+30);
+
+  // 电场力 qE 水平向右（两球都正电）
+  PPath.arrow(ctx, x, y, x+30, y, '#6b4a26', 2);
+  ctx.fillStyle = '#6b4a26';
+  ctx.fillText('qE', x+12, y-5);
+
+  // 库仑力 F：相互排斥
+  // P 在右，被 Q 推 → 向右 (远离 Q)
+  // Q 在左，被 P 推 → 向左 (远离 P)
+  PPath.arrow(ctx, x, y, x+side*22, y+8, '#3f6f8f', 1.8);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('F (库仑)', x+side*8-(side<0?40:0), y+22);
+
+  // 张力 T 沿绳向 O（左上 / 右上）
+  // 简化：张力箭头反向
+  // 不画张力以免混乱（绳本身已表示）
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '双正电小球 · 水平电场静电平衡',
+  subtitle: '两正电小球均挂在 O 点，水平电场向右。两绳夹角相等 → 比较质量与电荷量。',
+  deliv: {
+    title: '双绳静电平衡',
+    sub: 'm_P > m_Q  ·  电荷量无法判断  ·  答案 B'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 5 题 · 6 分',
+    image: '../../source/images/image16.png',
+    text: `如图，两根不可伸长的等长绝缘细绳的上端均系在天花板的 <b>O 点</b>上，下端分别系有<b>均带正电荷</b>的小球 P、Q；小球处在某一方向<b>水平向右</b>的匀强电场中，平衡时<b>两细绳与竖直方向的夹角大小相等</b>。则（　　）`,
+    subQuestions: [
+      'A. 两绳中的张力大小一定相等',
+      'B. P 的质量一定大于 Q 的质量',
+      'C. P 的电荷量一定小于 Q 的电荷量',
+      'D. P 的电荷量一定大于 Q 的电荷量'
+    ],
+    officialAnswer: 'B · 设 P 在右侧（与电场同向偏）、Q 在左侧。对 P：T sinθ = q_P·E + F；对 Q：T sinθ = F − q_Q·E（必须 F > q_Q·E）。竖直 T·cosθ = m·g。两绳夹角相等 → tanθ 相等 → m_P (F − q_Q·E) = m_Q (q_P·E + F) → F(m_P − m_Q) = E(m_P·q_Q + m_Q·q_P)。右边正 → m_P > m_Q。电荷量无法判断（A、C、D 都错）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 无电场', label_short:'初始',
+     formula_tex: String.raw`\text{两绳竖直}`,
+     note:'无电场时两绳竖直下垂（库仑力对称，但小角度近似）。'},
+    {label:'阶段 2 · 加电场', label_short:'加电场',
+     formula_tex: String.raw`\vec{E}\to\;\text{两球同时受 } qE\text{ 推动}`,
+     note:'电场水平向右，两正电球都受向右的电场力。'},
+    {label:'阶段 3 · 平衡 · 角度相等', label_short:'平衡',
+     formula_tex: String.raw`\tfrac{q_P E + F}{m_P g} = \tfrac{F - q_Q E}{m_Q g}\;\Rightarrow\; m_P > m_Q`,
+     note:'两绳与竖直夹角相等 → tanθ 相等 → 列两条平衡方程联立解出 m_P > m_Q。'}
+  ],
+  stats: [
+    {label:'P 受力',    fmt:()=>'qE→ + F→ + T↗ + mg↓'},
+    {label:'Q 受力',    fmt:()=>'qE→ + F← + T↖ + mg↓'},
+    {label:'P 水平方程', fmt:()=>'T_P sinθ = q_P·E + F'},
+    {label:'Q 水平方程', fmt:()=>'T_Q sinθ = F − q_Q·E'},
+    {label:'结论',       fmt:()=>'m_P > m_Q'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'T 不一定相等', note:'T_P > T_Q'},
+    {label_text:'B 对', value_text:'m_P > m_Q',    note:'代数推导'},
+    {label_text:'C 错', value_text:'q 无法判断',    note:''},
+    {label_text:'D 错', value_text:'q 无法判断',    note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'P 球（右侧 · 质量大）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'Q 球（左侧 · 质量小）'},
+    {swatch:{bg:'#6b4a26',border:'#6b4a26',type:'rect'}, text:'匀强电场 E（水平向右）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'重力 mg'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024新课标-Q5-双绳静电平衡'
+});
+</script>
+</body>
+</html>

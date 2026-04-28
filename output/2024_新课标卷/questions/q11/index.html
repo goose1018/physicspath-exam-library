@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 11 题 · 双绳缓降重物</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理参数（题目典型设定）：
+// m = 8 kg, g = 10 m/s²
+// P 绳与竖直夹角 α = 53°（cos 0.6, sin 0.8），高处操作
+// Q 绳与竖直夹角 β = 37°（cos 0.8, sin 0.6），地面操作
+// 缓降 → 平衡（合力 = 0，加速度 = 0）
+// 水平：T_P sinα = T_Q sinβ  →  T_P · 0.8 = T_Q · 0.6  →  T_Q = (4/3) T_P
+// 竖直：T_P cosα + T_Q cosβ = mg  →  0.6 T_P + 0.8 T_Q = 80
+//        →  T_P = 48 N, T_Q = 64 N
+// (2) h = 10 m，缓降 ΔKE=0  →  W_绳 + W_重 = 0  →  W_绳 = -mgh = -800 J
+
+const m = 8, g = 10;
+const alpha = 53*Math.PI/180;     // P 角
+const beta  = 37*Math.PI/180;     // Q 角
+const T_P = 48;
+const T_Q = 64;
+const h = 10;
+const W_rope_total = -m*g*h;     // -800 J
+
+const T_total = 5;
+
+function evalState(t){
+  // 简单匀速下降：t in [0, T_total]，物体高度从 h 到 0
+  const u = Math.min(1, t/T_total);
+  const yObj = h * (1 - u);     // 当前高度（米）
+  const phase = u < 0.95 ? 1 : 2;     // 1 下降中, 2 落地
+  return {phase, u, yObj, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 高楼（左上 P 控点）
+  const wallX = 80, wallY = 60;
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(wallX-30, 0, 30, H);     // 墙
+  // 窗户
+  ctx.fillStyle = '#94a09b';
+  ctx.fillRect(wallX-25, wallY, 20, 30);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.strokeRect(wallX-25, wallY, 20, 30);
+  // P 操作员（高处）
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(wallX-15, wallY+15, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('P 端（高处）', wallX-25, wallY-6);
+
+  // 地面
+  const yGround = H - 50;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(0, yGround, W, H-yGround);
+  // Q 操作员（地面，远离墙）
+  const Q_x = W - 100, Q_y = yGround;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(Q_x, Q_y-10, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('Q 端（地面）', Q_x-25, Q_y-26);
+
+  // P 锚点
+  const P_x = wallX, P_y = wallY+15;
+
+  // 物体当前位置
+  // 物体 X 由几何条件确定：保持 P 与竖直 α，Q 与竖直 β
+  // 实际上重物固定 X (绳长在变)，简化：让重物在 P-Q 中线水平位置，垂直方向下降
+  const objX = (P_x + Q_x)/2;
+  const heightToPx = h_m => yGround - h_m * (yGround - P_y - 80) / h;     // 顶端到地面映射 h→0..h_max
+  const objY = yGround - state.yObj * (yGround - P_y - 80) / h;
+
+  // 绳 P→物体 / Q→物体
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(P_x, P_y); ctx.lineTo(objX, objY); ctx.stroke();
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(Q_x, Q_y); ctx.lineTo(objX, objY); ctx.stroke();
+
+  // 物体（黑盒）
+  ctx.fillStyle = '#444a52';
+  ctx.fillRect(objX-22, objY, 44, 30);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.strokeRect(objX-22, objY, 44, 30);
+  ctx.fillStyle = '#fdfaf2';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('m=8kg', objX-15, objY+18);
+
+  // 角度标
+  // P 绳与竖直夹角：在 P 锚点处画
+  const angP = Math.atan2(objX - P_x, objY - P_y);     // 角度（与竖直）
+  drawAngleArc(ctx, P_x, P_y, 24, 0, angP, '#c2611f', 'α');
+  const angQ = Math.atan2(Q_x - objX, objY - Q_y);     // Q 绳从 Q 上指向物体
+  drawAngleArc(ctx, Q_x, Q_y, 24, Math.PI, Math.PI-angQ, '#3f6f8f', 'β');
+
+  // 力分析（重物处）
+  // mg 向下
+  PPath.arrow(ctx, objX, objY+30, objX, objY+30+44, '#b4442e', 2);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('mg = 80 N', objX+5, objY+62);
+  // T_P 沿 P 绳向上（指向 P）
+  const T_P_dir_x = (P_x - objX), T_P_dir_y = (P_y - objY);
+  const Lp = Math.hypot(T_P_dir_x, T_P_dir_y);
+  PPath.arrow(ctx, objX, objY, objX + T_P_dir_x*40/Lp, objY + T_P_dir_y*40/Lp, '#c2611f', 2);
+  // T_Q 沿 Q 绳向 Q（向右下）
+  const T_Q_dir_x = (Q_x - objX), T_Q_dir_y = (Q_y - objY);
+  const Lq = Math.hypot(T_Q_dir_x, T_Q_dir_y);
+  PPath.arrow(ctx, objX, objY+15, objX + T_Q_dir_x*40/Lq, objY+15 + T_Q_dir_y*40/Lq, '#3f6f8f', 2);
+
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('T_P', objX-50, objY-10);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('T_Q', objX+45, objY+30);
+
+  // 高度尺
+  ctx.strokeStyle = '#94a09b'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W-20, P_y); ctx.lineTo(W-20, yGround); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.save();
+  ctx.translate(W-12, (P_y+yGround)/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('h = 10 m', -22, 0);
+  ctx.restore();
+
+  // 数据卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, 20, 280, 88, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('受力平衡（缓降 → a=0）', 32, 38);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('水平：T_P sin53° = T_Q sin37°', 32, 58);
+  ctx.fillText('竖直：T_P cos53° + T_Q cos37° = mg', 32, 76);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('解：T_P = 48 N · T_Q = 64 N', 32, 96);
+
+  // 答案
+  if(state.u > 0.5){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-260, 20, 240, 60, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('(1) T_P = 48 N, T_Q = 64 N', W-250, 40);
+    ctx.fillText('(2) W_绳 = −mgh = −800 J', W-250, 62);
+  }
+
+  // 当前高度
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText(`当前高度 ${state.yObj.toFixed(2)} m / 总下降 ${(h - state.yObj).toFixed(2)} m`, 24, H-20);
+}
+
+function drawAngleArc(ctx, cx, cy, r, a0, a1, color, label){
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  // a0 / a1 are measured from y+ (downward) axis
+  // We need to convert: standard canvas angle 0 = right
+  const std0 = a0 - Math.PI/2;
+  const std1 = a1 - Math.PI/2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, std0, std1);
+  ctx.stroke();
+  // label
+  const midA = (std0+std1)/2;
+  ctx.fillStyle = color;
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText(label, cx + (r+8)*Math.cos(midA)-4, cy + (r+8)*Math.sin(midA)+4);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 11 题',
+  title: '双绳缓降 · 力平衡 + 总功',
+  subtitle: 'P 在高处、Q 在地面，二人配合让重物缓慢竖直下降。求 T_P、T_Q 与绳总功。',
+  deliv: {
+    title: '双绳缓降 · 平衡 + 能量',
+    sub: 'T_P=48N, T_Q=64N · W_绳=−800 J'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 11 题',
+    image: '../../source/images/image76.png',
+    text: `将重物从高层楼房的窗外运到地面时，要求下降过程中重物与楼墙保持一定距离。一人在高处控制绳 P，另一人在地面控制绳 Q，二人配合可使重物<b>缓慢竖直下降</b>。已知 m = 8 kg，g = 10 m/s²，P 绳与竖直方向夹角 <b>α = 53°</b>，Q 绳与竖直方向夹角 <b>β = 37°</b>。`,
+    subQuestions: [
+      '(1) 求此时 P、Q 绳中拉力的大小；',
+      '(2) 若开始竖直下降时重物距地面高度 h = 10 m，求重物下降到地面的过程中两根绳子拉力对重物做的总功。'
+    ],
+    officialAnswer: '(1) 缓降 a=0 → 受力平衡。水平 T_P sin53° = T_Q sin37° → T_P = (3/4) T_Q。竖直 T_P cos53° + T_Q cos37° = mg → 0.6T_P + 0.8T_Q = 80。联立解得 T_P = 48 N, T_Q = 64 N。(2) 缓降 ΔKE = 0，由动能定理 W_合 = 0 → W_绳 + W_重 = 0 → W_绳 = −W_重 = −mgh = −800 J。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 缓降 + 受力平衡', label_short:'下降',
+     formula_tex: String.raw`\sum F = 0:\;\;T_P\sin\alpha = T_Q\sin\beta,\;\;T_P\cos\alpha + T_Q\cos\beta = mg`,
+     note:'缓降 → 加速度 0 → 合力 0。水平、竖直分别列方程联立解出两绳张力。'},
+    {label:'阶段 2 · 落地 + 能量', label_short:'落地',
+     formula_tex: String.raw`W_{\text{绳}} = -mgh = -800\;\text{J}`,
+     note:'缓降 ΔKE = 0 → 由动能定理 W_合 = 0 → 绳做的功 = -重力做的功 = −mgh。'}
+  ],
+  stats: [
+    {label:'m',           fmt:()=>'8 kg'},
+    {label:'g',           fmt:()=>'10 m/s²'},
+    {label:'α (P 角)',    fmt:()=>'53°'},
+    {label:'β (Q 角)',    fmt:()=>'37°'},
+    {label:'T_P',         fmt:()=>'48 N'},
+    {label:'T_Q',         fmt:()=>'64 N'},
+    {label:'h',           fmt:()=>'10 m'},
+    {label:'W_绳',        fmt:()=>'−800 J'}
+  ],
+  conclusions: [
+    {label_text:'(1) T_P', value_text:'48 N', note:''},
+    {label_text:'(1) T_Q', value_text:'64 N', note:''},
+    {label_text:'(2) W',    value_text:'−800 J', note:'缓降 ΔKE=0'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'P 绳（高处操作）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'Q 绳（地面操作）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'重力 mg'},
+    {swatch:{bg:'#444a52',border:'#444a52',type:'rect'}, text:'重物 m=8kg'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024新课标-Q11-双绳缓降'
+});
+</script>
+</body>
+</html>

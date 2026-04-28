@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 1 题 · 钍 234 半衰期</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 半衰期 24 天，48 天 = 2 个半衰期
+// 1g → 0.5g → 0.25g  (经过 2T)
+
+const T_half = 24;
+const T_total = 8;     // 演示总时长，对应真实 4 个半衰期 (96 天)
+const realPerSec = 96/T_total;     // 演示秒 → 真实天数
+
+function evalState(t){
+  const realDays = t * realPerSec;
+  const halfLives = realDays / T_half;
+  const fraction = Math.pow(0.5, halfLives);     // 剩余比例
+  const phase = Math.min(4, Math.floor(halfLives) + 1);
+  return {phase, realDays, halfLives, fraction, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：粒子可视化
+  drawParticles(ctx, 14, 14, W*0.45-21, H-28, state);
+  // 右：衰减曲线
+  drawDecayCurve(ctx, W*0.45+7, 14, W*0.55-21, H-28, state);
+}
+
+function drawParticles(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('钍 234 衰变（每 24 天剩一半）', x+12, y+18);
+
+  // 100 个粒子，按比例显示剩余
+  const total = 100;
+  const remaining = Math.round(total * state.fraction);
+  const cols = 10, rows = 10;
+  const padX = 24, padY = 32;
+  const cellW = (w - 2*padX)/cols;
+  const cellH = (h - padY - 90)/rows;
+
+  for(let i=0; i<total; i++){
+    const r = Math.floor(i/cols);
+    const c = i%cols;
+    const cx = x + padX + cellW*(c+0.5);
+    const cy = y + padY + cellH*(r+0.5);
+    const isRemaining = i < remaining;
+    if(isRemaining){
+      ctx.fillStyle = '#c2611f';
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    } else {
+      // 已衰变 → 灰色
+      ctx.fillStyle = 'rgba(94, 105, 100, 0.25)';
+      ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // 数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px ui-monospace,monospace';
+  ctx.fillText(`剩余: ${remaining} / ${total}  →  ${(state.fraction).toFixed(3)} g`, x+22, y+h-44);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(`已衰变 ${total - remaining} 个 ·  时间 t = ${state.realDays.toFixed(0)} 天 = ${state.halfLives.toFixed(2)} T`, x+22, y+h-22);
+}
+
+function drawDecayCurve(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('剩余质量 m(t) = m₀ · (1/2)^(t/T)', x+12, y+18);
+
+  const padL=46, padR=20, padT=32, padB=42;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('m / g', x0-22, y+padT-2);
+  ctx.fillText('t / 天', x0+cw+4, y0+12);
+
+  // 时间轴标记 (T 倍数)
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let k=0; k<=4; k++){
+    const px = x0 + (k/4)*cw;
+    ctx.beginPath(); ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+    ctx.moveTo(px, y0-3); ctx.lineTo(px, y0+3); ctx.stroke();
+    ctx.fillText((k*24).toString(), px-8, y0+15);
+    if(k>0){
+      ctx.fillStyle = '#c2611f'; ctx.font = '700 10px "Noto Sans SC",sans-serif';
+      ctx.fillText(`${k}T`, px-6, y0+30);
+      ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+    }
+  }
+  // m 轴
+  for(let k=0; k<=4; k++){
+    const py = y0 - (k/4)*ch;
+    const v = (k/4).toFixed(2);
+    ctx.beginPath(); ctx.moveTo(x0-3, py); ctx.lineTo(x0+3, py); ctx.stroke();
+    ctx.fillText(v, x0-26, py+3);
+  }
+
+  // 衰减曲线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.005){
+    const halves = s * 4;     // 0..4
+    const m = Math.pow(0.5, halves);
+    const px = x0 + s*cw, py = y0 - m*ch;
+    if(s===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 关键点（T, 2T, 3T, 4T）
+  const keypoints = [
+    {k:0, m:1.0, lbl:'1 g'},
+    {k:1, m:0.5, lbl:'0.5 g'},
+    {k:2, m:0.25, lbl:'0.25 g  ← 答案 B'},
+    {k:3, m:0.125, lbl:'0.125 g'},
+  ];
+  keypoints.forEach((p, i) => {
+    const px = x0 + (p.k/4)*cw;
+    const py = y0 - p.m*ch;
+    const isAnswer = (i === 2);
+    ctx.fillStyle = isAnswer ? '#c2611f' : '#3f6f8f';
+    ctx.beginPath(); ctx.arc(px, py, isAnswer?6:4, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = isAnswer ? '#c2611f' : '#5d6964';
+    ctx.font = `${isAnswer?900:600} ${isAnswer?12:11}px "Noto Sans SC",sans-serif`;
+    ctx.fillText(p.lbl, px+8, py-6);
+  });
+
+  // 当前点
+  const halves_now = state.halfLives;
+  const sNow = Math.min(1, halves_now/4);
+  const pxNow = x0 + sNow*cw;
+  const pyNow = y0 - state.fraction*ch;
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(pxNow, pyNow, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-180, y+h-44, 168, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · 0.25 g', x+w-160, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 3 分',
+  title: '钍 234 半衰期',
+  subtitle: '半衰期 T = 24 天，1g 钍 234 经过 48 天剩下多少？',
+  deliv: {
+    title: '半衰期衰减',
+    sub: '48 天 = 2T → 剩 (1/2)² = 0.25 g · 答案 B'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 1 题 · 3 分',
+    text: `已知钍 234 的半衰期是 <b>24 天</b>。<b>1 g</b> 钍 234 经过 <b>48 天</b>后，剩余钍 234 的质量为（　　）`,
+    subQuestions: [
+      'A. 0 g',
+      'B. 0.25 g',
+      'C. 0.5 g',
+      'D. 0.75 g'
+    ],
+    officialAnswer: 'B · 经过 t = 48 天 = 2T (T 是半衰期 24 天)。剩余质量 = m₀·(1/2)^(t/T) = 1·(1/2)² = 0.25 g。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'衰变中 · m = m₀·(1/2)^(t/T)', label_short:'衰变',
+     formula_tex: String.raw`m(t) = m_0 \cdot \left(\dfrac{1}{2}\right)^{t/T}`,
+     note:'每经过一个半衰期 T，剩余质量减半。t = 48 天 = 2T → 剩 1/4。'},
+    {label:'1T 经过 → 0.5 g', label_short:'1T',
+     formula_tex: String.raw`m(T) = 0.5\;\text{g}`,
+     note:'第一个半衰期后剩 0.5 g。'},
+    {label:'2T 经过 → 0.25 g', label_short:'2T',
+     formula_tex: String.raw`m(2T) = 0.25\;\text{g}\;\checkmark`,
+     note:'第二个半衰期后剩 0.25 g —— 这就是题目要的 48 天后的质量。答案 B。'},
+    {label:'继续衰变（3T+）', label_short:'3T+',
+     formula_tex: String.raw`m(3T) = 0.125\;\text{g}`,
+     note:'继续衰变，渐近 0 但永不为 0。'}
+  ],
+  stats: [
+    {label:'初始质量',     fmt:()=>'1.000 g'},
+    {label:'半衰期 T',     fmt:()=>'24 天'},
+    {label:'目标时间',     fmt:()=>'48 天 = 2T'},
+    {label:'当前时间',     fmt:s=>s.realDays.toFixed(0)+' 天'},
+    {label:'剩余比例',     fmt:s=>(s.fraction*100).toFixed(1)+'%'},
+    {label:'剩余质量',     fmt:s=>(s.fraction).toFixed(3)+' g'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'0 g',    note:'永不为 0'},
+    {label_text:'B 对', value_text:'0.25 g', note:'(1/2)²'},
+    {label_text:'C 错', value_text:'0.5 g',  note:'只是 1T'},
+    {label_text:'D 错', value_text:'0.75 g', note:'误算'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'未衰变（钍 234）'},
+    {swatch:{bg:'rgba(94,105,100,0.4)',border:'#5d6964',type:'dot'}, text:'已衰变'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'指数衰减曲线'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024北京-Q1-半衰期'
+});
+</script>
+</body>
+</html>

@@ -97,7 +97,6 @@ function PathQuestion(opts){
           </div>
           <div class="canvas-wrap">
             <canvas id="cv"></canvas>
-            <div class="canvas-badge">16:9 · 讲义动画 · 可投屏</div>
             <div class="watermark"><b>PhysicsPath</b> · 高考物理动态图</div>
           </div>
           ${opts.phases ? `

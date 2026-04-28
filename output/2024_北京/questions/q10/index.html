@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 10 题 · 水平传送带</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物体无初速度放上 → 物体相对传送带向后（带向前更快）
+// 摩擦力向前（与相对运动反向）→ 物体加速
+// 物体速度 = 传送带速度后变成静摩擦无相对运动
+// 答案 D：传送带越快，加速时间越长
+
+const v_belt = 4;     // 传送带速度
+const mu = 0.3, g = 10;
+const a_friction = mu * g;     // 加速度 3 m/s²
+const t_accelerate = v_belt / a_friction;     // 加速到带速时间
+
+const T_total = 4;
+const slowFactor = T_total / (t_accelerate + 1);
+
+function evalState(t){
+  const tReal = t / slowFactor;
+  let v_obj, x_obj, phase;
+  if(tReal < t_accelerate){
+    phase = 1;
+    v_obj = a_friction * tReal;
+    x_obj = 0.5 * a_friction * tReal * tReal;
+  } else {
+    phase = 2;
+    v_obj = v_belt;
+    x_obj = 0.5 * a_friction * t_accelerate*t_accelerate + v_belt * (tReal - t_accelerate);
+  }
+  return {phase, tReal, v_obj, x_obj, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 传送带
+  const yBelt = H*0.5;
+  const beltX0 = 60, beltX1 = W-60;
+  // 滚轮
+  ctx.fillStyle = '#444a52';
+  ctx.beginPath(); ctx.arc(beltX0+24, yBelt+8, 22, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(beltX1-24, yBelt+8, 22, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(beltX0+24, yBelt+8, 22, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(beltX1-24, yBelt+8, 22, 0, Math.PI*2); ctx.stroke();
+  // 带
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(beltX0+24, yBelt-8, beltX1-beltX0-48, 16);
+  ctx.fillRect(beltX0+24, yBelt+24, beltX1-beltX0-48, 8);
+  // 带纹理（动画）
+  const phaseShift = (state.tReal * v_belt * 30) % 30;
+  ctx.fillStyle = '#888';
+  for(let xi=beltX0+24-phaseShift; xi<beltX1-24; xi+=30){
+    if(xi >= beltX0+24 && xi+8 <= beltX1-24)
+      ctx.fillRect(xi, yBelt-2, 8, 4);
+  }
+
+  // 像素 / 米
+  const pxPerM = (beltX1 - beltX0 - 80) / (state.x_obj + 4);
+  // 物体（按比例显示）
+  const objX = beltX0 + 50 + Math.min(state.x_obj, beltX1-beltX0-100) * pxPerM;
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(objX-15, yBelt-26, 30, 18);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.strokeRect(objX-15, yBelt-26, 30, 18);
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('m', objX-3, yBelt-13);
+
+  // 速度箭头
+  ctx.fillStyle = '#16613f';
+  PPath.arrow(ctx, objX, yBelt-30, objX + state.v_obj*15, yBelt-30, '#16613f', 1.5);
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText(`v=${state.v_obj.toFixed(2)}`, objX-25, yBelt-36);
+  // 传送带速度
+  PPath.arrow(ctx, objX, yBelt+5, objX + v_belt*15, yBelt+5, '#3f6f8f', 1.5);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText(`v_带=${v_belt}`, objX-25, yBelt+18);
+
+  // 摩擦力（仅阶段 1）
+  if(state.phase === 1){
+    PPath.arrow(ctx, objX, yBelt-15, objX+30, yBelt-15, '#b4442e', 2);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText('f (滑→静)', objX+18, yBelt-20);
+  } else {
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('共速 → f = 0', objX+18, yBelt-20);
+  }
+
+  // 顶部说明 + 阶段
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('物体无初速度放上传送带 → 滑动摩擦推动加速 → 共速后随带匀速', 24, 22);
+  ctx.fillStyle = state.phase === 1 ? '#c2611f' : '#16613f';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(state.phase === 1 ? `阶段 1：v_obj < v_带 → 滑动摩擦 f → 加速度 ${a_friction} m/s²` : `阶段 2：v_obj = v_带 → 静摩擦/无摩擦 → 匀速`, 24, 44);
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · 物体相对传送带向前',  verdict:'错（带快 → 物相对带向后）'},
+    {opt:'B · 匀速时受静摩擦力',      verdict:'错（无相对运动趋势 → 不受摩擦）'},
+    {opt:'C · 加速时摩擦做负功',      verdict:'错（f 与 v 同向 → 做正功）'},
+    {opt:'D · 带越快加速时间越长',    verdict:'对 ✓ (t = v_带/μg)'}
+  ];
+  let yy = H-130;
+  judgments.forEach((j, i) => {
+    const correct = (i === 3);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 12px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, 24, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.font = '600 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, 220, yy);
+    yy += 24;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, H-44, 208, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 D · t = v_带/(μg)', W-208, H-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 10 题 · 3 分',
+  title: '水平传送带 · 加速过程',
+  subtitle: '物体无初速度放上匀速传送带，最终随带匀速。判断 4 个说法。',
+  deliv: {
+    title: '传送带加速分析',
+    sub: 't_加速 = v_带/(μg) · 答案 D'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 10 题 · 3 分',
+    text: `水平传送带匀速运动，将一物体无初速度地放置在传送带上，最终物体随传送带一起匀速运动。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 刚开始物体相对传送带向前运动',
+      'B. 物体匀速运动过程中，受到静摩擦力',
+      'C. 物体加速运动过程中，摩擦力对物体做负功',
+      'D. 传送带运动速度越大，物体加速运动的时间越长'
+    ],
+    officialAnswer: 'D · A 错：物速度小于带 → 物相对带向后。B 错：匀速时无相对运动趋势 → 不受摩擦。C 错：加速时 f 与 v 同向 → 做正功。D 对：a = μg（恒定），加速时间 t = v_带/(μg)，与 v_带 成正比。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 加速（滑动摩擦）', label_short:'加速',
+     formula_tex: String.raw`a = \mu g,\quad t = \dfrac{v_{\text{带}}}{\mu g}`,
+     note:'物速度 < 带速度 → 物相对带向后 → 滑动摩擦向前 → 推物加速。'},
+    {label:'阶段 2 · 共速（静摩擦/无摩擦）', label_short:'共速',
+     formula_tex: String.raw`v_{\text{物}} = v_{\text{带}}\;\Rightarrow\; f = 0`,
+     note:'共速后无相对运动趋势（水平 + 无外力），无摩擦力作用。'}
+  ],
+  stats: [
+    {label:'v_带',         fmt:()=>v_belt+' m/s'},
+    {label:'μ',            fmt:()=>mu},
+    {label:'a 加速度',      fmt:()=>a_friction+' m/s²'},
+    {label:'加速时间',      fmt:()=>t_accelerate.toFixed(2)+' s'},
+    {label:'当前 v_物',     fmt:s=>s.v_obj.toFixed(2)+' m/s'},
+    {label:'当前位移',      fmt:s=>s.x_obj.toFixed(2)+' m'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'物相对带向后', note:''},
+    {label_text:'B 错', value_text:'共速 f=0',      note:'无相对运动'},
+    {label_text:'C 错', value_text:'f 做正功',      note:'同向'},
+    {label_text:'D 对', value_text:'t ∝ v_带',      note:'a 恒'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'物体（无初速度）'},
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'传送带（v_带）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'滑动摩擦力 f = μmg'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024北京-Q10-传送带'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 2 题 · 汽车制动距离</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 制动 v0=10m/s，匀减速 2s 停止 → a=-5 m/s²
+// s = v0·t + ½·a·t² = 10·2 - ½·5·4 = 20 - 10 = 10 m
+// 或 s = v_avg · t = (10+0)/2 · 2 = 10 m
+// 答案 B
+
+const v0 = 10, t_brake = 2;
+const a = -v0/t_brake;     // -5 m/s²
+const s_total = 0.5 * v0 * t_brake;     // 10 m
+
+const T_total = 4;
+const slowFactor = T_total / t_brake;     // 演示比真实慢 2 倍
+
+function evalState(t){
+  const tReal = Math.min(t/slowFactor, t_brake);
+  const v = Math.max(0, v0 + a*tReal);
+  const s = v0*tReal + 0.5*a*tReal*tReal;
+  return {phase:1, tReal, v, s, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上半：道路 + 车
+  drawRoad(ctx, 14, 30, W-28, H*0.48-30, state);
+  // 下半：v-t 图
+  drawVTGraph(ctx, 14, H*0.48+10, W-28, H*0.5-20, state);
+
+  // 顶部
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(`v₀=${v0} m/s · 匀减速 t=${t_brake}s 停止 · 加速度 a=${a} m/s²`, 24, 22);
+
+  // 答案
+  if(state.tReal > t_brake*0.5){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, 12, 188, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · s = 10 m', W-186, 30);
+  }
+}
+
+function drawRoad(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const yRoad = y + h*0.65;
+  // 路面
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(x+30, yRoad, w-60, 24);
+  // 中线
+  ctx.strokeStyle = '#fdfaf2'; ctx.lineWidth = 2;
+  ctx.setLineDash([8,12]);
+  ctx.beginPath(); ctx.moveTo(x+30, yRoad+12); ctx.lineTo(x+w-30, yRoad+12); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 像素 / 米
+  const pxPerM = (w-100) / (s_total + 4);
+  const carX0 = x + 50;
+  const carX = carX0 + state.s * pxPerM;
+
+  // 车
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(carX-22, yRoad-18, 44, 18);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(carX-15, yRoad-26, 30, 10);
+  // 轮
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(carX-12, yRoad+2, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(carX+12, yRoad+2, 4, 0, Math.PI*2); ctx.fill();
+
+  // 起点标
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(carX0-22, yRoad-25); ctx.lineTo(carX0-22, yRoad+30); ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('起点 v₀=10m/s', carX0-50, yRoad-30);
+
+  // 终点标
+  const endX = carX0 + s_total*pxPerM;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(endX-22, yRoad-25); ctx.lineTo(endX-22, yRoad+30); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('终点 v=0', endX-30, yRoad-30);
+
+  // 距离尺
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(carX0-22, yRoad+38); ctx.lineTo(endX-22, yRoad+38); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(carX0-22, yRoad+34); ctx.lineTo(carX0-22, yRoad+42);
+  ctx.moveTo(endX-22, yRoad+34); ctx.lineTo(endX-22, yRoad+42); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText(`制动距离 s = 10 m`, (carX0+endX)/2-50, yRoad+56);
+
+  // 当前速度
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px ui-monospace,monospace';
+  ctx.fillText(`v = ${state.v.toFixed(2)} m/s`, x+12, y+22);
+  ctx.font = '700 12px ui-monospace,monospace';
+  ctx.fillText(`s = ${state.s.toFixed(2)} m   t = ${state.tReal.toFixed(2)} s`, x+12, y+40);
+}
+
+function drawVTGraph(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('v-t 图（s = 三角形面积 = ½·v₀·t = 10 m）', x+12, y+18);
+
+  const padL=44, padR=20, padT=30, padB=30;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('v / m·s⁻¹', x0-32, y+padT-2);
+  ctx.fillText('t / s', x0+cw+4, y0+12);
+
+  // 刻度
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let k=0; k<=2; k++){
+    const px = x0 + (k/2)*cw;
+    ctx.fillText(k.toString(), px-3, y0+15);
+  }
+  for(let k=0; k<=10; k+=2){
+    const py = y0 - (k/10)*ch;
+    ctx.fillText(k.toString(), x0-18, py+3);
+  }
+
+  // 阴影面积（黑色三角）
+  ctx.fillStyle = 'rgba(194, 97, 31, 0.18)';
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x0, y0 - ch);     // (0, 10)
+  ctx.lineTo(x0 + cw, y0);     // (2, 0)
+  ctx.closePath(); ctx.fill();
+
+  // 直线 v=10-5t
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0 - ch);
+  ctx.lineTo(x0 + cw, y0);
+  ctx.stroke();
+
+  // 当前点
+  ctx.fillStyle = '#b4442e';
+  const pxNow = x0 + (state.tReal/2)*cw;
+  const pyNow = y0 - (state.v/10)*ch;
+  ctx.beginPath(); ctx.arc(pxNow, pyNow, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 标注面积
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('面积 = s = ½·10·2 = 10 m', x0+cw*0.25, y0 - ch*0.35);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 3 分',
+  title: '汽车制动距离',
+  subtitle: 'v₀=10m/s 匀速行驶，制动后匀减速，2s 停止。求制动距离。',
+  deliv: {
+    title: '制动距离 = v-t 图三角面积',
+    sub: 's = ½·v₀·t = 10 m · 答案 B'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 2 题 · 3 分',
+    text: `一辆汽车以 <b>10 m/s</b> 速度匀速行驶，制动后做匀减速直线运动，经 <b>2 s</b> 停止，汽车的制动距离为（　　）`,
+    subQuestions: ['A. 5 m','B. 10 m','C. 20 m','D. 30 m'],
+    officialAnswer: 'B · 末速度为零的匀减速：s = (v₀ + 0)/2 · t = 5 · 2 = 10 m。也可由 v-t 图三角形面积 = ½·v₀·t = 10 m 直接得到。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'匀减速 · v₀ → 0', label_short:'制动',
+     formula_tex: String.raw`s = \tfrac{v_0 + 0}{2} \cdot t = \tfrac{1}{2} \cdot 10 \cdot 2 = 10\;\text{m}`,
+     note:'末速度为零的匀减速 → 平均速度 = v₀/2 → 距离 = ½·v₀·t = 10 m。'}
+  ],
+  stats: [
+    {label:'v₀',          fmt:()=>'10 m/s'},
+    {label:'制动时间',     fmt:()=>'2 s'},
+    {label:'a',           fmt:()=>'-5 m/s²'},
+    {label:'当前 v',       fmt:s=>s.v.toFixed(2)+' m/s'},
+    {label:'当前 s',       fmt:s=>s.s.toFixed(2)+' m'},
+    {label:'制动距离',     fmt:()=>'10 m'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'5 m',  note:''},
+    {label_text:'B 对', value_text:'10 m', note:'½·v₀·t'},
+    {label_text:'C 错', value_text:'20 m', note:'误用 v₀·t'},
+    {label_text:'D 错', value_text:'30 m', note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'汽车 + v-t 直线'},
+    {swatch:{bg:'rgba(194,97,31,0.18)',border:'#c2611f',type:'rect'}, text:'三角面积 = 距离'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024北京-Q2-制动距离'
+});
+</script>
+</body>
+</html>

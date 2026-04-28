@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 21 题 · 宇宙膨胀 · 哈勃定律</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 宇宙膨胀模型：质量均匀分布
+// 当前 P 距 O 为 r₀，密度 ρ₀
+// (1) P 远离到 r₁ 时，球壳质量守恒：(4/3)πr₀³ρ₀ = (4/3)πr₁³ρ₁
+//     → ρ₁ = ρ₀ (r₀/r₁)³
+// (2a) 引力做功 → ΔKE = G·M_in·m·(1/r₀ - 1/r₁)，其中 M_in = (4/3)πr₀³·ρ₀
+// (2b) v_p 速度随 r 增大而减小（动能减 → 速度减）→ H = v/r 减小，t 越大 H 越小
+
+const T_total = 8;
+
+function evalState(t){
+  const u = (t / T_total) % 1;
+  const r_ratio = 1 + u * 0.8;     // r/r₀ 从 1 到 1.8
+  const rho_ratio = 1 / Math.pow(r_ratio, 3);     // ρ/ρ₀
+  return {phase: 1, u, r_ratio, rho_ratio, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const cx = W*0.32, cy = H*0.5;
+  const Rmax = Math.min(W*0.25, H*0.4);
+
+  // 星空背景
+  for(let i=0; i<60; i++){
+    const x = (Math.sin(i*7.3)*0.5+0.5)*W;
+    const y = (Math.cos(i*5.1)*0.5+0.5)*H;
+    ctx.fillStyle = `rgba(150,160,175,${0.3+(Math.sin(i*2.7)*0.5+0.5)*0.4})`;
+    ctx.beginPath(); ctx.arc(x,y, Math.random()*1.2+0.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  // O 点（观测点，中心）
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillText('O', cx-12, cy-8);
+
+  // 球面：当前半径 r
+  const r_now = Rmax * state.r_ratio / 1.8;
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r_now, 0, Math.PI*2); ctx.stroke();
+
+  // 初始球面（虚线）
+  const r_init = Rmax / 1.8;
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.arc(cx, cy, r_init, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // P 星（在球面上）
+  const ang = Math.PI/4;
+  const Px = cx + r_now*Math.cos(ang);
+  const Py = cy - r_now*Math.sin(ang);
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(Px, Py, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('P (m)', Px+10, Py-4);
+
+  // r 半径线
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(Px, Py); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('r', (cx+Px)/2+5, (cy+Py)/2+5);
+
+  // 内部填充（密度 ∝ ρ）
+  const dotCount = Math.floor(60 * state.rho_ratio);
+  ctx.fillStyle = 'rgba(180, 100, 50, 0.5)';
+  for(let i=0; i<dotCount; i++){
+    const ang = Math.random() * Math.PI*2;
+    const rad = Math.sqrt(Math.random()) * r_now * 0.95;
+    const xx = cx + rad*Math.cos(ang);
+    const yy = cy + rad*Math.sin(ang);
+    ctx.beginPath(); ctx.arc(xx, yy, 1.2, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('宇宙膨胀：质量均匀分布 → 球内质量恒定 → ρ ∝ 1/r³', 24, 22);
+
+  // 数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(`r/r₀ = ${state.r_ratio.toFixed(2)}`, 24, H-160);
+  ctx.fillText(`ρ/ρ₀ = ${state.rho_ratio.toFixed(3)}  =  (r₀/r)³`, 24, H-142);
+
+  // 推导卡（右）
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W*0.5, 16, W*0.48, H-32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 球内质量守恒', W*0.5+12, 38);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('(4/3)π·r₀³·ρ₀ = (4/3)π·r₁³·ρ₁', W*0.5+12, 60);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('ρ₁ = ρ₀ · (r₀/r₁)³', W*0.5+12, 82);
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2a) 引力 → 动能变化', W*0.5+12, 116);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('M_球 = (4/3)π r₀³ ρ₀（球内总质量不变）', W*0.5+12, 138);
+  ctx.fillText('能量守恒：ΔKE = U(r₀) − U(r₁)', W*0.5+12, 158);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('ΔKE = G·M_球·m·(1/r₀ − 1/r₁) < 0', W*0.5+12, 180);
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2b) 哈勃定律 v = H·r', W*0.5+12, 218);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('星体速度 v 随 r 增大而减小（KE 减小）', W*0.5+12, 240);
+  ctx.fillText('H = v/r 也减小', W*0.5+12, 260);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('H 随 t 增大而减小  ✓', W*0.5+12, 284);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-260, H-44, 248, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('ρ=ρ₀(r₀/r)³ · ΔKE · H 减小', W-248, H-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 21 题',
+  title: '宇宙膨胀 · 哈勃定律',
+  subtitle: '宇宙均匀膨胀，质量守恒。求密度变化、动能变化、哈勃系数随时间的趋势。',
+  deliv: {
+    title: '宇宙膨胀模型',
+    sub: 'ρ ∝ 1/r³ · ΔKE = GM·m·Δ(1/r) · H 随 t 减'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 21 题',
+    text: `科学家根据天文观测提出宇宙膨胀模型：在大尺度上所有星体彼此远离，质量始终均匀分布。以某一点 O 为观测点，质量为 m 的小星体 P 当前距 O 为 <b>r₀</b>，宇宙密度为 <b>ρ₀</b>。(1) 求 P 远离到 <b>r₁</b> 时宇宙的密度 ρ₁；(2) 仅考虑万有引力。a. 求 P 从 r₀ 远离到 r₁ 过程中动能的变化量；b. 哈勃定律 v = H·r，H 与 t 有关但与 r 无关。分析 H 随 t 增大还是减小。`,
+    subQuestions: [],
+    officialAnswer: '(1) 球内质量守恒：(4/3)π r₀³ ρ₀ = (4/3)π r₁³ ρ₁ → ρ₁ = ρ₀(r₀/r₁)³。(2a) M_球 = (4/3)π r₀³ ρ₀（不变）。能量守恒：ΔKE = U(r₀) − U(r₁) = G·M_球·m·(1/r₀ − 1/r₁)（负）。(2b) 星体速度随 r 增大而减小（动能减），H = v/r 也减小 → H 随 t 增大而减小。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 球膨胀 · ρ ∝ 1/r³', label_short:'膨胀',
+     formula_tex: String.raw`\rho_1 = \rho_0\!\cdot\!\left(\dfrac{r_0}{r_1}\right)^3`,
+     note:'球内总质量恒定（均匀分布 + 同步膨胀），所以密度反比于半径立方。'}
+  ],
+  stats: [
+    {label:'r/r₀',         fmt:s=>s.r_ratio.toFixed(3)},
+    {label:'ρ/ρ₀',         fmt:s=>s.rho_ratio.toFixed(4)},
+    {label:'(1) ρ₁',       fmt:()=>'ρ₀(r₀/r₁)³'},
+    {label:'(2a) ΔKE',     fmt:()=>'GM·m(1/r₀−1/r₁)'},
+    {label:'(2b) H 趋势',   fmt:()=>'随 t 减小'}
+  ],
+  conclusions: [
+    {label_text:'(1)',  value_text:'ρ₁ = ρ₀(r₀/r₁)³',         note:'球壳守恒'},
+    {label_text:'(2a)', value_text:'ΔKE = GMm·(1/r₀−1/r₁)',  note:'< 0'},
+    {label_text:'(2b)', value_text:'H 随 t 减小',              note:'v↓ → H↓'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'当前球面 r'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'初始球面 r₀（虚）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'P 星体（远离中）'},
+    {swatch:{bg:'rgba(180,100,50,0.5)',border:'rgba(180,100,50,0.5)',type:'dot'}, text:'宇宙物质（密度可视化）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024北京-Q21-宇宙膨胀'
+});
+</script>
+</body>
+</html>

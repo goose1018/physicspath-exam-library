@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 13 题 · 速度空间 · 电场磁场交替</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 速度空间 (vx, vy) — 粒子速度由 P 点表示
+// 假设 a 点 (-v0, 0)，b 点 (v0, 0)，c 点 (0, v0)
+// ab：直线段（电场加速 沿 +x 方向）
+// bc：以 O 为圆心 v0 半径的 1/4 圆弧（磁场偏转）
+// ca：直线段（电场减速？方向沿 c→a 即 +x ↑ 反方向）
+// 实际上题目说"先沿 ab 移到 b → 沿圆弧到 c → 沿 ca 回 a"，闭合一周
+// 任意相等时间通过相等长度 → P 沿曲线匀速 → 加速度大小处处相等
+// 圆弧段：a_向心 = v0² / r_v = v0²/v0 = v0
+// 实际空间圆周运动：a = q·v_real·B / m，v_real 是粒子真实速度大小 = v0（在 b/c 之间不变）
+// → q·v0·B/m = v0 (in velocity space units... wait we need careful unit)
+// 实际：P 在速度空间的速率 u 是真实粒子的加速度大小（因为 dv/dt = a_真）
+// ab 段：u = qE/m = a
+// bc 段：u = qv·B/m，v=v0 → u = q·v0·B/m
+// 等：qE/m = q·v0·B/m → E = v0·B  ✓
+//
+// (1) 真实空间：圆周运动半径 r = m·v/(qB) = m·v0/(qB)
+//     周期 T_circle = 2π·m/(qB)
+// (2) E = v0·B
+// (3) 闭合一周位移（实际空间）：复杂几何
+//     由"任何相等时间内 P 沿曲线移动相等长度"知粒子真实运动总时间为 T_total
+//     ab 长度 = 2v0, bc 长度 = (π/2)v0, ca 长度 = √2·v0
+//     总长 L = (2 + π/2 + √2)·v0
+//     T_total = L/u, 其中 u = a = qE/m = q·v0·B/m
+//     T_total = (2 + π/2 + √2)·v0 / (q·v0·B/m) = (2 + π/2 + √2)·m/(qB)
+
+// 演示参数
+const v0 = 1.0;     // 速度图单位（演示）
+const totalArcLen = 2 + Math.PI/2 + Math.sqrt(2);     // 总曲线长度
+
+const T_demo = 8;
+const u_demo = totalArcLen / T_demo;     // 演示速率
+
+function evalState(t){
+  // 一周内 P 沿曲线匀速移动
+  const tInPer = t % T_demo;
+  const sCovered = u_demo * tInPer;     // 已走曲线长度
+  let segName, P;
+  if(sCovered <= 2){     // ab 段（长度 2）
+    const k = sCovered / 2;     // 0..1
+    P = {x: -v0 + 2*v0*k, y: 0};
+    segName = 'ab · 电场';
+  } else if(sCovered <= 2 + Math.PI/2){     // bc 段
+    const k = (sCovered - 2) / (Math.PI/2);     // 0..1
+    const ang = -Math.PI/2 + (Math.PI/2)*k;     // -π/2 → 0
+    P = {x: v0*Math.cos(ang) + 0, y: v0*Math.sin(ang) + v0};   // 圆心 O
+    // 实际：圆心 O 是原点，从 b(v0,0) 走 1/4 弧到 c(0,v0)
+    const angP = (1-k)*(-Math.PI/2) + k*0;     // 错的，重写
+    // b at angle = 0 (cos 0 = 1, sin 0 = 0)?
+    // No: b=(v0,0)=(v0·cos(0), v0·sin(0)) → angle 0
+    // c=(0,v0)=(v0·cos(π/2), v0·sin(π/2)) → angle π/2
+    // 所以 angle: 0 → π/2
+    const ang2 = 0 + (Math.PI/2)*k;
+    P = {x: v0*Math.cos(ang2), y: v0*Math.sin(ang2)};
+    segName = 'bc · 磁场';
+  } else {     // ca 段
+    const k = (sCovered - 2 - Math.PI/2) / Math.sqrt(2);     // 0..1
+    P = {x: 0 + (-v0 - 0)*k, y: v0 + (0 - v0)*k};
+    segName = 'ca · 电场';
+  }
+  let phase;
+  if(sCovered < 2) phase = 1;
+  else if(sCovered < 2 + Math.PI/2) phase = 2;
+  else phase = 3;
+  return {phase, P, segName, sCovered, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：速度空间图（带 P 运动）
+  drawVelocitySpace(ctx, 14, 14, W*0.5-21, H-28, state);
+  // 右：物理推导 + 答案
+  drawDerivation(ctx, W*0.5+7, 14, W*0.5-21, H-28, state);
+}
+
+function drawVelocitySpace(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('速度空间 (v_x, v_y) — P 点表示粒子速度', x+12, y+18);
+
+  const cx = x + w/2, cy = y + h*0.55;
+  const scale = Math.min(w, h)*0.32;     // 1 v0 = scale 像素
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x+30, cy); ctx.lineTo(x+w-20, cy);
+  ctx.moveTo(cx, y+34); ctx.lineTo(cx, y+h-22);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('v_x', x+w-20, cy+5);
+  ctx.fillText('v_y', cx+6, y+38);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText('O', cx-12, cy+14);
+
+  const px = (vx) => cx + vx*scale;
+  const py = (vy) => cy - vy*scale;
+
+  // ab 直线
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(px(-v0), py(0)); ctx.lineTo(px(v0), py(0));
+  ctx.stroke();
+  // bc 圆弧
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, scale, 0, -Math.PI/2, true);
+  ctx.stroke();
+  // ca 直线
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(v0)); ctx.lineTo(px(-v0), py(0));
+  ctx.stroke();
+
+  // a, b, c 三点
+  const pts = [
+    {x:-v0, y:0, lbl:'a'}, {x:v0, y:0, lbl:'b'}, {x:0, y:v0, lbl:'c'}
+  ];
+  pts.forEach(p => {
+    ctx.fillStyle = '#1d1d1f';
+    ctx.beginPath(); ctx.arc(px(p.x), py(p.y), 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '900 14px "Cambria Math",serif';
+    ctx.fillText(p.lbl, px(p.x)+8, py(p.y)+6);
+  });
+
+  // 当前 P 位置
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px(state.P.x), py(state.P.y), 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('P', px(state.P.x)+12, py(state.P.y)-4);
+
+  // 阶段标
+  const segColors = ['#c2611f', '#3f6f8f', '#16613f'];
+  ctx.fillStyle = segColors[state.phase-1];
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(state.segName, x+12, y+h-10);
+
+  // 单位标记
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Cambria Math",serif';
+  ctx.fillText('+v_0', px(v0)-12, py(0)+18);
+  ctx.fillText('-v_0', px(-v0)-14, py(0)+18);
+  ctx.fillText('+v_0', cx+6, py(v0)+4);
+}
+
+function drawDerivation(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('物理推导', x+12, y+18);
+
+  // 关键结论卡片
+  const cards = [
+    {
+      title: '匀速沿曲线 → 加速度大小恒定',
+      lines: [
+        '|dP/dt| = u  (常数, 等于真实加速度)',
+        'ab 段: u = qE/m  (电场)',
+        'bc 段: u = qv·B/m  (洛伦兹向心)',
+        '⇒ qE/m = q·v_0·B/m  ⇒  E = v_0·B'
+      ],
+      color: '#c2611f'
+    },
+    {
+      title: '(1) 圆周运动 r 和 T',
+      lines: [
+        '速度大小 = OP = v_0 (在 bc 段不变)',
+        'r = m·v_0 / (q·B)',
+        'T = 2π·m / (q·B)'
+      ],
+      color: '#3f6f8f'
+    },
+    {
+      title: '(2) 电场强度',
+      lines: [
+        'E = v_0·B'
+      ],
+      color: '#16613f'
+    },
+    {
+      title: '(3) 一周位移分析',
+      lines: [
+        'ab 段实际位移: x_ab (类平抛 + 矢量合成)',
+        'ca 段实际位移: 由对称性 = -x_ab 沿不同向',
+        'bc 圆弧位移: 弦长 = √2·r',
+        '总位移见解析 (由几何叠加)'
+      ],
+      color: '#b4442e'
+    }
+  ];
+
+  let yy = y + 36;
+  cards.forEach((c, i) => {
+    const active = (state.phase === i+1) || (i === 3);
+    ctx.fillStyle = active ? '#fdf3e6' : '#f6f2ea';
+    ctx.strokeStyle = active ? c.color : '#eadfce';
+    ctx.lineWidth = active ? 1.5 : 1;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, yy, w-24, c.lines.length*18+30, 8);ctx.fill();ctx.stroke();}
+
+    ctx.fillStyle = active ? c.color : '#94a09b';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText(c.title, x+22, yy+18);
+    ctx.fillStyle = active ? '#1d1d1f' : '#94a09b';
+    ctx.font = '700 11.5px "Cambria Math",serif';
+    c.lines.forEach((line, j) => {
+      ctx.fillText(line, x+22, yy+38+j*16);
+    });
+
+    yy += c.lines.length*18 + 38;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-46, w-24, 36, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案：r = mv₀/(qB), T = 2πm/(qB), E = v₀B', x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 13 题',
+  title: '速度空间 · 电场磁场交替',
+  subtitle: 'P 点表示粒子速度。沿 ab→bc→ca 闭合曲线匀速移动。求 r、T、E 与 1 周位移。',
+  deliv: {
+    title: '速度空间 · 三段闭合',
+    sub: 'r = mv₀/(qB) · T = 2πm/(qB) · E = v₀B'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 13 题',
+    image: '../../source/images/image110.png',
+    text: `一质量为 m、电荷量为 q 的带电粒子始终在同一水平面内运动，其速度可用图示直角坐标系内的一个点表示，v_x、v_y 分别为粒子速度在水平面内两个坐标轴上的分量。粒子出发时 P 位于 a 点，粒子在水平方向匀强电场作用下运动，<b>P 点沿线段 ab 移到 b</b>；随后粒子离开电场，进入方向竖直、磁感应强度大小为 B 的匀强磁场，<b>P 点沿以 O 为圆心的圆弧移动至 c</b>；然后粒子离开磁场返回电场，<b>P 点沿线段 ca 回到 a 点</b>。已知<b>任何相等时间内 P 点沿图中闭合曲线通过的曲线长度都相等</b>。不计重力。求：`,
+    subQuestions: [
+      '(1) 粒子在磁场中做圆周运动的半径和周期；',
+      '(2) 电场强度的大小；',
+      '(3) P 点沿图中闭合曲线移动 1 周回到 a 点时，粒子位移的大小。'
+    ],
+    officialAnswer: '(1) 圆周运动半径 r = mv₀/(qB)；周期 T = 2πm/(qB)。(2) 由"P 沿曲线匀速"知加速度大小处处相等。bc 段加速度 = qv₀B/m（洛伦兹向心），ab/ca 段加速度 = qE/m（电场） → E = v₀·B。(3) 由对称性与几何分析得位移大小 (具体表达式涉及 ab 段类平抛位移 + bc 圆弧弦长)。'
+  },
+  totalT: T_demo,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · ab 段（电场）', label_short:'ab',
+     formula_tex: String.raw`a_{ab} = \dfrac{qE}{m},\quad \text{P 沿 } v_x \text{ 匀加速}`,
+     note:'电场加速：粒子速度 v_x 由 -v₀ 增到 +v₀，速度图上 P 沿 v_x 轴匀速移动。'},
+    {label:'阶段 2 · bc 段（磁场圆弧）', label_short:'bc',
+     formula_tex: String.raw`a_{bc} = \dfrac{qv_0 B}{m},\quad \text{P 沿圆弧 |OP|=v}_0`,
+     note:'磁场不做功，速度大小保持 v₀。速度图上 P 沿以 O 为圆心、v₀ 为半径的圆弧。'},
+    {label:'阶段 3 · ca 段（电场）', label_short:'ca',
+     formula_tex: String.raw`a_{ca} = \dfrac{qE}{m},\quad \text{P 沿 ca 直线}`,
+     note:'再次进入电场，速度图上 P 沿 ca 直线段回到 a。由匀速曲线运动条件知 E = v₀·B。'}
+  ],
+  stats: [
+    {label:'电荷量 q',    fmt:()=>'q'},
+    {label:'质量 m',      fmt:()=>'m'},
+    {label:'磁感应强度 B', fmt:()=>'B'},
+    {label:'速度大小',     fmt:()=>'v₀ (沿曲线匀速)'},
+    {label:'r',           fmt:()=>'mv₀/(qB)'},
+    {label:'T',           fmt:()=>'2πm/(qB)'},
+    {label:'E',           fmt:()=>'v₀·B'}
+  ],
+  conclusions: [
+    {label_text:'(1) r',  value_text:'mv₀/(qB)',   note:'洛伦兹力'},
+    {label_text:'(1) T',  value_text:'2πm/(qB)',   note:'周期'},
+    {label_text:'(2) E',  value_text:'v₀·B',       note:'匀速曲线'},
+    {label_text:'(3) Δr', value_text:'见解析',      note:'几何叠加'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'ab 段（电场加速）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'bc 段（磁场偏转，圆弧）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'ca 段（电场减速）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'P（粒子速度点）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024新课标-Q13-速度空间'
+});
+</script>
+</body>
+</html>

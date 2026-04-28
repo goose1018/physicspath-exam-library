@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 题 · 理想变压器 + 灯泡</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 副线圈：U₂=6V, P=3W → I₂ = P/U₂ = 0.5 A (B 对)
+// 假设原线圈电压最大 24√2 V → 有效值 24V → 匝数比 4:1
+// 输入功率 = 输出功率 = 3W (D 错说 12W)
+
+const T_total = 4;
+const f = 50;     // 50 Hz
+
+function evalState(t){
+  const phase_u = 2*Math.PI*1*t;     // 演示用慢频
+  const u_in = Math.sin(phase_u);
+  const u_out = Math.sin(phase_u);     // 同步
+  return {phase: 1, u_in, u_out, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 顶部
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('理想变压器（无能量损失）  ·  副线圈接 6V 3W 灯泡正常发光', 24, 22);
+
+  // 中间：变压器示意
+  const cx = W/2, cy = H*0.45;
+  // 铁芯
+  ctx.strokeStyle = '#3a3e42'; ctx.lineWidth = 6;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(cx-90, cy-50, 180, 100);
+  ctx.strokeRect(cx-90, cy-50, 180, 100);
+  // 中柱（空心）
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(cx-50, cy-30, 100, 60);
+  ctx.strokeRect(cx-50, cy-30, 100, 60);
+
+  // 原线圈（左）— 多圈
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+  for(let i=0; i<8; i++){
+    const yy = cy-30 + i*8;
+    ctx.beginPath();
+    ctx.arc(cx-90, yy+4, 4, 0, Math.PI*2, false);
+    ctx.stroke();
+  }
+  // 副线圈（右）— 较少圈（为说明匝数比）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  for(let i=0; i<2; i++){
+    const yy = cy-15 + i*15;
+    ctx.beginPath();
+    ctx.arc(cx+90, yy+4, 4, 0, Math.PI*2, false);
+    ctx.stroke();
+  }
+
+  // 原线圈接交流源（左侧）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx-90-30, cy-15); ctx.lineTo(cx-130, cy-15);
+  ctx.lineTo(cx-130, cy+15); ctx.lineTo(cx-90-30, cy+15);
+  ctx.stroke();
+  // 交流源符号
+  ctx.beginPath(); ctx.arc(cx-130, cy, 14, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '700 14px "Cambria Math",serif';
+  ctx.fillText('~', cx-135, cy+5);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('交流源', cx-150, cy-22);
+
+  // 副线圈接灯泡（右侧）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx+90+30, cy-10); ctx.lineTo(cx+130, cy-10);
+  ctx.lineTo(cx+130, cy+10); ctx.lineTo(cx+90+30, cy+10);
+  ctx.stroke();
+  // 灯泡（用瞬时电压表示亮度）
+  const bright = Math.abs(state.u_out);
+  ctx.fillStyle = `rgba(255, 200, 50, ${0.3 + 0.6*bright})`;
+  ctx.beginPath(); ctx.arc(cx+130, cy, 16, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#a85219'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx+130, cy, 16, 0, Math.PI*2); ctx.stroke();
+  // 灯丝
+  ctx.strokeStyle = '#a85219'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(cx+121, cy-3); ctx.quadraticCurveTo(cx+130, cy+3, cx+139, cy-3);
+  ctx.stroke();
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('6V 3W', cx+114, cy+30);
+
+  // 标签
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('原线圈 N₁', cx-130, cy+50);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('副线圈 N₂', cx+90, cy+50);
+
+  // 数据卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-150, 360, 120, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('正常发光条件 → 副线圈电流：', 32, H-128);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12.5px "Cambria Math",serif';
+  ctx.fillText('I₂ = P / U₂ = 3 W / 6 V = 0.5 A  ✓ B 对', 32, H-104);
+  ctx.fillText('原线圈最大电压 24√2 V → 有效值 24 V', 32, H-82);
+  ctx.fillText('N₁/N₂ = U₁/U₂ = 24/6 = 4 : 1（不是 1:4）', 32, H-60);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('原线圈输入功率 = 副线圈输出 = 3W（理想 → 不损失）', 32, H-38);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, H-44, 200, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · I₂ = 0.5 A', W-208, H-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 3 分',
+  title: '理想变压器 · 6V 3W 灯泡',
+  subtitle: '原线圈接交流源，副线圈接 6V 3W 灯泡正常发光。求副线圈电流等。',
+  deliv: {
+    title: '理想变压器分析',
+    sub: 'I₂ = P/U₂ = 0.5 A · 答案 B'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 5 题 · 3 分',
+    image: '../../source/images/image11.png',
+    text: `理想变压器原线圈接在正弦式交流电源上，输入电压 u 随时间 t 变化的图像如图乙所示，副线圈接规格为 <b>"6V，3W"</b> 的灯泡。若灯泡正常发光，下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 原线圈两端电压有效值为 24√2 V',
+      'B. 副线圈中电流的有效值为 0.5 A',
+      'C. 原、副线圈匝数之比为 1∶4',
+      'D. 原线圈的输入功率为 12 W'
+    ],
+    officialAnswer: 'B · A 错（最大值 24√2 V → 有效值 24 V，不是 24√2 V）。B 对：I₂ = P/U₂ = 3/6 = 0.5 A。C 错：N₁/N₂ = U₁/U₂ = 24/6 = 4:1（题中说 1:4 反了）。D 错：理想变压器无损 → P_in = P_out = 3 W（不是 12 W）。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'灯泡正常发光 → 求 I₂', label_short:'I₂',
+     formula_tex: String.raw`I_2 = \dfrac{P}{U_2} = \dfrac{3}{6} = 0.5\;\text{A}`,
+     note:'灯泡额定 6V 3W → 有效值电流 = P/U = 0.5 A。'}
+  ],
+  stats: [
+    {label:'灯泡额定',     fmt:()=>'6V, 3W'},
+    {label:'I₂',          fmt:()=>'0.5 A'},
+    {label:'U₁',          fmt:()=>'24 V (有效)'},
+    {label:'N₁/N₂',       fmt:()=>'4:1'},
+    {label:'P_in',        fmt:()=>'3 W (理想)'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'24 V 不是 24√2',  note:''},
+    {label_text:'B 对', value_text:'I₂=0.5 A',         note:'P/U'},
+    {label_text:'C 错', value_text:'4:1 不是 1:4',     note:'反向'},
+    {label_text:'D 错', value_text:'P=3 W',            note:'理想无损'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'原线圈（N₁）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'副线圈（N₂）'},
+    {swatch:{bg:'rgba(255,200,50,0.6)',border:'#a85219',type:'dot'}, text:'灯泡（瞬时亮度 ∝ |U|）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024北京-Q5-变压器'
+});
+</script>
+</body>
+</html>

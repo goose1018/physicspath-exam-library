@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 4 题 · 飞船与空间站作用力</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 整体：F = (m+M)a → a = F/(m+M)
+// 空间站：F' = M·a = MF/(m+M)
+// 答案 A
+
+const F_force = 100;     // 推力 (示意)
+const m_ship = 10;       // 飞船质量
+const M_station = 30;    // 空间站质量
+const a_total = F_force/(m_ship + M_station);     // 2.5
+const F_internal = M_station * a_total;            // 75
+
+const T_total = 6;
+
+function evalState(t){
+  const u = Math.min(1, (t / T_total) % 1);
+  const x_total = 0.5 * a_total * (t*t) * 4;     // 演示位移
+  return {phase:1, u, x_total: x_total*5, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 太空背景
+  for(let i=0; i<40; i++){
+    const x = (Math.sin(i*7.3)*0.5+0.5)*W;
+    const y = (Math.cos(i*5.1)*0.5+0.5)*H;
+    ctx.fillStyle = `rgba(150,160,175,${0.4 + (Math.sin(i*2.7)*0.5+0.5)*0.5})`;
+    ctx.beginPath(); ctx.arc(x,y, Math.random()*1.2+0.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  const cy = H * 0.5;
+  const dx = state.x_total % (W*0.3);
+  const baseX = W*0.2 + dx;
+
+  // 空间站（右）+ 飞船（左）— 已对接
+  // 空间站
+  drawStation(ctx, baseX + 130, cy, M_station);
+  // 飞船
+  drawShip(ctx, baseX, cy, m_ship);
+  // 对接管
+  ctx.strokeStyle = '#5d6068'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(baseX+50, cy); ctx.lineTo(baseX+95, cy); ctx.stroke();
+
+  // 推力 F (作用在飞船上，向右)
+  PPath.arrow(ctx, baseX-30, cy, baseX-10, cy, '#c2611f', 3);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillText('F', baseX-26, cy-8);
+
+  // 加速度
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(`a = F/(m+M)`, baseX-50, cy+30);
+
+  // 内力 F'：飞船 → 空间站 (向右)；空间站 → 飞船 (向左)
+  // 在对接管处画双箭头
+  PPath.arrow(ctx, baseX+72, cy-15, baseX+95, cy-15, '#3f6f8f', 1.8);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('F\' (飞船→空间站)', baseX+50, cy-22);
+
+  PPath.arrow(ctx, baseX+85, cy+15, baseX+62, cy+15, '#b4442e', 1.8);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('F\' (反作用)', baseX+50, cy+30);
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('飞船 (m) 与空间站 (M) 对接，推力 F 作用其上 → 整体一起加速运动。', 24, 22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-130, 360, 110, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('推导（隔离法）', 32, H-108);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('① 整体：F = (m+M)·a  →  a = F/(m+M)', 32, H-86);
+  ctx.fillText('② 空间站：F\' = M·a', 32, H-66);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('F\' = MF / (m+M)', 32, H-42);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, H-44, 200, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 A · F\' = MF/(m+M)', W-208, H-22);
+}
+
+function drawShip(ctx, cx, cy, m){
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath();
+  ctx.moveTo(cx-30, cy-15);
+  ctx.lineTo(cx+20, cy-15);
+  ctx.lineTo(cx+30, cy);
+  ctx.lineTo(cx+20, cy+15);
+  ctx.lineTo(cx-30, cy+15);
+  ctx.lineTo(cx-40, cy+5);
+  ctx.lineTo(cx-40, cy-5);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('飞船', cx-13, cy+4);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Cambria Math",serif';
+  ctx.fillText('m', cx-30, cy+30);
+}
+
+function drawStation(ctx, cx, cy, M){
+  // 主体
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(cx-25, cy-25, 60, 50);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(cx-25, cy-25, 60, 50);
+  // 太阳板
+  ctx.fillStyle = '#1f3a2e';
+  ctx.fillRect(cx+35, cy-30, 30, 60);
+  ctx.fillRect(cx-55, cy-30, 30, 60);
+  ctx.strokeRect(cx+35, cy-30, 30, 60);
+  ctx.strokeRect(cx-55, cy-30, 30, 60);
+  // 太阳板格子
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 0.5;
+  for(let yy=cy-25; yy<cy+30; yy+=8){
+    ctx.beginPath(); ctx.moveTo(cx+35, yy); ctx.lineTo(cx+65, yy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-55, yy); ctx.lineTo(cx-25, yy); ctx.stroke();
+  }
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('空间站', cx-15, cy+4);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Cambria Math",serif';
+  ctx.fillText('M', cx-3, cy+38);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 4 题 · 3 分',
+  title: '飞船与空间站作用力',
+  subtitle: '飞船 (m) 与空间站 (M) 对接后受推力 F。求两者间作用力。',
+  deliv: {
+    title: '飞船-空间站内力',
+    sub: '隔离法 · F\' = MF/(m+M) · 答案 A'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 4 题 · 3 分',
+    image: '../../source/images/image5.png',
+    text: `如图所示，飞船与空间站对接后，在<b>推力 F</b> 作用下一起向前运动。飞船和空间站的质量分别为 <b>m</b> 和 <b>M</b>，则飞船和空间站之间的作用力大小为（　　）`,
+    subQuestions: [
+      'A. MF / (m+M)',
+      'B. mF / (m+M)',
+      'C. (m+M)F / m',
+      'D. (m+M)F / M'
+    ],
+    officialAnswer: 'A · 整体应用牛顿第二定律：F = (m+M)·a → a = F/(m+M)。隔离空间站：F\' = M·a = MF/(m+M)。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'整体加速 + 内力分析', label_short:'对接',
+     formula_tex: String.raw`F = (m+M)a,\quad F' = Ma = \dfrac{MF}{m+M}`,
+     note:'整体牛二求 a，再隔离空间站求其受到的内力 F\'。'}
+  ],
+  stats: [
+    {label:'外力 F',         fmt:()=>'F'},
+    {label:'飞船 m',         fmt:()=>'m'},
+    {label:'空间站 M',       fmt:()=>'M'},
+    {label:'整体加速度 a',    fmt:()=>'F/(m+M)'},
+    {label:'内力 F\'',         fmt:()=>'MF/(m+M)'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'MF/(m+M)', note:'隔离 M'},
+    {label_text:'B 错', value_text:'mF/(m+M)', note:'弄反 m/M'},
+    {label_text:'C 错', value_text:'(m+M)F/m', note:''},
+    {label_text:'D 错', value_text:'(m+M)F/M', note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'飞船 m'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'空间站 M'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'内作用力 F\''}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024北京-Q4-飞船作用力'
+});
+</script>
+</body>
+</html>

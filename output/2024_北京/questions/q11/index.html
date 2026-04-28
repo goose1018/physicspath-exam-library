@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 11 题 · 等量异种点电荷</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 等量异种 +Q (M) 和 -Q (N)，P、Q 在 MN 上对称分布
+// E_P = E_Q (大小相等，由对称性)
+// V_P ≠ V_Q：从 +Q 到 -Q 沿电场线电势降 → P 近 +Q 一侧 → V_P > V_Q
+// 若两电荷量都变 2 倍：E_P, E_Q 都变 2 倍 (C 对)
+// 距离不变 → U_PQ = V_P - V_Q 也变 2 倍 (D 错)
+
+const T_total = 6;
+
+function evalState(t){
+  // 4 阶段循环演示 4 个判断
+  const stage = Math.floor((t/(T_total/4))) % 4;
+  const u = (t - stage*(T_total/4)) / (T_total/4);
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const cx = W/2, cy = H*0.42;
+  const sep = 200;     // M-N 间距 (像素)
+
+  // 等量异种电荷（+Q 在 M，-Q 在 N）
+  const Mx = cx - sep/2, Nx = cx + sep/2;
+
+  // 电场线（一族）
+  drawFieldLines(ctx, Mx, cy, Nx, cy);
+
+  // M (+Q)
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(Mx, cy, 16, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('+', Mx, cy+5);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('M (+q)', Mx-22, cy+34);
+
+  // N (-Q)
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(Nx, cy, 16, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('−', Nx, cy+5);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('N (-q)', Nx-15, cy+34);
+
+  // P, Q 两点
+  const Px = cx - 50, Qx = cx + 50;     // P 近 M, Q 近 N
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(Px, cy, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(Qx, cy, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('P', Px-3, cy-12);
+  ctx.fillStyle = '#16613f';
+  ctx.fillText('Q', Qx-3, cy-12);
+
+  // E_P, E_Q 箭头（大小相等，方向沿 MN 向 N）
+  const E_size = state.stage === 2 ? 50 : 35;     // 阶段 3 (C 对) 时变 2 倍
+  const isDoubled = (state.stage === 2);
+  if(isDoubled){
+    PPath.arrow(ctx, Px-1, cy+10, Px-1+E_size, cy+10, '#c2611f', 2);
+    PPath.arrow(ctx, Qx-1, cy+10, Qx-1+E_size, cy+10, '#16613f', 2);
+  } else {
+    PPath.arrow(ctx, Px-1, cy+10, Px-1+35, cy+10, '#c2611f', 2);
+    PPath.arrow(ctx, Qx-1, cy+10, Qx-1+35, cy+10, '#16613f', 2);
+  }
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('E_P', Px+5, cy+30);
+  ctx.fillStyle = '#16613f';
+  ctx.fillText('E_Q', Qx+5, cy+30);
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('等量异种点电荷 +Q (M) 和 -Q (N)，P、Q 在 MN 连线上对称', 24, 22);
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · E_P > E_Q', verdict:'错（对称 → E_P = E_Q）', highlight:0},
+    {opt:'B · V_P = V_Q', verdict:'错（V_P > V_Q，沿电场降）', highlight:1},
+    {opt:'C · q×2 → E_P×2', verdict:'对 ✓ (E ∝ q)', highlight:2},
+    {opt:'D · q×2 → U_PQ 不变', verdict:'错（U=Ed → U×2）', highlight:3}
+  ];
+  let yy = H-130;
+  judgments.forEach((j, i) => {
+    const correct = (j.highlight === 2);
+    const active = (state.stage === i);
+    const color = active ? (correct ? '#16613f' : '#b4442e') : '#94a09b';
+    ctx.fillStyle = color;
+    ctx.font = `${active?900:700} 12px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, 24, yy);
+    ctx.fillStyle = active ? color : '#94a09b';
+    ctx.font = '600 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, 200, yy);
+    yy += 24;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, H-44, 208, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 C · q×2 → E_P×2', W-208, H-22);
+}
+
+function drawFieldLines(ctx, Mx, My, Nx, Ny){
+  ctx.strokeStyle = 'rgba(94,105,100,0.4)'; ctx.lineWidth = 1;
+  // 几条曲线连接 M → N
+  const startAngles = [-Math.PI/3, -Math.PI/6, 0, Math.PI/6, Math.PI/3,
+                        Math.PI - Math.PI/3, Math.PI - Math.PI/6, Math.PI, Math.PI + Math.PI/6, Math.PI + Math.PI/3];
+  startAngles.forEach(a => {
+    ctx.beginPath();
+    const x0 = Mx + 18*Math.cos(a), y0 = My + 18*Math.sin(a);
+    // 控制点曲率
+    const ctrl1x = Mx + 80*Math.cos(a) + 20, ctrl1y = My + 80*Math.sin(a);
+    const ctrl2x = Nx - 80*Math.cos(a-Math.PI) - 20, ctrl2y = Ny - 80*Math.sin(a-Math.PI);
+    const x1 = Nx + 18*Math.cos(a + Math.PI), y1 = Ny + 18*Math.sin(a + Math.PI);
+    ctx.moveTo(x0, y0);
+    ctx.bezierCurveTo(ctrl1x, ctrl1y, ctrl2x, ctrl2y, x1, y1);
+    ctx.stroke();
+  });
+  // 中央水平线（粗）
+  ctx.strokeStyle = 'rgba(94,105,100,0.7)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(Mx+18, My); ctx.lineTo(Nx-18, Ny); ctx.stroke();
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 11 题 · 3 分',
+  title: '等量异种点电荷 · 电场对称',
+  subtitle: 'M(+Q)、N(-Q) 在 MN 连线上有 P、Q 对称两点。比较电场强度、电势、加倍效应。',
+  deliv: {
+    title: '异种电荷场对称性',
+    sub: 'E_P = E_Q · q×2 → E×2 · 答案 C'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 11 题 · 3 分',
+    image: '../../source/images/image35.png',
+    text: `两个等量异种点电荷分别位于 M、N 两点，P、Q 是 MN 连线上的两点（对称分布于中点两侧）。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. P 点电场强度比 Q 点电场强度大',
+      'B. P 点电势与 Q 点电势相等',
+      'C. 若两点电荷的电荷量均变为原来的 2 倍，P 点电场强度大小也变为原来的 2 倍',
+      'D. 若两点电荷的电荷量均变为原来的 2 倍，P、Q 两点间电势差不变'
+    ],
+    officialAnswer: 'C · A 错：等量异种电荷在 MN 连线上，由对称性 E_P = E_Q（大小相等，方向相同沿 +→-）。B 错：沿电场线电势降低 → V_P > V_Q（不相等）。C 对：电场强度 ∝ 电荷量（叠加原理），q×2 → E×2。D 错：U = E·d（PQ 间距不变），E×2 → U 也×2。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · A 错（E_P = E_Q）', label_short:'A',
+     formula_tex: String.raw`E_P = E_Q\;\text{(对称)}`,
+     note:'P、Q 关于 MN 中点对称 → E_P 与 E_Q 大小相等。'},
+    {label:'阶段 2 · B 错（V_P > V_Q）', label_short:'B',
+     formula_tex: String.raw`V_P > V_Q`,
+     note:'P 离 +Q 较近，Q 离 -Q 较近 → V_P > V_Q。沿电场方向（+→-）电势减。'},
+    {label:'阶段 3 · C 对（E×2）', label_short:'C',
+     formula_tex: String.raw`E \propto q \;\Rightarrow\; E_P\times 2`,
+     note:'电荷量加倍 → 电场强度叠加加倍。'},
+    {label:'阶段 4 · D 错（U×2）', label_short:'D',
+     formula_tex: String.raw`U_{PQ} = E\cdot d \;\Rightarrow\; U\times 2`,
+     note:'PQ 间距不变，E 加倍 → 电势差也加倍（不是不变）。'}
+  ],
+  stats: [
+    {label:'M 电荷',     fmt:()=>'+q'},
+    {label:'N 电荷',     fmt:()=>'-q'},
+    {label:'E_P vs E_Q', fmt:()=>'相等（对称）'},
+    {label:'V_P vs V_Q', fmt:()=>'V_P > V_Q'},
+    {label:'q→2q 后 E',  fmt:()=>'E × 2'},
+    {label:'q→2q 后 U',  fmt:()=>'U × 2'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'E_P = E_Q', note:'对称'},
+    {label_text:'B 错', value_text:'V 不等',     note:'沿场降'},
+    {label_text:'C 对', value_text:'E×2',       note:'q×2'},
+    {label_text:'D 错', value_text:'U×2',       note:'U=Ed'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'M (+q 正电)'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'N (-q 负电)'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'P 点（近 +q）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'Q 点（近 -q）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024北京-Q11-异种电荷'
+});
+</script>
+</body>
+</html>

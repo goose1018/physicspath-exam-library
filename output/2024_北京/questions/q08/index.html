@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 8 题 · 上抛 + 空气阻力</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// f = kv，向上时阻力向下（与速度反向），向下时阻力向上
+// 上升：a_up = -(g + kv/m)，比 g 大 → 减速更快 → 上升时间短
+// 下降：a_down = g - kv/m，比 g 小 → 加速更慢 → 落地时速度 < 抛出速度 → 时间长
+// 损失机械能：阻力做负功，上升机械能损失 > 下降机械能损失（速度更大 + 阻力做功更大）
+// 冲量：上升过程动量变化 |0 - mv₀| = mv₀，下降 |-mv_落 - 0| = mv_落 < mv₀
+// → 上升合力冲量 > 下降合力冲量 → C 对
+
+const m = 1, g = 10, k = 0.4;     // 阻力系数
+const v0 = 12;     // 初速度
+
+// 数值积分上抛过程
+function simulate(){
+  const data = [];
+  let y=0, v=v0, t=0, dt=0.005;
+  data.push({t, y, v, phase:1});
+  // 上升
+  while(v > 0){
+    const drag = k*v;     // 与速度反向 → 向下
+    const a = -g - drag/m;
+    v += a*dt; y += v*dt; t += dt;
+    if(v <= 0) v = 0;
+    data.push({t, y, v, phase:1});
+  }
+  const t_up = t, y_max = y;
+  // 下降
+  while(y > 0){
+    const drag = k*Math.abs(v);     // 与速度反向 → 向上
+    const a = -g + drag/m;     // 注意：v<0 时 a 实际是 -g + drag/m (drag 向上即正)
+    v += a*dt; y += v*dt; t += dt;
+    if(y <= 0){ y = 0; }
+    data.push({t, y, v, phase:2});
+    if(y <= 0) break;
+  }
+  const t_total = t;
+  return {data, t_up, t_total, y_max, v_land: -v};
+}
+const sim = simulate();
+const T_total = 6;
+const slowFactor = T_total / sim.t_total;
+
+function evalState(t){
+  const tReal = t / slowFactor;
+  // 找到对应数据点
+  let idx = 0;
+  while(idx < sim.data.length-1 && sim.data[idx+1].t <= tReal) idx++;
+  const d = sim.data[idx];
+  return {phase: d.phase, y: d.y, v: d.v, tReal, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：球的上抛动画
+  drawBallMotion(ctx, 14, 14, W*0.32-21, H-28, state);
+  // 右：v-t 图（上下半场对比）
+  drawVT(ctx, W*0.32+7, 14, W*0.68-21, H-28, state);
+}
+
+function drawBallMotion(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('竖直上抛 · 阻力 f = kv', x+12, y+18);
+
+  const yGround = y + h - 30;
+  const yMax_px = h - 60;
+  const ballY = yGround - state.y/sim.y_max * yMax_px;
+  const ballX = x + w/2;
+
+  // 地面
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(x+15, yGround, w-30, 4);
+
+  // 球
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(ballX, ballY, 10, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 速度箭头
+  const vScale = 4;
+  PPath.arrow(ctx, ballX, ballY, ballX, ballY - state.v*vScale, '#16613f', 2);
+  // 阻力箭头（与速度反向）
+  PPath.arrow(ctx, ballX+18, ballY, ballX+18, ballY + Math.sign(state.v)*Math.abs(k*state.v)*vScale*1.5, '#b4442e', 1.8);
+  // 重力（始终向下）
+  PPath.arrow(ctx, ballX-18, ballY, ballX-18, ballY + g*vScale, '#5d6068', 1.8);
+
+  // 标
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('v', ballX-3, ballY-Math.abs(state.v)*vScale-5);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText('f', ballX+22, ballY+10);
+  ctx.fillStyle = '#5d6068';
+  ctx.fillText('mg', ballX-30, ballY+12);
+
+  // 阶段标
+  ctx.fillStyle = state.phase === 1 ? '#16613f' : '#b4442e';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(state.phase === 1 ? '上升中（阻力向下）' : '下降中（阻力向上）', x+12, y+h-12);
+}
+
+function drawVT(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('v-t 图（上 v>0 上升，下 v<0 下降）', x+12, y+18);
+
+  const padL=44, padR=20, padT=32, padB=180;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch/2;
+
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y+padT); ctx.lineTo(x0, y+padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('v', x0-12, y+padT-2);
+  ctx.fillText('t', x0+cw+4, y0+12);
+
+  // 曲线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let i=0; i<sim.data.length; i+=2){
+    const d = sim.data[i];
+    const px = x0 + (d.t/sim.t_total)*cw;
+    const py = y0 - (d.v/v0)*ch/2*0.85;
+    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 当前点
+  const px = x0 + (state.tReal/sim.t_total)*cw;
+  const py = y0 - (state.v/v0)*ch/2*0.85;
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 关键时刻竖线
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  const t_up_px = x0 + (sim.t_up/sim.t_total)*cw;
+  ctx.beginPath(); ctx.moveTo(t_up_px, y+padT); ctx.lineTo(t_up_px, y+padT+ch); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText(`t_up = ${sim.t_up.toFixed(2)}s`, t_up_px-30, y+padT-6);
+  ctx.fillText(`t_total = ${sim.t_total.toFixed(2)}s`, x0+cw-80, y+padT+ch+12);
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · 上升下降时间相等', verdict:`错（上升 ${sim.t_up.toFixed(2)}s < 下降 ${(sim.t_total-sim.t_up).toFixed(2)}s）`},
+    {opt:'B · 上下损失机械能相等', verdict:'错（上升损失 > 下降）'},
+    {opt:'C · 上升合力冲量 > 下降', verdict:`对 ✓（mv_0 > mv_land）`},
+    {opt:'D · 上升加速度 < 下降加速度', verdict:'错（上升 a_up > 下降 a_down）'}
+  ];
+  let yy = y0 + ch/2 + 30;
+  judgments.forEach((j, i) => {
+    const correct = (i === 2);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+14, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+14, yy+14);
+    yy += 32;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-180, y+h-44, 168, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 C · I_up > I_down', x+w-170, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 8 题 · 3 分',
+  title: '上抛 + 空气阻力（f = kv）',
+  subtitle: '阻力大小与速度成正比。比较上升和下降两过程时间、机械能、冲量、加速度。',
+  deliv: {
+    title: '上抛带阻力 · 4 项对比',
+    sub: '上升时间 < 下降，I_up > I_down · 答案 C'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 8 题 · 3 分',
+    text: `将小球竖直向上抛出，小球从抛出到落回原处的过程中，若所受空气阻力大小与速度大小成正比，则下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 上升和下落两过程时间相等',
+      'B. 上升和下落两过程损失的机械能相等',
+      'C. 上升过程合力的冲量大于下落过程合力的冲量',
+      'D. 上升过程的加速度始终小于下落过程的加速度'
+    ],
+    officialAnswer: 'C · A 错：上升时阻力 + 重力都向下 → 加速度大；下降时阻力向上 → 加速度小 + 速度小于抛出速度。同段平均速度上升大 → 上升时间短。B 错：阻力做负功，上升过程速度大、阻力大 → 上升损失多。C 对：动量定理 I = Δp。上升 |Δp| = mv₀；下降 |Δp| = mv_落 < mv₀。D 错：上升 a > g，下降 a < g。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 上升（阻力向下）', label_short:'上升',
+     formula_tex: String.raw`a_{\uparrow} = g + kv/m,\quad t_{up} \text{ 短}`,
+     note:'阻力与速度反向 → 上升时阻力向下，与重力同向。加速度大于 g，减速快。'},
+    {label:'阶段 2 · 下降（阻力向上）', label_short:'下降',
+     formula_tex: String.raw`a_{\downarrow} = g - kv/m,\quad v_{land} < v_0`,
+     note:'下降时阻力向上抵消部分重力。加速度小于 g。落地速度小于抛出速度。'}
+  ],
+  stats: [
+    {label:'v₀',         fmt:()=>v0+' m/s'},
+    {label:'阻力系数 k', fmt:()=>k},
+    {label:'上升时间',   fmt:()=>sim.t_up.toFixed(3)+' s'},
+    {label:'下降时间',   fmt:()=>(sim.t_total - sim.t_up).toFixed(3)+' s'},
+    {label:'最高 y_max', fmt:()=>sim.y_max.toFixed(2)+' m'},
+    {label:'落地速度',   fmt:()=>sim.v_land.toFixed(2)+' m/s'},
+    {label:'当前 v',     fmt:s=>s.v.toFixed(2)+' m/s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'上升 < 下降',  note:''},
+    {label_text:'B 错', value_text:'损失不等',     note:''},
+    {label_text:'C 对', value_text:'I_up > I_down', note:'mv₀ > mv_落'},
+    {label_text:'D 错', value_text:'a_up > a_down', note:'阻力方向'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'小球'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'速度 v'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'阻力 f = kv'},
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'重力 mg'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024北京-Q8-上抛阻力'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 2 题 · 福建舰弹射小车 · 平抛</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 平抛模型：动能 E_k = ½mv² → v = √(2E_k/m)。E_k 变 4 倍 → v 变 2 倍。
+// 平抛时间 t = √(2h/g)（与 v 无关）。落地距离 x = v·t。
+// 所以 x 也变 2 倍。
+
+const g = 10;
+const H = 18;       // 甲板高 18m（示意）
+const T_fall = Math.sqrt(2*H/g);   // ≈ 1.9s
+
+const v0 = 8;       // 调整前
+const v1 = 16;      // 调整后（4 倍动能 → 2 倍速度）
+
+const T_total = T_fall + 0.6;
+
+function evalState(t){
+  const inAir = t <= T_fall;
+  return {phase: inAir ? 1 : 2, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, h = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,h);
+
+  // 海面
+  const yDeck = h*0.30;
+  const ySea  = h*0.85;
+  // 海水
+  ctx.fillStyle = '#cfe0e8';
+  ctx.fillRect(0, ySea, W, h-ySea);
+  ctx.strokeStyle = '#88a4ae'; ctx.lineWidth = 1;
+  for(let x=0; x<W; x+=18){
+    ctx.beginPath();
+    ctx.moveTo(x, ySea+4);
+    ctx.quadraticCurveTo(x+6, ySea+1, x+12, ySea+4);
+    ctx.stroke();
+  }
+  // 甲板（"福建舰"）
+  ctx.fillStyle = '#444a52';
+  ctx.fillRect(40, yDeck, 220, 14);
+  ctx.fillStyle = '#5a6068';
+  ctx.fillRect(60, yDeck-22, 200, 22);
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('福建舰', 132, yDeck-7);
+
+  // 弹射方向标
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(40, yDeck+7); ctx.lineTo(W-30, yDeck+7); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 像素 / 米
+  const pxPerM = (W-280)/(v1*T_fall + 4);   // 让 v1·t 落点不超出右边界
+
+  // 起点：甲板右端
+  const x0 = 260, y0 = yDeck+2;
+
+  const tNow = Math.min(t, T_fall);
+
+  // 调整前轨迹（v0）
+  drawTrajectory(ctx, x0, y0, v0, tNow, pxPerM, '#3f6f8f', '调整前 v₀');
+  // 调整后轨迹（v1）
+  drawTrajectory(ctx, x0, y0, v1, tNow, pxPerM, '#c2611f', '调整后 v=2v₀');
+
+  // 落点距离
+  if(t >= T_fall - 0.05){
+    const x_far_0 = x0 + v0*T_fall*pxPerM;
+    const x_far_1 = x0 + v1*T_fall*pxPerM;
+    // 距离尺
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x0, ySea+22); ctx.lineTo(x_far_0, ySea+22); ctx.stroke();
+    drawTickMark(ctx, x0, ySea+22, '#3f6f8f');
+    drawTickMark(ctx, x_far_0, ySea+22, '#3f6f8f');
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '900 13px "Cambria Math",serif';
+    ctx.fillText('x₀', (x0+x_far_0)/2-8, ySea+38);
+
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x0, ySea+44); ctx.lineTo(x_far_1, ySea+44); ctx.stroke();
+    drawTickMark(ctx, x0, ySea+44, '#c2611f');
+    drawTickMark(ctx, x_far_1, ySea+44, '#c2611f');
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Cambria Math",serif';
+    ctx.fillText('2x₀', (x0+x_far_1)/2-12, ySea+60);
+  }
+
+  // 顶部物理框
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, 16, 280, 64, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('动能 4 倍  →  速度 2 倍', 32, 36);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('E_k = ½ m v²  ⇒  E_k\' = 4E_k  →  v\' = 2v', 32, 56);
+  ctx.fillText('h、g 不变 → t 不变 → x = v·t 也变 2 倍', 32, 74);
+
+  // 答案标
+  if(t >= T_fall*0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, 16, 180, 30, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C · 落点距离变 2 倍', W-186, 36);
+  }
+}
+
+function drawTrajectory(ctx, x0, y0, v, tNow, pxPerM, color, label){
+  // 轨迹线
+  ctx.strokeStyle = color+'88'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let s=0; s<=tNow; s+=0.04){
+    const X = x0 + v*s*pxPerM;
+    const Y = y0 + 0.5*g*s*s*pxPerM;
+    if(s===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+  }
+  ctx.stroke();
+  // 当前位置
+  const X = x0 + v*tNow*pxPerM;
+  const Y = y0 + 0.5*g*tNow*tNow*pxPerM;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(X, Y, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 速度箭头（仅在空中）
+  if(tNow < Math.sqrt(2*18/10)){
+    const vx = v;
+    const vy = g*tNow;
+    const sc = 4;
+    PPath.arrow(ctx, X, Y, X+vx*sc, Y+vy*sc, color, 1.5);
+  }
+
+  // 标签
+  ctx.fillStyle = color;
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, X+10, Y-8);
+}
+
+function drawTickMark(ctx, x, y, color){
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x, y-4); ctx.lineTo(x, y+4); ctx.stroke();
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 6 分',
+  title: '福建舰弹射小车 · 平抛',
+  subtitle: '动能 4 倍 → 速度 2 倍 → h 不变 t 不变 → 落点距离 2 倍。答案 C。',
+  deliv: {
+    title: '弹射小车平抛对比',
+    sub: 'E_k×4 → v×2 → x×2  ·  答案 C'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 2 题 · 6 分',
+    text: `福建舰是我国自主设计建造的首艘弹射型航空母舰。借助配重小车可以进行弹射测试，测试时配重小车被弹射器从甲板上水平弹出后，落到海面上。调整弹射装置，使小车水平离开甲板时的<b>动能变为调整前的 4 倍</b>。忽略空气阻力，则小车在海面上的落点与其离开甲板处的<b>水平距离</b>为调整前的（　　）`,
+    subQuestions: [
+      'A. 0.25 倍',
+      'B. 0.5 倍',
+      'C. 2 倍',
+      'D. 4 倍'
+    ],
+    officialAnswer: 'C · E_k = ½mv² → v∝√E_k → E_k 变 4 倍则 v 变 2 倍。平抛时间 t = √(2h/g) 与 v 无关。水平距离 x = v·t 也变 2 倍。'
+  },
+  totalT: T_total,
+  speedFactor: 0.45,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 平抛飞行', label_short:'飞行',
+     formula_tex: String.raw`x = v\,t,\quad y = \tfrac{1}{2}g t^2`,
+     note:'两小车从同一高度同时弹出，下落时间 t = √(2h/g) 相同。'},
+    {label:'阶段 2 · 落点对比', label_short:'落点',
+     formula_tex: String.raw`x' = v'\,t = 2v\!\cdot\!t = 2x`,
+     note:'调整后 v 变 2 倍，t 不变 → 水平距离也变 2 倍。'}
+  ],
+  stats: [
+    {label:'调整前 v₀',  fmt:()=>'8 m/s（示意）'},
+    {label:'调整后 v',   fmt:()=>'16 m/s = 2v₀'},
+    {label:'下落高度 h', fmt:()=>'18 m'},
+    {label:'下落时间 t', fmt:()=>T_fall.toFixed(2)+' s'},
+    {label:'落点 x₀',    fmt:()=>(v0*T_fall).toFixed(1)+' m'},
+    {label:'落点 x',     fmt:()=>(v1*T_fall).toFixed(1)+' m = 2x₀'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'0.25×', note:'弄反了 E~v² 关系'},
+    {label_text:'B 错', value_text:'0.5×',  note:''},
+    {label_text:'C 对', value_text:'2×',    note:'v×2 → x×2'},
+    {label_text:'D 错', value_text:'4×',    note:'误把 E×4 当 x×4'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'调整前小车（v₀）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'调整后小车（2v₀）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2024新课标-Q2-福建舰弹射'
+});
+</script>
+</body>
+</html>

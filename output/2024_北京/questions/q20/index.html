@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 20 题 · 电磁枪 · 电容供电</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 闭合瞬间：U₀ = Q₀/C，I₀ = U₀/R = Q₀/(CR)
+// 加速度 a = BIL/m = BLQ/(mCR)
+// 之后电容放电 + 反电动势 → 电流减 → 加速度减 → v 趋稳
+
+// 参数（演示用）
+const B = 0.5, L = 0.4, m = 0.05, R = 0.5, C = 0.001, Q0 = 0.002;
+const I0 = Q0/(C*R);     // 4 A
+const a0 = B*I0*L/m;     // 16 m/s²
+
+// 简化模型：v(t) 渐近指数曲线
+const v_max = Q0 * B * L / m / 2;     // 简化估计（动量定理 BLΔQ = mv → v ≈ BLQ₀/m，但反电动势减小一半）
+const tau = (m*R)/(B*B*L*L);      // 时间常数
+
+const T_total = 5;
+const slowFactor = T_total / 0.5;
+
+function evalState(t){
+  const tReal = t / slowFactor;
+  const v = v_max * (1 - Math.exp(-tReal/tau));
+  const a = a0 * Math.exp(-tReal/tau);
+  return {phase:1, tReal, v, a, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上半：导轨示意 + 棒
+  drawRails(ctx, 14, 14, W-28, H*0.5-21, state);
+  // 下半：v-t 图
+  drawVT(ctx, 14, H*0.5+7, W-28, H*0.5-21, state);
+}
+
+function drawRails(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('电磁枪 · 磁场↓ + 电容驱动导轨', x+12, y+18);
+
+  // 导轨（两根水平线）
+  const rail_y_top = y + 50, rail_y_bot = y + h - 30;
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x+30, rail_y_top); ctx.lineTo(x+w-30, rail_y_top);
+  ctx.moveTo(x+30, rail_y_bot); ctx.lineTo(x+w-30, rail_y_bot);
+  ctx.stroke();
+
+  // 磁场标（向下穿出页面 = ⊕ 或向下箭头）
+  for(let xi=x+50; xi<x+w-50; xi+=40){
+    for(let yi=rail_y_top+15; yi<rail_y_bot-10; yi+=25){
+      ctx.fillStyle = '#3f6f8f';
+      ctx.font = '700 12px "Cambria Math",serif';
+      ctx.fillText('×', xi, yi);
+    }
+  }
+
+  // 电容（左端）
+  const capX = x+30;
+  const capYmid = (rail_y_top + rail_y_bot)/2;
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(capX-12, capYmid-15); ctx.lineTo(capX-12, capYmid+15);
+  ctx.moveTo(capX-2, capYmid-12); ctx.lineTo(capX-2, capYmid+12);
+  ctx.stroke();
+  // 引线
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(capX-12, capYmid-15); ctx.lineTo(capX-12, rail_y_top);
+  ctx.moveTo(capX-2, capYmid+12); ctx.lineTo(capX-2, rail_y_bot);
+  ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('C', capX-30, capYmid+5);
+
+  // 导体棒（移动）
+  const railLen_px = (x+w-30) - (x+50);
+  const barX = x + 80 + state.v * railLen_px * 8;
+  const barXClamped = Math.min(barX, x+w-50);
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(barXClamped, rail_y_top);
+  ctx.lineTo(barXClamped, rail_y_bot);
+  ctx.stroke();
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('导体棒 (m, R)', barXClamped+8, rail_y_top+15);
+
+  // 速度箭头
+  if(state.v > 0.01){
+    PPath.arrow(ctx, barXClamped, capYmid, barXClamped + 30, capYmid, '#16613f', 2);
+  }
+
+  // L 标
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(x+w-50, rail_y_top); ctx.lineTo(x+w-50, rail_y_bot); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('L', x+w-44, capYmid);
+
+  // 实时值
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(`I = ${(I0*Math.exp(-state.tReal/tau)).toFixed(2)} A   a = ${state.a.toFixed(2)} m/s²   v = ${state.v.toFixed(3)} m/s`, x+12, y+h-12);
+}
+
+function drawVT(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('v-t 图（电容放电 → v 渐近，曲率减）', x+12, y+18);
+
+  const padL=46, padR=180, padT=32, padB=30;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('v', x0-12, y+padT-2);
+  ctx.fillText('t', x0+cw+4, y0+12);
+
+  // v(t) = v_max·(1 - e^(-t/τ))
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for(let s=0; s<=0.5; s+=0.005){
+    const v = v_max*(1 - Math.exp(-s/tau));
+    const px = x0 + (s/0.5)*cw;
+    const py = y0 - (v/v_max)*ch*0.85;
+    if(s===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 当前点
+  const px = x0 + (state.tReal/0.5)*cw;
+  const py = y0 - (state.v/v_max)*ch*0.85;
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+
+  // 渐近线
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(x0, y0-ch*0.85); ctx.lineTo(x0+cw, y0-ch*0.85); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('v_∞', x0+cw+5, y0-ch*0.85+3);
+
+  // 公式卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-padR+5, y+padT, padR-15, ch+padB-10, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 闭合瞬间', x+w-padR+12, y+padT+18);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('I₀ = U₀/R = Q/(CR)', x+w-padR+12, y+padT+34);
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2) 加速度', x+w-padR+12, y+padT+58);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('a₀ = BI₀L/m', x+w-padR+12, y+padT+74);
+  ctx.fillText('   = BLQ/(mCR)', x+w-padR+12, y+padT+90);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) v-t：单调增', x+w-padR+12, y+padT+114);
+  ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('斜率减小，渐近 v_∞', x+w-padR+12, y+padT+130);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 20 题',
+  title: '电磁枪 · 电容驱动导轨炮',
+  subtitle: '电容 C 储能 Q，闭合开关导体棒受安培力加速。求初始 I、a，画 v-t 图。',
+  deliv: {
+    title: '电容驱动电磁枪',
+    sub: 'I₀=Q/(CR) · a₀=BLQ/(mCR) · v 单调增'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 20 题',
+    image: '../../source/images/image79.png',
+    text: `电磁枪原理图：竖直向下匀强磁场中，两根相距 <b>L</b> 的平行长直金属导轨水平放置，左端接电容 <b>C</b> 的电容器。导体棒放置在导轨上，与导轨垂直。已知磁感应强度 <b>B</b>，棒质量 <b>m</b>、电阻 <b>R</b>，开关闭合前电容器电荷量 <b>Q</b>。`,
+    subQuestions: [
+      '(1) 求闭合开关瞬间通过导体棒的电流 I；',
+      '(2) 求闭合开关瞬间导体棒的加速度大小 a；',
+      '(3) 在 v-t 图中定性画出闭合开关后导体棒的速度 v 随 t 的变化图线。'
+    ],
+    officialAnswer: '(1) 闭合瞬间电容电压 U = Q/C，电流 I = U/R = Q/(CR)。(2) 安培力 F = BIL → a = BIL/m = BLQ/(mCR)。(3) 电容放电 + 棒切割磁感线产生反电动势 → I 减 → a 减 → v 单调增但斜率渐缓，渐近某稳态值。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'电容驱动 · 单调加速', label_short:'放电',
+     formula_tex: String.raw`I_0 = \dfrac{Q}{CR},\;\; a_0 = \dfrac{BLQ}{mCR}`,
+     note:'电容放电产生电流，棒受安培力加速。反电动势让电流减，加速度减。'}
+  ],
+  stats: [
+    {label:'B',     fmt:()=>B+' T'},
+    {label:'L',     fmt:()=>L+' m'},
+    {label:'m',     fmt:()=>m+' kg'},
+    {label:'C',     fmt:()=>C+' F'},
+    {label:'R',     fmt:()=>R+' Ω'},
+    {label:'Q',     fmt:()=>Q0+' C'},
+    {label:'I₀',    fmt:()=>I0.toFixed(2)+' A'},
+    {label:'a₀',    fmt:()=>a0.toFixed(2)+' m/s²'},
+    {label:'当前 v', fmt:s=>s.v.toFixed(3)+' m/s'}
+  ],
+  conclusions: [
+    {label_text:'(1) I₀', value_text:'Q/(CR)',     note:'U/R'},
+    {label_text:'(2) a₀', value_text:'BLQ/(mCR)',  note:'BIL/m'},
+    {label_text:'(3) v-t', value_text:'单调增渐缓', note:'放电衰减'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'平行导轨'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'导体棒（m, R）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'电容 C'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁场 B（向下穿入纸面）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024北京-Q20-电磁枪'
+});
+</script>
+</body>
+</html>

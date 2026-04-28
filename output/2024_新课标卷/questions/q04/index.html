@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 4 题 · 量子点 · 蓝光 vs 红光</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 蓝光：高频、短波长、能量大、动量大、玻璃中速度小（折射率大）、频率穿介质不变
+// 红光：低频、长波长、能量小、动量小、玻璃中速度大、频率不变
+// 选 A：蓝光光子能量大于红光（E = hν，蓝光 ν 大）
+
+// 蓝光参数
+const blue = {label:'蓝光', color:'#3f6f8f', lambda_nm:450, color_glow:'#a3c4ff'};
+const red  = {label:'红光', color:'#b4442e', lambda_nm:650, color_glow:'#ffaca0'};
+
+const T_total = 6;
+
+function evalState(t){
+  // 4 阶段循环：能量、动量、玻璃中速度、频率
+  const period = T_total;
+  const tInPer = t % period;
+  const phase = Math.floor(tInPer / (period/4)) + 1;   // 1..4
+  return {phase, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('量子点：尺寸不同 → 发光波长不同。蓝光、红光的物理量比较：', 20, 22);
+
+  // 两条光波（左半画蓝光、右半画红光）
+  const yWaveB = H*0.30;
+  const yWaveR = H*0.45;
+  drawWave(ctx, 30, yWaveB, W-200, blue, t, '蓝光  λ=450nm');
+  drawWave(ctx, 30, yWaveR, W-200, red,  t, '红光  λ=650nm');
+
+  // 4 个对比判断框
+  const phaseColors = ['#c2611f', '#3f6f8f', '#16613f', '#b4442e'];
+  const judgments = [
+    {opt:'A · 蓝光能量 > 红光能量',  formula:'E = hν，蓝光 ν 大 → E_蓝 > E_红',     verdict:'对', icon:'⚡'},
+    {opt:'B · 蓝光动量 < 红光动量',  formula:'p = h/λ，蓝光 λ 小 → p_蓝 > p_红',  verdict:'错', icon:'➜'},
+    {opt:'C · 玻璃中蓝光速度 > 红光', formula:'v = c/n，蓝光 n 大 → v_蓝 < v_红',   verdict:'错', icon:'🔍'},
+    {opt:'D · 蓝光介质频率 < 真空频率', formula:'光跨介质 频率不变',                 verdict:'错', icon:'≈'}
+  ];
+
+  const x0=20, y0=H*0.55, gapX=8, boxW=(W-30-gapX*3)/4, boxH=H*0.40;
+  judgments.forEach((j, i) => {
+    const x = x0 + i*(boxW+gapX);
+    const active = (state.phase === i+1);
+    ctx.fillStyle = active ? '#fdf3e6' : '#f6f2ea';
+    ctx.strokeStyle = active ? phaseColors[i] : '#eadfce';
+    ctx.lineWidth = active ? 2 : 1;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x, y0, boxW, boxH, 8);ctx.fill();ctx.stroke();}
+
+    // 标题
+    ctx.fillStyle = active ? phaseColors[i] : '#5d6964';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    wrapText(ctx, j.opt, x+10, y0+22, boxW-20, 18);
+
+    // 公式
+    ctx.fillStyle = active ? '#1d1d1f' : '#94a09b';
+    ctx.font = '700 11.5px "Cambria Math",serif';
+    wrapText(ctx, j.formula, x+10, y0+58, boxW-20, 16);
+
+    // 判定
+    if(active){
+      const isCorrect = j.verdict === '对';
+      ctx.fillStyle = isCorrect ? '#16613f' : '#b4442e';
+      ctx.font = '900 14px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict + (isCorrect?' ✓':' ✗'), x+10, y0+boxH-12);
+    }
+  });
+}
+
+function drawWave(ctx, x, y, w, light, t, label){
+  // 波长缩放：蓝光 450nm → 30px / 红光 650nm → 50px
+  const lambda_px = light.lambda_nm * 0.07;
+  const amp = 14;
+  const phaseShift = -t * 80;  // 向右移动
+
+  // 标签
+  ctx.fillStyle = light.color;
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, x+w+10, y+5);
+
+  // 玻璃区（中段 30%~70%，深一点表示介质）
+  const glassX0 = x+w*0.35, glassX1 = x+w*0.65;
+  ctx.fillStyle = 'rgba(108,142,162,0.12)';
+  ctx.fillRect(glassX0, y-amp-4, glassX1-glassX0, amp*2+8);
+  ctx.strokeStyle = 'rgba(108,142,162,0.5)'; ctx.lineWidth = 1;
+  ctx.setLineDash([3,3]);
+  ctx.strokeRect(glassX0+.5, y-amp-4+.5, glassX1-glassX0-1, amp*2+8-1);
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('真空', x+10, y-amp-8);
+  ctx.fillText('玻璃 (n)', glassX0+10, y-amp-8);
+  ctx.fillText('真空', glassX1+10, y-amp-8);
+
+  // 玻璃中波长缩短：蓝光 n 大 → λ 缩得更多
+  const n_glass = light.lambda_nm === 450 ? 1.55 : 1.45;
+  // 在玻璃中：λ_in = λ/n（频率不变）
+
+  ctx.strokeStyle = light.color; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  // 段 1：左真空
+  for(let xi=x; xi<=glassX0; xi+=2){
+    const k = 2*Math.PI/lambda_px;
+    const yy = y - amp*Math.sin(k*xi + phaseShift);
+    if(xi===x) ctx.moveTo(xi, yy); else ctx.lineTo(xi, yy);
+  }
+  // 段 2：玻璃中（波长压缩为 λ/n）
+  // 频率不变 ω 不变，但 k_in = k·n
+  const phaseAtGlassEntry = (2*Math.PI/lambda_px)*glassX0 + phaseShift;
+  for(let xi=glassX0; xi<=glassX1; xi+=2){
+    const k_in = 2*Math.PI/(lambda_px/n_glass);
+    const yy = y - amp*Math.sin(k_in*(xi-glassX0) + phaseAtGlassEntry);
+    ctx.lineTo(xi, yy);
+  }
+  // 段 3：右真空（重新接上）
+  const phaseAtGlassExit = 2*Math.PI/(lambda_px/n_glass)*(glassX1-glassX0) + phaseAtGlassEntry;
+  for(let xi=glassX1; xi<=x+w; xi+=2){
+    const k = 2*Math.PI/lambda_px;
+    const yy = y - amp*Math.sin(k*(xi-glassX1) + phaseAtGlassExit);
+    ctx.lineTo(xi, yy);
+  }
+  ctx.stroke();
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH){
+  const words = text.split('');
+  let line = '';
+  let yy = y;
+  for(let i=0; i<words.length; i++){
+    const test = line + words[i];
+    if(ctx.measureText(test).width > maxW && line){
+      ctx.fillText(line, x, yy);
+      line = words[i];
+      yy += lineH;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line, x, yy);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 4 题 · 6 分',
+  title: '量子点 · 蓝光 vs 红光',
+  subtitle: '量子点尺寸不同发出不同颜色光。比较能量、动量、玻璃中速度、频率。',
+  deliv: {
+    title: '蓝光 vs 红光 · 4 项对比',
+    sub: 'E=hν · p=h/λ · v=c/n · 频率穿介质不变 · 答案 A'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 4 题 · 6 分',
+    text: `三位科学家由于在发现和合成量子点方面的突出贡献，荣获了 2023 年诺贝尔化学奖。不同尺寸的量子点会发出不同颜色的光。现有两种量子点分别发出<b>蓝光</b>和<b>红光</b>，下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. 蓝光光子的能量大于红光光子的能量',
+      'B. 蓝光光子的动量小于红光光子的动量',
+      'C. 在玻璃中传播时，蓝光的速度大于红光的速度',
+      'D. 蓝光在玻璃中传播时的频率小于它在空气中传播时的频率'
+    ],
+    officialAnswer: 'A · A 对：E=hν，蓝光频率高 → 能量大。B 错：p=h/λ，蓝光波长小 → 动量大。C 错：玻璃中 n_蓝 > n_红 → v=c/n 蓝光更慢。D 错：光从一种介质进入另一种介质频率不变。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'A · 能量', label_short:'A',
+     formula_tex: String.raw`E = h\nu,\quad \nu_{\text{蓝}} > \nu_{\text{红}} \;\Rightarrow\; E_{\text{蓝}} > E_{\text{红}}\;\checkmark`,
+     note:'光子能量正比于频率。蓝光频率高于红光，故蓝光光子能量大。'},
+    {label:'B · 动量', label_short:'B',
+     formula_tex: String.raw`p = h/\lambda,\quad \lambda_{\text{蓝}} < \lambda_{\text{红}} \;\Rightarrow\; p_{\text{蓝}} > p_{\text{红}}\;\times`,
+     note:'光子动量反比于波长。蓝光波长短，动量大。题目说"小于"是错的。'},
+    {label:'C · 玻璃中速度', label_short:'C',
+     formula_tex: String.raw`v = c/n,\quad n_{\text{蓝}} > n_{\text{红}} \;\Rightarrow\; v_{\text{蓝}} < v_{\text{红}}\;\times`,
+     note:'玻璃对蓝光折射率更大，所以蓝光在玻璃中速度更小。题目说"大于"是错的。'},
+    {label:'D · 介质频率', label_short:'D',
+     formula_tex: String.raw`\nu_{\text{介质}} = \nu_{\text{真空}} \;\times`,
+     note:'光从一介质进入另一介质，频率不变（变的是波长和速度）。'}
+  ],
+  stats: [
+    {label:'蓝光 λ',     fmt:()=>'≈ 450 nm'},
+    {label:'红光 λ',     fmt:()=>'≈ 650 nm'},
+    {label:'频率',       fmt:()=>'蓝 > 红'},
+    {label:'能量 E=hν',  fmt:()=>'蓝 > 红 ✓'},
+    {label:'动量 p=h/λ', fmt:()=>'蓝 > 红'},
+    {label:'玻璃中 v',   fmt:()=>'蓝 < 红'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'E_蓝 > E_红', note:'E=hν，ν_蓝 大'},
+    {label_text:'B 错', value_text:'p_蓝 > p_红', note:'p=h/λ，蓝 λ 小'},
+    {label_text:'C 错', value_text:'v_蓝 < v_红', note:'n_蓝 大 → v 小'},
+    {label_text:'D 错', value_text:'频率不变',     note:'光过界 ν 不变'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'蓝光（450 nm）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'红光（650 nm）'},
+    {swatch:{bg:'rgba(108,142,162,0.4)',border:'#94a09b',type:'rect'}, text:'玻璃介质（n>1）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024新课标-Q4-量子点'
+});
+</script>
+</body>
+</html>

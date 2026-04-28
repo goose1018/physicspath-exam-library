@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 9 题 · 验证动量守恒 · 平抛碰撞</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 装置：斜槽末端水平 → 小球 a 从 Q 处释放 → 平抛
+// 单球：落到 P，距 O 水平距 OP
+// 碰撞后：a 落 M (距 O = OM，碰后慢，一定 > 0 即不反弹要求 m_a > m_b)
+//        b 落 N (距 O = ON)
+// 平抛时间 t 相同（高度相同）→ 速度 ∝ 水平位移
+// 动量守恒：m_a · v_0 = m_a · v_a' + m_b · v_b'
+// → m_a · OP = m_a · OM + m_b · ON
+
+const T_total = 9;
+// 三段：1) 单球 a 释放-平抛-落 P (3s)
+//        2) 碰撞演示 a→b (3s)
+//        3) 落点散点 + 公式验证 (3s)
+
+const g = 10;
+const H_table = 0.45;     // 桌面距木板高
+const t_fall = Math.sqrt(2*H_table/g);     // ≈ 0.30s
+const v0 = 2.5;          // 初始速度（示意）
+const v_a_after = 0.7;   // 碰后 a 速度（小）
+const v_b_after = 2.3;   // 碰后 b 速度
+
+const OP = v0 * t_fall;
+const OM = v_a_after * t_fall;
+const ON = v_b_after * t_fall;
+
+// 选择 m_a / m_b 验证 m_a OP = m_a OM + m_b ON
+// m_a (OP - OM) = m_b · ON
+// m_a/m_b = ON / (OP - OM) = 2.3·t / (2.5·t - 0.7·t) = 2.3/1.8 ≈ 1.28
+// 取 m_a = 1.28, m_b = 1
+
+function evalState(t){
+  const period = T_total/3;
+  const stage = Math.floor(t/period);     // 0..2
+  const u = (t - stage*period)/period;     // 0..1
+
+  if(stage === 0){
+    // 单球释放 + 平抛
+    const tInFall = u * 0.8;     // 慢一点放
+    return {phase:1, stage:0, u, ball:'a', tInFall, t};
+  } else if(stage === 1){
+    // 碰撞演示
+    return {phase:2, stage:1, u, t};
+  } else {
+    // 散点 + 公式
+    return {phase:3, stage:2, u, t};
+  }
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 桌面（左半）
+  const tableY = H*0.45;
+  const tableX0 = 30, tableX1 = W*0.4;
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(tableX0, tableY, tableX1-tableX0, 8);
+  ctx.fillStyle = '#3a3e42';
+  ctx.fillRect(tableX0+30, tableY+8, 6, 60);
+  ctx.fillRect(tableX1-50, tableY+8, 6, 60);
+
+  // 斜槽（顶端 Q）
+  const slopeX0 = tableX0+30, slopeY0 = tableY-90;
+  const slopeX1 = tableX1-30, slopeY1 = tableY-2;
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(slopeX0, slopeY0);
+  ctx.quadraticCurveTo(slopeX0+50, slopeY0+80, slopeX1, slopeY1);
+  ctx.lineTo(tableX1, slopeY1);
+  ctx.stroke();
+  // Q 标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('Q', slopeX0-15, slopeY0+5);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('释放点', slopeX0-30, slopeY0+18);
+
+  // 木板（右下半）
+  const boardY = tableY + H_table*250;     // 距桌面下方
+  const boardX0 = tableX1 - 30;
+  const boardX1 = W - 30;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(boardX0, boardY, boardX1-boardX0, 8);
+  ctx.fillStyle = '#fdfaf2';     // 白纸
+  ctx.fillRect(boardX0, boardY-3, boardX1-boardX0, 3);
+
+  // 投影 O 点
+  const O_x = tableX1;
+  const O_y = boardY;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(O_x, O_y, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('O', O_x-12, O_y+18);
+
+  // 像素/米
+  const pxPerM = 250;
+
+  // 落点位置（像素）
+  const Px = O_x + OP*pxPerM;
+  const Mx = O_x + OM*pxPerM;
+  const Nx = O_x + ON*pxPerM;
+
+  // 阶段动画
+  if(state.stage === 0){
+    // 单球 a 从轨道末端飞出做平抛
+    const tInFall = state.u * t_fall;
+    const x_ball = O_x + v0*tInFall*pxPerM;
+    const y_ball = (tableY+2) + 0.5*g*tInFall*tInFall*pxPerM;
+    if(y_ball < O_y){
+      // 轨迹
+      ctx.strokeStyle = '#c2611f88'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for(let s=0; s<=tInFall; s+=0.005){
+        const x = O_x + v0*s*pxPerM;
+        const y = (tableY+2) + 0.5*g*s*s*pxPerM;
+        if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      // 当前位置
+      ctx.fillStyle = '#c2611f';
+      ctx.beginPath(); ctx.arc(x_ball, y_ball, 7, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    } else {
+      // 已落 P
+      drawHit(ctx, Px, O_y, '#c2611f', 'P');
+    }
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('阶段 1：单球 a 释放 → 落点 P → 测 OP = ' + OP.toFixed(2) + ' m（代速度 v₀）', 24, 22);
+
+  } else if(state.stage === 1){
+    // 碰撞：a 在末端撞 b → 双双下落
+    const tInFall = state.u * t_fall * 1.2;
+    // a (慢)
+    const xa = O_x + v_a_after*tInFall*pxPerM;
+    const ya = (tableY+2) + 0.5*g*tInFall*tInFall*pxPerM;
+    // b (快)
+    const xb = O_x + v_b_after*tInFall*pxPerM;
+    const yb = ya;     // 同时间相同高度
+
+    // 轨迹
+    ctx.strokeStyle = '#3f6f8f88'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for(let s=0; s<=Math.min(tInFall, t_fall); s+=0.005){
+      const x = O_x + v_b_after*s*pxPerM;
+      const y = (tableY+2) + 0.5*g*s*s*pxPerM;
+      if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = '#c2611f88'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for(let s=0; s<=Math.min(tInFall, t_fall); s+=0.005){
+      const x = O_x + v_a_after*s*pxPerM;
+      const y = (tableY+2) + 0.5*g*s*s*pxPerM;
+      if(s===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    if(tInFall < t_fall){
+      ctx.fillStyle = '#c2611f';
+      ctx.beginPath(); ctx.arc(xa, ya, 6, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#3f6f8f';
+      ctx.beginPath(); ctx.arc(xb, yb, 7, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    } else {
+      drawHit(ctx, Mx, O_y, '#c2611f', 'M');
+      drawHit(ctx, Nx, O_y, '#3f6f8f', 'N');
+    }
+
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('阶段 2：a 在末端碰 b → 同时落地（同高度同时间）→ 落点 M、N', 24, 22);
+
+  } else {
+    // 阶段 3：散点 + 公式验证
+    drawHit(ctx, Px, O_y, '#c2611f', 'P');
+    drawHit(ctx, Mx, O_y, '#c2611f', 'M', '小');
+    drawHit(ctx, Nx, O_y, '#3f6f8f', 'N');
+
+    // 距离尺
+    drawRuler(ctx, O_x, Px, O_y+22, '#c2611f', 'OP', OP);
+    drawRuler(ctx, O_x, Mx, O_y+44, '#c2611f', 'OM', OM);
+    drawRuler(ctx, O_x, Nx, O_y+66, '#3f6f8f', 'ON', ON);
+
+    // 公式
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(24, 22, W-48, 56, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#a85219';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('阶段 3：动量守恒验证', 36, 42);
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '700 13px "Cambria Math",serif';
+    ctx.fillText('m_a · OP  =  m_a · OM  +  m_b · ON   ⇔   m_a (OP − OM) = m_b · ON', 36, 64);
+
+    // 答案
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-260, H-44, 250, 32, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('(1) m_a > m_b  (2) m_a·OP = m_a·OM + m_b·ON', W-250, H-22);
+  }
+
+  // 高度标
+  ctx.strokeStyle = '#94a09b'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(tableX1, tableY+10); ctx.lineTo(tableX1, O_y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText(`h ≈ ${H_table}m → 落地时间 t = √(2h/g)`, tableX1+5, (tableY+O_y)/2);
+}
+
+function drawHit(ctx, x, y, color, label, size){
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, size==='小'?5:7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText(label, x-3, y+18);
+}
+function drawRuler(ctx, x0, x1, y, color, label, val){
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x0, y-4); ctx.lineTo(x0, y+4); ctx.moveTo(x1, y-4); ctx.lineTo(x1, y+4); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText(`${label} = ${val.toFixed(2)}m`, (x0+x1)/2-32, y+12);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 9 题',
+  title: '动量守恒验证 · 平抛 + 碰撞',
+  subtitle: '小球 a 从 Q 处释放经斜槽水平飞出。先单测 OP，再让 a 撞 b，测 OM、ON 验证动量守恒。',
+  deliv: {
+    title: '动量守恒验证',
+    sub: '同高度 → 同 t → v ∝ x · m_a·OP = m_a·OM + m_b·ON'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 9 题',
+    image: '../../source/images/image43.png',
+    text: `某同学用如图所示的装置验证动量守恒定律。将斜槽轨道固定在水平桌面上，轨道末段水平，右侧端点在水平木板上的垂直投影为 O，木板上叠放着白纸和复写纸。实验时先将小球 a 从斜槽轨道上 Q 处由静止释放，a 从轨道右端水平飞出后落在木板上；重复多次，测出落点的平均位置 P 与 O 点的距离 <b>OP</b>。将与 a 半径相等的小球 b 置于轨道右侧端点，再将小球 a 从 Q 处由静止释放，两球碰撞后均落在木板上；重复多次，分别测出 a、b 两球落点的平均位置 M、N 与 O 点的距离 <b>OM、ON</b>。`,
+    subQuestions: [
+      '(1) 记 a、b 两球的质量分别为 m_a、m_b，实验中须满足条件 ______（填 "&gt;" 或 "&lt;"）；',
+      '(2) 如果测得的 OP、OM、ON 在实验误差范围内满足关系式 ______，则验证了两小球在碰撞中满足动量守恒定律。用小球落点与 O 点的距离来代替小球水平飞出时的速度，依据是 ______。'
+    ],
+    officialAnswer: '(1) m_a &gt; m_b（保证对心正碰且碰后 a 不反弹）　(2) m_a·OP = m_a·OM + m_b·ON ；②理由：两球离开斜槽末端后做平抛运动，竖直方向高度相同故下落时间 t 相同，水平方向匀速，故水平飞出时速度 v 与水平位移 x 成正比 v = x/t。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 单球 a 释放', label_short:'单球',
+     formula_tex: String.raw`v_0 = OP / t,\quad t = \sqrt{2h/g}`,
+     note:'a 单独释放，从 Q 滑下经斜槽水平飞出做平抛。落到木板 P 点，测 OP。'},
+    {label:'阶段 2 · 碰撞 + 同时下落', label_short:'碰撞',
+     formula_tex: String.raw`v_a' = OM/t,\quad v_b' = ON/t`,
+     note:'a 在斜槽末端碰 b。两球离开斜槽末端时 h 相同 → 平抛时间 t 相同 → 速度 ∝ 水平位移。'},
+    {label:'阶段 3 · 动量守恒公式', label_short:'守恒',
+     formula_tex: String.raw`m_a\!\cdot\!OP = m_a\!\cdot\!OM + m_b\!\cdot\!ON`,
+     note:'代入 v ∝ x 验证。条件 m_a > m_b 保证碰后 a 不反弹（OM > 0 是同向）。'}
+  ],
+  stats: [
+    {label:'下落高度 h',  fmt:()=>H_table+' m'},
+    {label:'下落时间 t',  fmt:()=>t_fall.toFixed(3)+' s'},
+    {label:'OP',          fmt:()=>OP.toFixed(3)+' m'},
+    {label:'OM',          fmt:()=>OM.toFixed(3)+' m'},
+    {label:'ON',          fmt:()=>ON.toFixed(3)+' m'},
+    {label:'m_a:m_b 检算', fmt:()=>(ON/(OP-OM)).toFixed(2)+':1'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'m_a &gt; m_b',  note:'保证碰后 a 不反弹'},
+    {label_text:'(2)', value_text:'m_a·OP = m_a·OM + m_b·ON', note:'动量守恒'},
+    {label_text:'理由', value_text:'同 h → 同 t → v ∝ x',  note:'平抛'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'小球 a (m_a)'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'小球 b (m_b)'},
+    {swatch:{bg:'#fdfaf2',border:'#dad6c8',type:'rect'}, text:'白纸 + 复写纸（记落点）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024新课标-Q9-动量守恒'
+});
+</script>
+</body>
+</html>

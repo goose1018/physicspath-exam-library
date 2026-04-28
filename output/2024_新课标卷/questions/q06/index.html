@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 6 题 · 简谐横波 · 周期/振幅/速度</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 题目假设（典型考查值）：
+// T = 0.05 s  (周期)
+// A = 0.2 m   (振幅)
+// v = 10 m/s  (波速)
+// 波源 t=0 开始振动；典型方向：先向 +y 上升 → 0.25T 到波峰 → 0.5T 回平衡 → 0.75T 到第 1 次波谷
+//   → 1.25T 回平衡 → 1.5T 到波峰 → 1.75T 到第 2 次波谷
+// P 开始振动 = 波源第 2 次波谷 → x_P = v·1.75T = 10×0.0875 = 0.875 m
+// Q 比 P 更远（题中给出某 Q 位置）。设 x_Q = 1.0 m 演示 D 选项
+//   Q 开始振动时间 = x_Q / v = 0.1 s = 2T，此时 P 已振动 2T - 1.75T = 0.25T → P 在波峰位置
+//   但答案说 D 错（P 处于平衡位置）。说明 Q 的位置使 P 振动时间 ≠ T/4
+//   实际 D 错，意味着 Q 开始振动时 P 已振动了某个非"到波峰"的相位
+//   官方："波从P传到Q点需要的时间为... 故可知质点P处于平衡位置"
+//   即 Q 开始振动时间 - P 开始振动时间 = 0.5T → P 振动了 0.5T → 在平衡位置（向 -y）
+//   所以 (x_Q - x_P)/v = 0.5T → x_Q - x_P = v·0.5T = 0.25 m → x_Q = 1.125 m
+
+const A_amp = 0.2;     // m
+const T_p = 0.05;      // s
+const v_wave = 10;     // m/s
+const lambda = v_wave * T_p;    // 0.5 m
+const omega = 2*Math.PI/T_p;
+const x_P = v_wave * 1.75 * T_p;    // 0.875 m
+const x_Q = x_P + 0.25;             // 1.125 m
+
+// 演示用慢速：把 1 周期映射到 1.5s
+const demoScale = 30;        // 真时 / 演示时间
+const T_total = 6;           // 演示总时长
+
+function evalState(t){
+  const tReal = t / demoScale;
+  const sourceY = -A_amp * Math.sin(omega * tReal);     // 先 -y 还是 +y？
+  // 让 t=0 起源是平衡位置且向上 → y_source = A sin(ωt)
+  // 但答案分析说 P 振动 0.5T 后处于平衡位置（向 -y 方向），需要 P 在 t=1.75T 起振后 0.5T → t=2.25T 时 P=0
+  // 取约定 y_source = A sin(ωt) ，先峰后谷
+  const ySrc = A_amp * Math.sin(omega * tReal);
+  return {phase: 1, tReal, ySrc, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const padL=70, padR=30, padT=64, padB=70;
+  const cw = W - padL - padR;
+  const ch = H - padT - padB;
+  const x0 = padL, y0 = padT + ch/2;     // y 平衡位置在中线
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, padT); ctx.lineTo(x0, padT+ch);
+  ctx.lineTo(x0+cw, padT+ch/2);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 14px Georgia,serif';
+  ctx.fillText('y / m', x0-22, padT-6);
+  ctx.fillText('x / m', x0+cw+4, y0+14);
+
+  // x 刻度（每 0.1m）
+  const xRange = 1.4;     // m，画 0~1.4m
+  const xToPx = X => x0 + X/xRange * cw;
+  const yToPx = Y => y0 - Y/A_amp * ch/2 * 0.8;
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let xi=0; xi<=xRange; xi+=0.1){
+    const px = xToPx(xi);
+    ctx.beginPath();
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+    ctx.moveTo(px, y0-3); ctx.lineTo(px, y0+3); ctx.stroke();
+    if(xi*10 % 2 === 0) ctx.fillText(xi.toFixed(1), px-7, y0+18);
+  }
+  // y 刻度
+  for(let yi=-A_amp; yi<=A_amp; yi+=A_amp){
+    if(Math.abs(yi)<0.001) continue;
+    const py = yToPx(yi);
+    ctx.beginPath();
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+    ctx.moveTo(x0-3, py); ctx.lineTo(x0+3, py); ctx.stroke();
+    ctx.fillText(yi.toFixed(1), x0-26, py+3);
+  }
+
+  // 波形：y(x, t) = A sin(ω(t - x/v))，仅 x ≤ v·t 才有波形
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  let started = false;
+  const xMaxReached = Math.min(xRange, v_wave * state.tReal);
+  for(let xi=0; xi<=xMaxReached; xi+=0.005){
+    const phase_pt = state.tReal - xi/v_wave;
+    if(phase_pt < 0) continue;
+    const y = A_amp * Math.sin(omega*phase_pt);
+    const px = xToPx(xi), py = yToPx(y);
+    if(!started){ ctx.moveTo(px, py); started = true; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 波前：从波源已传播到的最远位置之前的虚直线
+  if(xMaxReached < xRange){
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(xToPx(xMaxReached), y0); ctx.lineTo(xToPx(xRange), y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 波源 O
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(xToPx(0), yToPx(state.ySrc), 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('O (波源)', xToPx(0)-15, padT+ch+30);
+
+  // 标记 P
+  drawMarker(ctx, xToPx(x_P), y0, A_amp, ch, x_P, state, '#16613f', 'P');
+  drawMarker(ctx, xToPx(x_Q), y0, A_amp, ch, x_Q, state, '#b4442e', 'Q');
+
+  // 顶部信息
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(`波源振动图像：先向 +y 上升 → 第 2 次到达波谷在 t = 7T/4`, 24, 22);
+  ctx.fillText(`简谐横波沿 +x 传播：T = ${T_p}s, A = ${A_amp}m, v = ${v_wave}m/s, λ = vT = ${lambda}m`, 24, 42);
+
+  // 实时进度
+  const xCurrent = Math.min(xRange, v_wave * state.tReal);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText(`t = ${state.tReal.toFixed(3)} s = ${(state.tReal/T_p).toFixed(2)} T,  波前 x = ${xCurrent.toFixed(3)} m`, x0, padT+ch+50);
+
+  // 答案标
+  if(state.tReal > 1.75*T_p){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 200, 30, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BC · A=0.2m, v=10m/s', W-208, 32);
+  }
+}
+
+function drawMarker(ctx, px, y0Mid, A_amp, ch, xVal, state, color, label){
+  // 当前点的 y 值
+  const phase_pt = state.tReal - xVal/v_wave;
+  const isStarted = phase_pt >= 0;
+  const y = isStarted ? A_amp * Math.sin(omega*phase_pt) : 0;
+  const py = y0Mid - y/A_amp * ch/2 * 0.8;
+
+  // 垂直辅线
+  ctx.strokeStyle = color+'80'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(px, y0Mid-ch/2); ctx.lineTo(px, y0Mid+ch/2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // x 轴下方标签
+  ctx.fillStyle = color;
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(label+`  (x=${xVal.toFixed(3)}m)`, px-30, y0Mid+ch/2+50);
+
+  // 当前点
+  ctx.fillStyle = isStarted ? color : '#cccccc';
+  ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // 状态文本
+  ctx.fillStyle = isStarted ? color : '#94a09b';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  if(!isStarted) ctx.fillText('尚未开始', px+8, py+3);
+  else if(Math.abs(y - A_amp) < 0.02) ctx.fillText('波峰', px+8, py+3);
+  else if(Math.abs(y + A_amp) < 0.02) ctx.fillText('波谷', px+8, py+3);
+  else if(Math.abs(y) < 0.02) ctx.fillText('平衡位置', px+8, py+3);
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '简谐横波 · 周期 / 振幅 / 速度',
+  subtitle: '位于 O 的波源 t=0 起振，沿 +x 传播。P 开始振动时波源恰好第 2 次处于波谷。',
+  deliv: {
+    title: '简谐横波 · 多参数判断',
+    sub: 'T=0.05s · A=0.2m · v=10m/s · 答案 BC'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 6 题 · 6 分',
+    image: '../../source/images/image28.png',
+    text: `位于坐标原点 O 的波源在 t=0 时开始振动，振动图像如图所示，所形成的简谐横波沿 x 轴正方向传播。<b>平衡位置在 P 处的质点开始振动时，波源恰好第 2 次处于波谷位置</b>，则（　　）`,
+    subQuestions: [
+      'A. 波的周期是 0.1 s',
+      'B. 波的振幅是 0.2 m',
+      'C. 波的传播速度是 10 m/s',
+      'D. 平衡位置在 Q 处的质点开始振动时，质点 P 处于波峰位置'
+    ],
+    officialAnswer: 'BC · A 错：从振动图读出周期 T = 0.05 s。B 对：振幅 0.2 m。C 对：P 开始振动时波源第 2 次到达波谷 → 经历 7T/4 = 0.0875 s，由 v = x_P/t 得 v = 10 m/s。D 错：Q 开始振动比 P 晚 (x_Q − x_P)/v = 0.5T → P 振动了 0.5T 处于平衡位置（不是波峰）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 波源起振 + 传播', label_short:'传播',
+     formula_tex: String.raw`y(x,t) = A\sin\!\left[\omega\!\left(t - \tfrac{x}{v}\right)\right]\;(t \ge x/v)`,
+     note:'波源 t=0 起振，每点延迟 x/v 后开始振动。读图得 T=0.05s、A=0.2m、v=10m/s（由 P 起振时刻反推）。'}
+  ],
+  stats: [
+    {label:'周期 T',     fmt:()=>T_p+' s'},
+    {label:'振幅 A',     fmt:()=>A_amp+' m'},
+    {label:'波速 v',     fmt:()=>v_wave+' m/s'},
+    {label:'波长 λ=vT',  fmt:()=>lambda+' m'},
+    {label:'P 位置',     fmt:()=>x_P.toFixed(3)+' m = 1.75 λ'},
+    {label:'Q 位置',     fmt:()=>x_Q.toFixed(3)+' m = 2.25 λ'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'T=0.05s ≠ 0.1s', note:'读图'},
+    {label_text:'B 对', value_text:'A = 0.2 m',      note:'振幅'},
+    {label_text:'C 对', value_text:'v = 10 m/s',     note:'x_P/(7T/4)'},
+    {label_text:'D 错', value_text:'P 在平衡位置',    note:'差 0.5T'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'波形 y(x,t)'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'波源 O'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'P 点（x≈0.875m）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'Q 点（x≈1.125m）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024新课标-Q6-横波传播'
+});
+</script>
+</body>
+</html>

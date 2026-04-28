@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 1 题 · 直线运动 x-t / v-t 图判断</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 4 个候选图：A、B 是 x-t（位移-时间），C、D 是 v-t（速度-时间）
+// A、B 中一个 t 对应多个 x（非函数）
+// D 中一个 t 对应多个 v（非函数）
+// 只有 C 是 t→v 的单值函数 ✓
+
+// 我们在 [0,1]×[0,1] 局部坐标系画每张候选图的曲线
+const candidates = [
+  // A: x-t 圆 / 闭合（多值）
+  {label:'A · x-t', yLbl:'x', curve:t => {const a=t*Math.PI*2; return [0.5+0.35*Math.cos(a), 0.5+0.35*Math.sin(a)];}, ok:false},
+  // B: x-t 双值（折返波形）
+  {label:'B · x-t', yLbl:'x', curve:t => {const x=t; const y=0.5+0.4*Math.sin(t*Math.PI*4)*Math.exp(-(t-0.5)*(t-0.5)*4); return [x,y];}, ok:false, multivalued:'B'},
+  // C: v-t 单值（直线）— 唯一正确
+  {label:'C · v-t', yLbl:'v', curve:t => [t, 0.2 + 0.6*t], ok:true},
+  // D: v-t 双值（半圆）
+  {label:'D · v-t', yLbl:'v', curve:t => {const a=t*Math.PI; return [0.5+0.35*Math.cos(a), 0.5+0.35*Math.sin(a)];}, ok:false},
+];
+
+// B 的曲线是单值的（每个 t 一个 y），不符合题意。改成 x-t 多值（同 t 多 x）
+// 用参数化方式：让 x 不是 t 的单调函数
+candidates[1].curve = t => {
+  const a = t*Math.PI*2;
+  return [0.5+0.30*Math.sin(a*1.5), 0.15 + 0.7*t];
+};
+
+function evalState(t){
+  // 总周期 8s：每个候选 2s（高亮+扫描）
+  const period = 8;
+  const tInPer = t % period;
+  const idx = Math.floor(tInPer/2);    // 0..3
+  const localT = (tInPer - idx*2) / 2; // 0..1 within this candidate's window
+  const phase = idx + 1;
+  return {phase, idx, localT, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('函数判定：垂直扫描线穿过曲线的交点数 · 单交点 = 函数 ✓ · 多交点 = 非函数 ✗', 20, 22);
+
+  // 2×2 网格画 4 个候选
+  const padL=44, padT=46, gapX=18, gapY=24;
+  const cellW = (W-padL-30-gapX)/2;
+  const cellH = (H-padT-44-gapY)/2;
+
+  candidates.forEach((c, i) => {
+    const col = i%2, row = Math.floor(i/2);
+    const x0 = padL + col*(cellW+gapX);
+    const y0 = padT + row*(cellH+gapY);
+    drawCandidate(ctx, x0, y0, cellW, cellH, c, i, state);
+  });
+
+  // 底部结论
+  if(state.phase === 4 && state.localT > 0.6){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 16px "Noto Sans SC",sans-serif';
+    ctx.fillText('∴ 仅 C 是 v-t 的单值函数（每个 t 对应唯一 v）', 24, H-12);
+  }
+}
+
+function drawCandidate(ctx, x, y, w, h, c, i, state){
+  const active = (state.idx === i);
+  // 边框
+  ctx.fillStyle = active ? (c.ok ? '#e7f0ea' : '#fbe9d6') : '#fffdf9';
+  ctx.strokeStyle = active ? (c.ok ? '#16613f' : '#b4442e') : '#eadfce';
+  ctx.lineWidth = active ? 2 : 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,8);ctx.fill();ctx.stroke();}
+  else{ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h);}
+
+  // 标签
+  ctx.fillStyle = active ? (c.ok ? '#16613f' : '#b4442e') : '#5d6964';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(c.label, x+10, y+18);
+
+  // 内坐标系：内边距 30px 左 + 14px 下；轴 t→x 0..1 / 值轴 0..1 上
+  const px = x+34, py = y+24;
+  const pw = w-44, ph = h-44;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(px, py); ctx.lineTo(px, py+ph);
+  ctx.lineTo(px+pw, py+ph);
+  ctx.stroke();
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 600 11px Georgia,serif';
+  ctx.fillText(c.yLbl, px-12, py+8);
+  ctx.fillText('t', px+pw+4, py+ph+4);
+  ctx.fillStyle = '#94a09b'; ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText('O', px-10, py+ph+12);
+
+  // 曲线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.005){
+    const [u,v] = c.curve(s);
+    const X = px + u*pw, Y = py + (1-v)*ph;
+    if(s===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+  }
+  ctx.stroke();
+
+  if(active){
+    // 扫描线 (vertical at t = localT)
+    const tScan = state.localT;
+    const Xscan = px + tScan*pw;
+    ctx.strokeStyle = c.ok ? '#16613f' : '#b4442e';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    ctx.moveTo(Xscan, py); ctx.lineTo(Xscan, py+ph);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 标记交点
+    const pts = findIntersections(c.curve, tScan);
+    pts.forEach(v => {
+      const Y = py + (1-v)*ph;
+      ctx.fillStyle = c.ok ? '#16613f' : '#b4442e';
+      ctx.beginPath(); ctx.arc(Xscan, Y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+
+    // 交点数 + 判定
+    ctx.fillStyle = c.ok ? '#16613f' : '#b4442e';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    const txt = `交点 ${pts.length} 个 · ${pts.length===1 ? '函数 ✓' : '非函数 ✗'}`;
+    ctx.fillText(txt, x+w-110, y+18);
+  }
+}
+
+// 找一条参数曲线在 t=tScan 上的所有交点（按 y 值返回）
+function findIntersections(curveFn, tScan){
+  const pts = [];
+  let lastSign = null;
+  for(let s=0; s<=1; s+=0.002){
+    const [u,_] = curveFn(s);
+    const sign = u - tScan;
+    if(lastSign != null && sign * lastSign <= 0){
+      // crossing
+      const [_uu,v] = curveFn(s);
+      pts.push(v);
+    }
+    lastSign = sign;
+  }
+  // 去重
+  const unique = [];
+  pts.forEach(v => {
+    if(!unique.some(uv => Math.abs(uv-v) < 0.05)) unique.push(v);
+  });
+  return unique;
+}
+
+PathQuestion({
+  paperTitle: '2024 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '直线运动 · x-t / v-t 图判断',
+  subtitle: '一质点做直线运动，位移 x 或速度 v 与时间 t 的关系图中，哪一张才合法？关键：t→x 必须是单值函数。',
+  deliv: {
+    title: '直线运动 · 函数判定',
+    sub: '垂直扫描线 · 单交点 = 函数 · 答案 C'
+  },
+  originalProblem: {
+    meta: '2024 新课标卷 · 第 1 题 · 6 分',
+    text: `一质点做直线运动，下列描述其位移 <b>x</b> 或速度 <b>v</b> 随时间 <b>t</b> 变化的图像中，可能正确的是（　　）`,
+    subQuestions: [
+      'A. （x-t 多值，非函数）',
+      'B. （x-t 多值，非函数）',
+      'C. （v-t 单值，函数 ✓）',
+      'D. （v-t 多值，非函数）'
+    ],
+    image: '../../source/images/image2.png',
+    officialAnswer: 'C · 物体做直线运动，位移 x 必须是 t 的单值函数；同理瞬时速度 v 也是 t 的单值函数。AB 中一个 t 对应多个 x，CD 中 D 一个 t 对应多个 v。仅 C 满足函数关系。'
+  },
+  totalT: 8,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'扫描 A · 多值', label_short:'A',
+     formula_tex: String.raw`\text{若 } \exists\, t_0,\, x(t_0) \text{ 多值} \Rightarrow \text{非函数}`,
+     note:'A 中曲线沿圆形回旋，同一 t₀ 上有多个位移 x → 不是 t→x 的函数。'},
+    {label:'扫描 B · 多值', label_short:'B',
+     formula_tex: String.raw`x(t)\text{ 多值} \Rightarrow \text{排除}`,
+     note:'B 中曲线在某些 t 上有多个 x 值，非函数。'},
+    {label:'扫描 C · 单值 ✓', label_short:'C',
+     formula_tex: String.raw`v(t)\text{ 是 } t \text{ 的单值函数} \;\checkmark`,
+     note:'C 是一条 v 随 t 单调上升的直线，每个 t 对应唯一 v。物理上：匀加速运动。'},
+    {label:'扫描 D · 多值', label_short:'D',
+     formula_tex: String.raw`v(t)\text{ 多值} \Rightarrow \text{排除}`,
+     note:'D 中曲线像半圆，同一 t 上有 2 个 v 值，非函数。'}
+  ],
+  stats: [
+    {label:'当前候选',     fmt:s=>'ABCD'[s.idx]},
+    {label:'扫描进度',     fmt:s=>(s.localT*100).toFixed(0)+'%'},
+    {label:'判定标准',     fmt:()=>'交点 = 1'},
+    {label:'物理含义',     fmt:s=>s.idx===2?'匀加速运动':'非物理'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'x 多值', note:'同 t 多 x'},
+    {label_text:'B 错', value_text:'x 多值', note:'同 t 多 x'},
+    {label_text:'C 对', value_text:'v 单值 ✓', note:'直线 v=at'},
+    {label_text:'D 错', value_text:'v 多值', note:'同 t 多 v'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'候选曲线'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'函数（单值）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'非函数（多值）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024新课标-Q1-函数判定'
+});
+</script>
+</body>
+</html>

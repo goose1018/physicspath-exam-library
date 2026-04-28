@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 9 题 · 弹簧振子 · 手机加速度传感</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 简谐：a = -ω²x，加速度记录为正弦
+// 假设：A_acc = 4 m/s² 振幅, T = 0.4 s
+// a(t) = 4·sin(2πt/0.4) = 4·sin(5πt)  → ω = 5π rad/s
+
+const A_acc = 4;     // 加速度振幅
+const T_period = 0.4;
+const omega = 2*Math.PI / T_period;
+
+// 假设位移振幅 X = A_acc/ω² = 4/(5π)² ≈ 0.016 m
+const X_amp = A_acc/(omega*omega);
+
+const T_total = 2.0;     // 演示 5 个周期
+const slowFactor = 1;
+
+function evalState(t){
+  const tReal = t / slowFactor;
+  const a = A_acc * Math.sin(omega * tReal);
+  const x = -X_amp * Math.sin(omega * tReal);     // a = -ω²x
+  const v = -X_amp*omega * Math.cos(omega * tReal);
+  return {phase:1, tReal, a, x, v, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：手机+弹簧装置
+  drawPhoneSpring(ctx, 14, 14, W*0.32-21, H-28, state);
+  // 右：a-t 曲线
+  drawAT(ctx, W*0.32+7, 14, W*0.68-21, H-28, state);
+}
+
+function drawPhoneSpring(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('手机 + 弹簧振动装置', x+12, y+18);
+
+  const cx = x + w/2;
+  const yCeiling = y + 40;
+  const yEqu = y + h*0.55;     // 平衡位置
+  const yPhone = yEqu + state.x*1500;     // 位移放大显示
+
+  // 天花板
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(cx-50, yCeiling-10, 100, 8);
+
+  // 弹簧
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.05){
+    const yy = yCeiling + s*(yPhone - yCeiling - 30);
+    const xx = cx + Math.sin(s*Math.PI*8)*8;
+    if(s===0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  }
+  ctx.stroke();
+
+  // 手机
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(cx-30, yPhone-30, 60, 100);
+  ctx.fillStyle = '#3a3e42';
+  ctx.fillRect(cx-26, yPhone-26, 52, 90);
+  // 屏幕显示加速度
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px ui-monospace,monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('a-t 图', cx, yPhone+10);
+  // 模拟图标
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 9px ui-monospace,monospace';
+  ctx.fillText(state.a.toFixed(2), cx, yPhone+30);
+  ctx.fillText('m/s²', cx, yPhone+45);
+  ctx.textAlign = 'left';
+
+  // 平衡位置标
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(cx-50, yEqu); ctx.lineTo(cx+50, yEqu); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('平衡位置', cx+55, yEqu+3);
+
+  // 加速度向量
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '600 11px ui-monospace,monospace';
+  ctx.fillText(`a = ${state.a.toFixed(2)} m/s²`, x+12, y+h-44);
+  ctx.fillText(`v = ${state.v.toFixed(3)} m/s`, x+12, y+h-26);
+  ctx.fillText(`x = ${(state.x*100).toFixed(2)} cm`, x+12, y+h-10);
+}
+
+function drawAT(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('a-t 图（向上为正）  · a(t) = A·sin(2πt/T)', x+12, y+18);
+
+  const padL=44, padR=20, padT=32, padB=140;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch/2;
+
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y+padT); ctx.lineTo(x0, y+padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('a / m·s⁻²', x0-32, y+padT-2);
+  ctx.fillText('t / s', x0+cw+4, y0+12);
+
+  // 刻度
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let k=0; k<=2; k+=0.4){
+    const px = x0 + (k/T_total)*cw;
+    ctx.beginPath(); ctx.strokeStyle='#94a09b'; ctx.lineWidth=1;
+    ctx.moveTo(px, y0-3); ctx.lineTo(px, y0+3); ctx.stroke();
+    ctx.fillText(k.toFixed(1), px-8, y0+15);
+  }
+
+  // 曲线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let s=0; s<=T_total; s+=0.005){
+    const a = A_acc * Math.sin(omega * s);
+    const px = x0 + (s/T_total)*cw;
+    const py = y0 - (a/A_acc)*ch/2*0.9;
+    if(s===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 当前点
+  const px = x0 + (state.tReal/T_total)*cw;
+  const py = y0 - (state.a/A_acc)*ch/2*0.9;
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · t=0 时弹簧弹力为 0',  verdict:'错（a=0 → 重力=弹力 ≠ 0）'},
+    {opt:'B · t=0 时手机在平衡位置上方',  verdict:'错（a=0 → 平衡位置）'},
+    {opt:'C · 0 → T/4 时动能增大',        verdict:'错（向最大位移移 → KE 减）'},
+    {opt:'D · a(t) = A·sin(2πt/T) 关系式',  verdict:'对 ✓'}
+  ];
+  let yy = y+padT+ch+30;
+  judgments.forEach((j, i) => {
+    const correct = (i === 3);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+14, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+14, yy+12);
+    yy += 26;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-220, y+h-44, 208, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 D · a = A·sin(2πt/T)', x+w-208, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 北京卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 9 题 · 3 分',
+  title: '弹簧振子 · 手机加速度传感',
+  subtitle: '手机加速度传感器记录 a-t 为正弦曲线。判断各时刻物理量关系。',
+  deliv: {
+    title: '简谐振动 a-t 分析',
+    sub: 'a = A·sin(2πt/T) · 答案 D'
+  },
+  originalProblem: {
+    meta: '2024 北京卷 · 第 9 题 · 3 分',
+    image: '../../source/images/image23.png',
+    text: `用手机和轻弹簧制作振动装置。手机加速度传感器记录手机在竖直方向的振动情况，以向上为正方向，得到 a-t 曲线为<b>正弦曲线</b>。下列说法正确的是（　　）`,
+    subQuestions: [
+      'A. t=0 时，弹簧弹力为 0',
+      'B. t=T/4 时，手机位于平衡位置上方',
+      'C. 从 0 至 T/4，手机的动能增大',
+      'D. a 随 t 变化的关系式为 a = A·sin(2πt/T)'
+    ],
+    officialAnswer: 'D · A 错：t=0 时 a=0 → 由 ma = F_弹 - mg 得 F_弹 = mg ≠ 0。B 错：t=T/4 时 a 为正最大 → 位于平衡位置下方（弹力大于重力使其向上加速）。C 错：从 0 到 T/4 手机从平衡位置向最大位移处运动 → 速度由最大减为 0 → 动能减小。D 对：正弦曲线的标准式。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'简谐振动 · a 与 x 反相', label_short:'SHM',
+     formula_tex: String.raw`a(t) = A\sin\!\left(\dfrac{2\pi t}{T}\right),\quad x(t) = -\dfrac{A}{\omega^2}\sin(\omega t)`,
+     note:'简谐振动加速度与位移反相。a 最大时 x 反向最大；a=0 时 x=0（平衡位置）。'}
+  ],
+  stats: [
+    {label:'A 加速度振幅', fmt:()=>A_acc+' m/s²'},
+    {label:'T 周期',       fmt:()=>T_period+' s'},
+    {label:'ω 角频率',     fmt:()=>omega.toFixed(2)+' rad/s'},
+    {label:'当前 a',       fmt:s=>s.a.toFixed(2)+' m/s²'},
+    {label:'当前 x',       fmt:s=>(s.x*100).toFixed(2)+' cm'},
+    {label:'当前 v',       fmt:s=>s.v.toFixed(3)+' m/s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'F_弹=mg ≠ 0',  note:''},
+    {label_text:'B 错', value_text:'平衡下方',       note:'a 正→F向上'},
+    {label_text:'C 错', value_text:'KE 减少',        note:'向最大位移'},
+    {label_text:'D 对', value_text:'a=A sin(2πt/T)', note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'手机（带传感器）'},
+    {swatch:{bg:'#86868b',border:'#86868b',type:'rect'}, text:'弹簧'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'a(t) 正弦曲线'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024北京-Q9-弹簧振子'
+});
+</script>
+</body>
+</html>
