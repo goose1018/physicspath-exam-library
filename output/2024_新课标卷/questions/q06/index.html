@@ -42,10 +42,8 @@ const T_total = 6;           // 演示总时长
 
 function evalState(t){
   const tReal = t / demoScale;
-  const sourceY = -A_amp * Math.sin(omega * tReal);     // 先 -y 还是 +y？
-  // 让 t=0 起源是平衡位置且向上 → y_source = A sin(ωt)
-  // 但答案分析说 P 振动 0.5T 后处于平衡位置（向 -y 方向），需要 P 在 t=1.75T 起振后 0.5T → t=2.25T 时 P=0
-  // 取约定 y_source = A sin(ωt) ，先峰后谷
+  // 约定 y_source = A·sin(ωt)：t=0 时 y=0、向 +y 起振 → 先峰后谷
+  // 第 1 次波谷 0.75T，第 2 次波谷 1.75T → P 在 t=1.75T 起振
   const ySrc = A_amp * Math.sin(omega * tReal);
   return {phase: 1, tReal, ySrc, t};
 }

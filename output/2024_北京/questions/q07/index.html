@@ -66,7 +66,8 @@ function drawScene(ctx, view, state, t, opts){
   const pxPerM = Math.min((W-200)/4.5, (H-200)/2.5);
   const cx0 = 80;
   const cy0 = H*0.78;     // 水平轨道 y 位置（地面）
-  const xToPx = X => cx0 + X*pxPerM;
+  // ⚠️ 水平镜像：原题中弹簧在右、AB 从右到左、半圆开口朝右（弧在 B 左侧）
+  const xToPx = X => W - cx0 - X*pxPerM;     // 镜像 X 轴
   const yToPx = Y => cy0 - Y*pxPerM;
 
   // 弹簧（A 点）

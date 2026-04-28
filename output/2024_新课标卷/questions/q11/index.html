@@ -34,11 +34,11 @@ const W_rope_total = -m*g*h;     // -800 J
 const T_total = 5;
 
 function evalState(t){
-  // 简单匀速下降：t in [0, T_total]，物体高度从 h 到 0
+  // 题目问的是 α=53°、β=37° 这个特定瞬间的张力（其他时刻角度不同 → 张力不同）
+  // 所以保持物体在该几何配置上不动，演示力分析；下降过程只用文字 + (2) 总功公式说明
   const u = Math.min(1, t/T_total);
-  const yObj = h * (1 - u);     // 当前高度（米）
-  const phase = u < 0.95 ? 1 : 2;     // 1 下降中, 2 落地
-  return {phase, u, yObj, t};
+  const phase = u < 0.5 ? 1 : 2;     // 1 受力分析, 2 强调能量
+  return {phase, u, t};
 }
 
 function drawScene(ctx, view, state, t, opts){
@@ -74,58 +74,85 @@ function drawScene(ctx, view, state, t, opts){
   ctx.font = '700 11px "Noto Sans SC",sans-serif';
   ctx.fillText('Q 端（地面）', Q_x-25, Q_y-26);
 
-  // P 锚点
+  // P 锚点（高处）
   const P_x = wallX, P_y = wallY+15;
 
-  // 物体当前位置
-  // 物体 X 由几何条件确定：保持 P 与竖直 α，Q 与竖直 β
-  // 实际上重物固定 X (绳长在变)，简化：让重物在 P-Q 中线水平位置，垂直方向下降
-  const objX = (P_x + Q_x)/2;
-  const heightToPx = h_m => yGround - h_m * (yGround - P_y - 80) / h;     // 顶端到地面映射 h→0..h_max
-  const objY = yGround - state.yObj * (yGround - P_y - 80) / h;
+  // ─── 物体位置：由角度反推（保证 α=53°、β=37° 几何一致） ───
+  // 设物体中心 (objX, objY)。绳 P 从 P 指向物体，与竖直 53°；绳 Q 从 Q 指向物体，与竖直 37°。
+  // 即：(objX - P_x)/(objY - P_y) = tan(53°) = 0.8/0.6 = 4/3   →  objX - P_x = (4/3)·(objY - P_y)
+  //     (Q_x - objX)/(objY - Q_y) = tan(37°) = 0.6/0.8 = 3/4   →  Q_x - objX = (3/4)·(objY - Q_y)
+  // 两式联立解出 objX、objY（演示固定一组合理几何）
+  // 解：let dy_P = objY - P_y (>0)，dy_Q = objY - Q_y (Q_y 是地面高度，objY 在地面以上 → dy_Q<0)
+  // 我们直接选定 objY，反推 objX 一致性
+  const objY = yGround - 90;     // 物体距地面约 90px
+  // 由 α 几何：objX = P_x + (4/3)*(objY - P_y)
+  const objX = P_x + (4/3)*(objY - P_y);
+  // 验证 β 几何（仅用于调试，不强制）：objX_check_from_Q = Q_x - (3/4)*(Q_y - objY)
+  // 实际 Q 锚点（地面操作员位置）由几何反推，让 β=37°
+  const Q_x_actual = objX + (3/4)*(Q_y - objY);
+  // 重新画 Q 操作员（覆盖前面那个估测位置 — 矩形扩大到完全覆盖旧文字"Q 端（地面）"）
+  ctx.fillStyle = '#dad6c8';     // 与地面同色，避免遗留白块
+  ctx.fillRect(Q_x-50, Q_y-32, 80, 32);     // 覆盖旧圆点 + 旧标签
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(Q_x_actual, Q_y-10, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('Q 端（地面）', Q_x_actual-25, Q_y-26);
 
-  // 绳 P→物体 / Q→物体
+  // 绳 P→物体 / Q→物体（用 Q_x_actual）
   ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(P_x, P_y); ctx.lineTo(objX, objY); ctx.stroke();
   ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(Q_x, Q_y); ctx.lineTo(objX, objY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(Q_x_actual, Q_y); ctx.lineTo(objX, objY); ctx.stroke();
 
-  // 物体（黑盒）
+  // 物体（黑盒）— 中心点是 (objX, objY)，矩形向上下展开
+  const boxW = 44, boxH = 30;
+  const boxL = objX - boxW/2, boxT = objY - boxH/2;
   ctx.fillStyle = '#444a52';
-  ctx.fillRect(objX-22, objY, 44, 30);
+  ctx.fillRect(boxL, boxT, boxW, boxH);
   ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
-  ctx.strokeRect(objX-22, objY, 44, 30);
+  ctx.strokeRect(boxL, boxT, boxW, boxH);
   ctx.fillStyle = '#fdfaf2';
   ctx.font = '700 10px "Noto Sans SC",sans-serif';
-  ctx.fillText('m=8kg', objX-15, objY+18);
+  ctx.fillText('m=8kg', objX-15, objY+4);
 
-  // 角度标
-  // P 绳与竖直夹角：在 P 锚点处画
-  const angP = Math.atan2(objX - P_x, objY - P_y);     // 角度（与竖直）
-  drawAngleArc(ctx, P_x, P_y, 24, 0, angP, '#c2611f', 'α');
-  const angQ = Math.atan2(Q_x - objX, objY - Q_y);     // Q 绳从 Q 上指向物体
-  drawAngleArc(ctx, Q_x, Q_y, 24, Math.PI, Math.PI-angQ, '#3f6f8f', 'β');
+  // 竖直参考线（用于标 α、β）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(P_x, P_y); ctx.lineTo(P_x, P_y+50); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(Q_x_actual, Q_y); ctx.lineTo(Q_x_actual, Q_y-50); ctx.stroke();
+  ctx.setLineDash([]);
 
-  // 力分析（重物处）
+  // ─── 角度弧（用 canvas 坐标直接算，自动选小弧方向） ───
+  // P 端：参考竖直向下 (canvas π/2)，扫向 P 绳方向
+  const ropeAng_P = Math.atan2(objY - P_y, objX - P_x);     // canvas 角度
+  drawAngleArc(ctx, P_x, P_y, 28, Math.PI/2, ropeAng_P, '#c2611f', 'α=53°');
+  // Q 端：参考竖直向上 (canvas -π/2)，扫向 Q 绳方向
+  const ropeAng_Q = Math.atan2(objY - Q_y, objX - Q_x_actual);     // canvas 角度
+  drawAngleArc(ctx, Q_x_actual, Q_y, 28, -Math.PI/2, ropeAng_Q, '#3f6f8f', 'β=37°');
+
+  // ─── 三力共点受力分析（共质心 objX, objY） ───
   // mg 向下
-  PPath.arrow(ctx, objX, objY+30, objX, objY+30+44, '#b4442e', 2);
+  PPath.arrow(ctx, objX, objY, objX, objY + 50, '#b4442e', 2);
   ctx.fillStyle = '#b4442e';
   ctx.font = '700 11px "Cambria Math",serif';
-  ctx.fillText('mg = 80 N', objX+5, objY+62);
-  // T_P 沿 P 绳向上（指向 P）
+  ctx.fillText('mg = 80 N', objX+8, objY+45);
+
+  // T_P 沿 P 绳指向 P（向左上）
   const T_P_dir_x = (P_x - objX), T_P_dir_y = (P_y - objY);
   const Lp = Math.hypot(T_P_dir_x, T_P_dir_y);
-  PPath.arrow(ctx, objX, objY, objX + T_P_dir_x*40/Lp, objY + T_P_dir_y*40/Lp, '#c2611f', 2);
-  // T_Q 沿 Q 绳向 Q（向右下）
-  const T_Q_dir_x = (Q_x - objX), T_Q_dir_y = (Q_y - objY);
-  const Lq = Math.hypot(T_Q_dir_x, T_Q_dir_y);
-  PPath.arrow(ctx, objX, objY+15, objX + T_Q_dir_x*40/Lq, objY+15 + T_Q_dir_y*40/Lq, '#3f6f8f', 2);
-
+  const T_P_scale = 48 * 0.8;     // 张力大小映射到像素长度（48 N ≈ 38 px）
+  PPath.arrow(ctx, objX, objY, objX + T_P_dir_x*T_P_scale/Lp, objY + T_P_dir_y*T_P_scale/Lp, '#c2611f', 2);
   ctx.fillStyle = '#c2611f';
   ctx.font = '900 12px "Cambria Math",serif';
-  ctx.fillText('T_P', objX-50, objY-10);
+  ctx.fillText('T_P=48N', objX + T_P_dir_x*T_P_scale/Lp - 60, objY + T_P_dir_y*T_P_scale/Lp);
+
+  // T_Q 沿 Q 绳指向 Q（向右下）
+  const T_Q_dir_x = (Q_x_actual - objX), T_Q_dir_y = (Q_y - objY);
+  const Lq = Math.hypot(T_Q_dir_x, T_Q_dir_y);
+  const T_Q_scale = 64 * 0.8;     // 64 N ≈ 51 px
+  PPath.arrow(ctx, objX, objY, objX + T_Q_dir_x*T_Q_scale/Lq, objY + T_Q_dir_y*T_Q_scale/Lq, '#3f6f8f', 2);
   ctx.fillStyle = '#3f6f8f';
-  ctx.fillText('T_Q', objX+45, objY+30);
+  ctx.fillText('T_Q=64N', objX + T_Q_dir_x*T_Q_scale/Lq + 6, objY + T_Q_dir_y*T_Q_scale/Lq);
 
   // 高度尺
   ctx.strokeStyle = '#94a09b'; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
@@ -168,23 +195,25 @@ function drawScene(ctx, view, state, t, opts){
   // 当前高度
   ctx.fillStyle = '#5d6964';
   ctx.font = '600 11px ui-monospace,monospace';
-  ctx.fillText(`当前高度 ${state.yObj.toFixed(2)} m / 总下降 ${(h - state.yObj).toFixed(2)} m`, 24, H-20);
+  ctx.fillText(`α=53° (sin=0.8, cos=0.6) · β=37° (sin=0.6, cos=0.8) · 该瞬时配置`, 24, H-20);
 }
 
-function drawAngleArc(ctx, cx, cy, r, a0, a1, color, label){
+function drawAngleArc(ctx, cx, cy, r, refCanvas, ropeCanvas, color, label){
+  // 直接传入 canvas 标准角度（0=+x, π/2=+y/down, -π/2=-y/up），自动选小弧
+  let delta = ropeCanvas - refCanvas;
+  // 归一化到 (-π, π]，确保 |delta| 是两角的最小差
+  while(delta > Math.PI) delta -= 2*Math.PI;
+  while(delta < -Math.PI) delta += 2*Math.PI;
   ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-  // a0 / a1 are measured from y+ (downward) axis
-  // We need to convert: standard canvas angle 0 = right
-  const std0 = a0 - Math.PI/2;
-  const std1 = a1 - Math.PI/2;
   ctx.beginPath();
-  ctx.arc(cx, cy, r, std0, std1);
+  // delta < 0 → anticlockwise (canvas 角度减小)；delta > 0 → 顺时针默认
+  ctx.arc(cx, cy, r, refCanvas, refCanvas + delta, delta < 0);
   ctx.stroke();
-  // label
-  const midA = (std0+std1)/2;
+  // label 在弧的中点偏外
+  const midAng = refCanvas + delta/2;
   ctx.fillStyle = color;
   ctx.font = 'italic 700 12px Georgia,serif';
-  ctx.fillText(label, cx + (r+8)*Math.cos(midA)-4, cy + (r+8)*Math.sin(midA)+4);
+  ctx.fillText(label, cx + (r+10)*Math.cos(midAng) - 14, cy + (r+10)*Math.sin(midAng) + 4);
 }
 
 PathQuestion({

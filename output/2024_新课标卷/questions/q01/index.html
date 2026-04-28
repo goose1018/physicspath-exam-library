@@ -19,23 +19,17 @@
 // 只有 C 是 t→v 的单值函数 ✓
 
 // 我们在 [0,1]×[0,1] 局部坐标系画每张候选图的曲线
+// 4 候选都用参数化曲线，使每个 t 可能对应多个 y（=非函数）— 仅 C 是单值
 const candidates = [
-  // A: x-t 圆 / 闭合（多值）
+  // A: x-t 圆形闭合曲线 → 同 t 多 x（非函数）
   {label:'A · x-t', yLbl:'x', curve:t => {const a=t*Math.PI*2; return [0.5+0.35*Math.cos(a), 0.5+0.35*Math.sin(a)];}, ok:false},
-  // B: x-t 双值（折返波形）
-  {label:'B · x-t', yLbl:'x', curve:t => {const x=t; const y=0.5+0.4*Math.sin(t*Math.PI*4)*Math.exp(-(t-0.5)*(t-0.5)*4); return [x,y];}, ok:false, multivalued:'B'},
-  // C: v-t 单值（直线）— 唯一正确
+  // B: x-t 不规则多值（参数化，u 非单调）
+  {label:'B · x-t', yLbl:'x', curve:t => {const a=t*Math.PI*2; return [0.5+0.30*Math.sin(a*1.5), 0.15 + 0.7*t];}, ok:false},
+  // C: v-t 单调直线 → 单值函数 ✓（唯一正确）
   {label:'C · v-t', yLbl:'v', curve:t => [t, 0.2 + 0.6*t], ok:true},
-  // D: v-t 双值（半圆）
+  // D: v-t 半圆 → 同 t 多 v（非函数）
   {label:'D · v-t', yLbl:'v', curve:t => {const a=t*Math.PI; return [0.5+0.35*Math.cos(a), 0.5+0.35*Math.sin(a)];}, ok:false},
 ];
-
-// B 的曲线是单值的（每个 t 一个 y），不符合题意。改成 x-t 多值（同 t 多 x）
-// 用参数化方式：让 x 不是 t 的单调函数
-candidates[1].curve = t => {
-  const a = t*Math.PI*2;
-  return [0.5+0.30*Math.sin(a*1.5), 0.15 + 0.7*t];
-};
 
 function evalState(t){
   // 总周期 8s：每个候选 2s（高亮+扫描）
@@ -151,16 +145,20 @@ function drawCandidate(ctx, x, y, w, h, c, i, state){
 function findIntersections(curveFn, tScan){
   const pts = [];
   let lastSign = null;
-  for(let s=0; s<=1; s+=0.002){
-    const [u,_] = curveFn(s);
+  // 端点保护：若曲线起点 / 终点恰好命中扫描线，单独加入
+  const [u0, v0] = curveFn(0);
+  if(Math.abs(u0 - tScan) < 0.003) pts.push(v0);
+  for(let s=0.002; s<=1; s+=0.002){
+    const [u, v] = curveFn(s);
     const sign = u - tScan;
-    if(lastSign != null && sign * lastSign <= 0){
-      // crossing
-      const [_uu,v] = curveFn(s);
+    if(lastSign != null && sign * lastSign < 0){
+      // 真实穿越（不含恰好为 0 的边界）
       pts.push(v);
     }
     lastSign = sign;
   }
+  const [u1, v1] = curveFn(1);
+  if(Math.abs(u1 - tScan) < 0.003) pts.push(v1);
   // 去重
   const unique = [];
   pts.forEach(v => {
@@ -181,15 +179,13 @@ PathQuestion({
   },
   originalProblem: {
     meta: '2024 新课标卷 · 第 1 题 · 6 分',
-    text: `一质点做直线运动，下列描述其位移 <b>x</b> 或速度 <b>v</b> 随时间 <b>t</b> 变化的图像中，可能正确的是（　　）`,
-    subQuestions: [
-      'A. （x-t 多值，非函数）',
-      'B. （x-t 多值，非函数）',
-      'C. （v-t 单值，函数 ✓）',
-      'D. （v-t 多值，非函数）'
-    ],
-    image: '../../source/images/image2.png',
-    officialAnswer: 'C · 物体做直线运动，位移 x 必须是 t 的单值函数；同理瞬时速度 v 也是 t 的单值函数。AB 中一个 t 对应多个 x，CD 中 D 一个 t 对应多个 v。仅 C 满足函数关系。'
+    text: `一质点做直线运动，下列描述其位移 <b>x</b> 或速度 <b>v</b> 随时间 <b>t</b> 变化的图像中，可能正确的是（　　）<br><br>
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px"><b>A.</b> <img src="../../source/images/image2.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span>
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px"><b>B.</b> <img src="../../source/images/image3.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span><br>
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px"><b>C.</b> <img src="../../source/images/image4.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><b>D.</b> <img src="../../source/images/image5.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span>`,
+    subQuestions: ['A.', 'B.', 'C.', 'D.'],
+    officialAnswer: 'C · 物体做直线运动，位移 x 必须是 t 的单值函数（任一 t 只对应一个 x），同理瞬时速度 v 也是 t 的单值函数。A、B 选项的 x-t 图中存在某 t 对应多个 x，违反位移单值性 → 错；D 选项的 v-t 图中某 t 对应多个 v，违反速度单值性 → 错；C 选项的 v-t 图为单调直线（匀加速），每个 t 对应唯一 v → 仅 C 合法。'
   },
   totalT: 8,
   speedFactor: 1.0,

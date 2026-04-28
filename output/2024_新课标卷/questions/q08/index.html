@@ -24,14 +24,14 @@ const states = [
   {V: 0.10, p: 1.0, T: 300, name: '1 · 起始'},
   {V: 0.025, p: 8.0, T: 600, name: '2 · 绝热压缩末'},     // V 减 4 倍，p 增 8 倍 (绝热 γ≈1.4)
   {V: 0.045, p: 8.0, T: 1100, name: '3 · 等压膨胀末'},    // V 增 1.8 倍, T↑
-  {V: 0.10,  p: 2.5, T: 720, name: '4 · 绝热膨胀末'},     // 回到 V_1, p<p_2
+  {V: 0.10,  p: 2.5, T: 750, name: '4 · 绝热膨胀末'},     // 回到 V_1, p<p_2（按 pV/(p₁V₁)·T₁ 算）
 ];
 
 const T_total = 12;     // 总演示时长
 const stageDur = T_total / 4;     // 每段 3s
 
 function evalState(t){
-  const stage = Math.floor(t / stageDur) % 4;     // 0..3
+  const stage = ((Math.floor(t / stageDur) % 4) + 4) % 4;     // 0..3，对负 t 也安全
   const u = (t - stage*stageDur) / stageDur;       // 0..1 在阶段内
   const i0 = stage, i1 = (stage+1) % 4;
   // 在 (V,p) 空间插值，但 1→2 和 3→4 是绝热曲线，2→3 是等压，4→1 是等容
@@ -248,7 +248,7 @@ PathQuestion({
   originalProblem: {
     meta: '2024 新课标卷 · 第 8 题 · 6 分',
     image: '../../source/images/image36.png',
-    text: `如图，一定量理想气体的循环由下面 4 个过程组成：1→2 为<b>绝热过程</b>，2→3 为<b>等压过程</b>，3→4 为<b>绝热过程</b>，4→1 为<b>等容过程</b>。上述四个过程是四冲程柴油机工作循环的主要过程。下列说法正确的是（　　）`,
+    text: `如图，一定量理想气体的循环由下面 4 个过程组成：1→2 为<b>绝热过程</b>（过程中气体不与外界交换热量），2→3 为<b>等压过程</b>，3→4 为<b>绝热过程</b>，4→1 为<b>等容过程</b>。上述四个过程是四冲程柴油机工作循环的主要过程。下列说法正确的是（　　）`,
     subQuestions: [
       'A. 1→2 过程中，气体内能增加',
       'B. 2→3 过程中，气体向外放热',

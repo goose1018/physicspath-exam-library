@@ -37,7 +37,7 @@ const demoOmegaRed = demoOmegaSun * (T_sun/T_red);  // 红矮星更快
 function evalState(t){
   const phaseSun = (t * demoOmegaSun) % (2*Math.PI);
   const phaseRed = (t * demoOmegaRed) % (2*Math.PI);
-  const orbits = Math.floor(t * demoOmegaRed / (2*Math.PI));
+  const orbits = Math.max(0, Math.floor(t * demoOmegaRed / (2*Math.PI)));     // 时间反向时不显示负值
   return {phase: 1, phaseSun, phaseRed, orbits, t};
 }
 
@@ -62,11 +62,11 @@ function drawScene(ctx, view, state, t, opts){
   ctx.beginPath(); ctx.moveTo(xMid, 30); ctx.lineTo(xMid, H-30); ctx.stroke();
   ctx.setLineDash([]);
 
-  // 左半：太阳-地球（不缩放，作为参考尺度）
+  // 左半：太阳-地球（参考尺度，orbitR=130）
   drawSystem(ctx, W*0.27, cyMid, '太阳系', '太阳 M', '地球 r=1 AU, T=1 年', '#c2611f', '#3f6f8f', state.phaseSun, 130, 28, true);
 
-  // 右半：红矮星-GJ1002c（同样可视化半径——但提示真实半径只有 0.07 倍）
-  drawSystem(ctx, W*0.74, cyMid, '红矮星 + GJ1002c', '红矮星 M\'', "GJ1002c r'=0.07 AU, T'=0.06 年", '#b4442e', '#3a4a26', state.phaseRed, 130, 28, false);
+  // 右半：红矮星-GJ1002c — 用更小 orbitR=60 体现真实尺度比 (0.07 r₀)
+  drawSystem(ctx, W*0.74, cyMid, '红矮星 + GJ1002c', '红矮星 M\'', "GJ1002c r'=0.07 AU, T'=0.06 年", '#b4442e', '#3a4a26', state.phaseRed, 60, 22, false);
 
   // 顶部说明 / 公式推导
   ctx.fillStyle = '#fdf3e6';

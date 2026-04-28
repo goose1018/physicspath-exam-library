@@ -140,7 +140,7 @@ function drawTrajectory(ctx, x0, y0, v, tNow, pxPerM, color, label){
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
 
   // 速度箭头（仅在空中）
-  if(tNow < Math.sqrt(2*18/10)){
+  if(tNow < T_fall){
     const vx = v;
     const vy = g*tNow;
     const sc = 4;

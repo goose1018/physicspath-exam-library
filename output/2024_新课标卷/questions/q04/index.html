@@ -17,9 +17,9 @@
 // 红光：低频、长波长、能量小、动量小、玻璃中速度大、频率不变
 // 选 A：蓝光光子能量大于红光（E = hν，蓝光 ν 大）
 
-// 蓝光参数
-const blue = {label:'蓝光', color:'#3f6f8f', lambda_nm:450, color_glow:'#a3c4ff'};
-const red  = {label:'红光', color:'#b4442e', lambda_nm:650, color_glow:'#ffaca0'};
+// 蓝光参数（n_glass 表示玻璃对该色光的折射率：蓝光更大）
+const blue = {label:'蓝光', color:'#3f6f8f', lambda_nm:450, n_glass:1.55, color_glow:'#a3c4ff'};
+const red  = {label:'红光', color:'#b4442e', lambda_nm:650, n_glass:1.45, color_glow:'#ffaca0'};
 
 const T_total = 6;
 
@@ -110,9 +110,8 @@ function drawWave(ctx, x, y, w, light, t, label){
   ctx.fillText('玻璃 (n)', glassX0+10, y-amp-8);
   ctx.fillText('真空', glassX1+10, y-amp-8);
 
-  // 玻璃中波长缩短：蓝光 n 大 → λ 缩得更多
-  const n_glass = light.lambda_nm === 450 ? 1.55 : 1.45;
-  // 在玻璃中：λ_in = λ/n（频率不变）
+  // 玻璃中波长缩短：n 越大 λ 缩得越多（频率不变）
+  const n_glass = light.n_glass;
 
   ctx.strokeStyle = light.color; ctx.lineWidth = 2.6;
   ctx.beginPath();

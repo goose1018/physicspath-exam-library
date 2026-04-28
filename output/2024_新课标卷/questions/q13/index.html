@@ -46,36 +46,31 @@ const T_demo = 8;
 const u_demo = totalArcLen / T_demo;     // 演示速率
 
 function evalState(t){
-  // 一周内 P 沿曲线匀速移动
-  const tInPer = t % T_demo;
-  const sCovered = u_demo * tInPer;     // 已走曲线长度
-  let segName, P;
-  if(sCovered <= 2){     // ab 段（长度 2）
-    const k = sCovered / 2;     // 0..1
+  // 时间反向保护：把 t 限制到非负范围
+  const tSafe = ((t % T_demo) + T_demo) % T_demo;
+  const sCovered = u_demo * tSafe;     // 已走曲线长度
+  let segName, P, phase;
+  if(sCovered <= 2){
+    // ab 段（直线，长度 2v₀）：P 从 a(-v₀,0) 沿 +x 到 b(v₀,0)
+    const k = sCovered / 2;
     P = {x: -v0 + 2*v0*k, y: 0};
     segName = 'ab · 电场';
-  } else if(sCovered <= 2 + Math.PI/2){     // bc 段
-    const k = (sCovered - 2) / (Math.PI/2);     // 0..1
-    const ang = -Math.PI/2 + (Math.PI/2)*k;     // -π/2 → 0
-    P = {x: v0*Math.cos(ang) + 0, y: v0*Math.sin(ang) + v0};   // 圆心 O
-    // 实际：圆心 O 是原点，从 b(v0,0) 走 1/4 弧到 c(0,v0)
-    const angP = (1-k)*(-Math.PI/2) + k*0;     // 错的，重写
-    // b at angle = 0 (cos 0 = 1, sin 0 = 0)?
-    // No: b=(v0,0)=(v0·cos(0), v0·sin(0)) → angle 0
-    // c=(0,v0)=(v0·cos(π/2), v0·sin(π/2)) → angle π/2
-    // 所以 angle: 0 → π/2
-    const ang2 = 0 + (Math.PI/2)*k;
-    P = {x: v0*Math.cos(ang2), y: v0*Math.sin(ang2)};
+    phase = 1;
+  } else if(sCovered <= 2 + Math.PI/2){
+    // bc 段（圆弧）：圆心原点 O，半径 v₀，从 b(v₀,0) 走 1/4 弧到 c(0,v₀)
+    // angle: 0 → π/2（数学正方向，逆时针）
+    const k = (sCovered - 2) / (Math.PI/2);
+    const ang = (Math.PI/2)*k;
+    P = {x: v0*Math.cos(ang), y: v0*Math.sin(ang)};
     segName = 'bc · 磁场';
-  } else {     // ca 段
-    const k = (sCovered - 2 - Math.PI/2) / Math.sqrt(2);     // 0..1
-    P = {x: 0 + (-v0 - 0)*k, y: v0 + (0 - v0)*k};
+    phase = 2;
+  } else {
+    // ca 段（直线，长度 √2·v₀）：P 从 c(0,v₀) 沿 (-v₀, -v₀) 方向到 a(-v₀,0)
+    const k = (sCovered - 2 - Math.PI/2) / Math.sqrt(2);
+    P = {x: 0 + (-v0)*k, y: v0 + (-v0)*k};
     segName = 'ca · 电场';
+    phase = 3;
   }
-  let phase;
-  if(sCovered < 2) phase = 1;
-  else if(sCovered < 2 + Math.PI/2) phase = 2;
-  else phase = 3;
   return {phase, P, segName, sCovered, t};
 }
 
@@ -208,12 +203,12 @@ function drawDerivation(ctx, x, y, w, h, state){
       color: '#16613f'
     },
     {
-      title: '(3) 一周位移分析',
+      title: '(3) 一周位移大小',
       lines: [
-        'ab 段实际位移: x_ab (类平抛 + 矢量合成)',
-        'ca 段实际位移: 由对称性 = -x_ab 沿不同向',
-        'bc 圆弧位移: 弦长 = √2·r',
-        '总位移见解析 (由几何叠加)'
+        'ab: ∫vx dt = 0 (对称) → Δr_ab = 0',
+        'bc: ∫v dt = (mv₀/qB, mv₀/qB)',
+        'ca: Δr_ca = (-√2·mv₀/(2qB), +√2·mv₀/(2qB))',
+        '|Δr| = √3·mv₀/(qB)'
       ],
       color: '#b4442e'
     }
@@ -267,7 +262,7 @@ PathQuestion({
       '(2) 电场强度的大小；',
       '(3) P 点沿图中闭合曲线移动 1 周回到 a 点时，粒子位移的大小。'
     ],
-    officialAnswer: '(1) 圆周运动半径 r = mv₀/(qB)；周期 T = 2πm/(qB)。(2) 由"P 沿曲线匀速"知加速度大小处处相等。bc 段加速度 = qv₀B/m（洛伦兹向心），ab/ca 段加速度 = qE/m（电场） → E = v₀·B。(3) 由对称性与几何分析得位移大小 (具体表达式涉及 ab 段类平抛位移 + bc 圆弧弦长)。'
+    officialAnswer: '(1) 圆周运动半径 r = mv₀/(qB)；周期 T = 2πm/(qB)。(2) 由"P 沿曲线匀速"知 |dP/dt| 恒定。bc 段 = qv₀B/m（洛伦兹向心）；ab/ca 段 = qE/m（电场）→ E = v₀·B。(3) 1 周后位移：分三段算 ∫v dt。ab 段：vx 由 -v₀ 线性到 +v₀，∫vx dt = 0，∫vy dt = 0 → Δr_ab = 0。bc 段（1/4 圆，t = πm/(2qB)）：Δr_bc = (mv₀/qB, mv₀/qB)。ca 段（直线，t = √2m/(qB)）：Δr_ca = (-√2·mv₀/(2qB), +√2·mv₀/(2qB))。总位移 Δx = (2-√2)·mv₀/(2qB)，Δy = (2+√2)·mv₀/(2qB)。|Δr| = √3·mv₀/(qB)。'
   },
   totalT: T_demo,
   speedFactor: 0.7,
@@ -278,7 +273,7 @@ PathQuestion({
      formula_tex: String.raw`a_{ab} = \dfrac{qE}{m},\quad \text{P 沿 } v_x \text{ 匀加速}`,
      note:'电场加速：粒子速度 v_x 由 -v₀ 增到 +v₀，速度图上 P 沿 v_x 轴匀速移动。'},
     {label:'阶段 2 · bc 段（磁场圆弧）', label_short:'bc',
-     formula_tex: String.raw`a_{bc} = \dfrac{qv_0 B}{m},\quad \text{P 沿圆弧 |OP|=v}_0`,
+     formula_tex: String.raw`a_{bc} = \dfrac{qv_0 B}{m},\quad |OP| = v_0`,
      note:'磁场不做功，速度大小保持 v₀。速度图上 P 沿以 O 为圆心、v₀ 为半径的圆弧。'},
     {label:'阶段 3 · ca 段（电场）', label_short:'ca',
      formula_tex: String.raw`a_{ca} = \dfrac{qE}{m},\quad \text{P 沿 ca 直线}`,
@@ -294,10 +289,10 @@ PathQuestion({
     {label:'E',           fmt:()=>'v₀·B'}
   ],
   conclusions: [
-    {label_text:'(1) r',  value_text:'mv₀/(qB)',   note:'洛伦兹力'},
-    {label_text:'(1) T',  value_text:'2πm/(qB)',   note:'周期'},
-    {label_text:'(2) E',  value_text:'v₀·B',       note:'匀速曲线'},
-    {label_text:'(3) Δr', value_text:'见解析',      note:'几何叠加'}
+    {label_text:'(1) r',  value_text:'mv₀/(qB)',     note:'洛伦兹力'},
+    {label_text:'(1) T',  value_text:'2πm/(qB)',     note:'周期'},
+    {label_text:'(2) E',  value_text:'v₀·B',         note:'匀速曲线'},
+    {label_text:'(3) Δr', value_text:'√3·mv₀/(qB)',  note:'三段叠加'}
   ],
   legend: [
     {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'ab 段（电场加速）'},
