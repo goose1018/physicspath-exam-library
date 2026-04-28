@@ -61,6 +61,9 @@ function evalState(t){
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // 上：导轨+棒+电路
   drawRail(ctx, 0, 0, W, H*0.55, state, t);
   // 下：能量/电量曲线

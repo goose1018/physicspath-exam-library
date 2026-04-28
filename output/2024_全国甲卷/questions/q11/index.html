@@ -57,6 +57,9 @@ function evalState(t){
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏 + 多波纹叠加糊屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // 上半: 道路+救护车+声波
   drawScene_road(ctx, 0, 0, W, H*0.65, t);
   // 下半: x-t 与 v-t 图
@@ -312,7 +315,7 @@ PathQuestion({
   ],
   conclusions: [
     {label_text:'(1)', value_tex: String.raw`v_\text{max} = 20\;\text{m/s}`, note:'匀加速 v=at: 2×10=20'},
-    {label_text:'(2)', value_tex: String.raw`x = 680\;\text{m}`,            note:'T₁+x/340=42 联立求解'}
+    {label_text:'(2)', value_tex: String.raw`x = 680\;\text{m}`,            note:'T₁+x/340=41 联立求解（680/340=2 → T₁=39s 鸣笛）'}
   ],
   legend: [
     {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'听者（x = 0）'},

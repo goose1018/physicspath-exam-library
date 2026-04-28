@@ -54,6 +54,9 @@ function a_at(m){
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // 上半：实验装置
   drawApparatus(ctx, 0, 0, W*0.55, H, t, mPan);
   // 右半：a-m 图
@@ -235,8 +238,13 @@ PathQuestion({
   originalProblem: {
     meta: '2024 全国甲卷 · 第 2 题 · 6 分',
     image: '../../source/images/image12.png',
-    text: `如图，一轻绳跨过光滑定滑轮，绳的一端系物块 <b>P</b>，<b>P 置于水平桌面上，与桌面间存在摩擦</b>；绳的另一端悬挂一轻盘（质量可忽略），盘中放置砝码。改变盘中砝码总质量 <b>m</b>，并测量 <b>P</b> 的加速度大小 <b>a</b>，得到 a-m 图像。重力加速度大小为 <b>g</b>。在下列图像中，可能正确的是（　　）`,
-    officialAnswer: 'D · 由 P 牛二：T − μMg = Ma；盘+砝码：mg − T = ma。联立得 a = g(m − μM)/(M + m)。当 m ≤ μM 时 a = 0（静摩擦平衡）；m → ∞ 时 a → g（水平渐近线）。曲线起点 (μM, 0)，单调增渐近 g。'
+    text: `如图，一轻绳跨过光滑定滑轮，绳的一端系物块 <b>P</b>，<b>P 置于水平桌面上，与桌面间存在摩擦</b>；绳的另一端悬挂一轻盘（质量可忽略），盘中放置砝码。改变盘中砝码总质量 <b>m</b>，并测量 <b>P</b> 的加速度大小 <b>a</b>，得到 a-m 图像。重力加速度大小为 <b>g</b>。在下列图像中，可能正确的是（　　）<br><br>
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px"><b>A.</b> <img src="../../source/images/image13.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span>
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px"><b>B.</b> <img src="../../source/images/image14.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span><br>
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px"><b>C.</b> <img src="../../source/images/image15.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><b>D.</b> <img src="../../source/images/image16.png" style="height:64px;border:1px solid #eadfce;border-radius:4px;vertical-align:middle"></span>`,
+    subQuestions: ['A.', 'B.', 'C.', 'D.'],
+    officialAnswer: 'D · 由 P 牛二：T − μMg = Ma；盘+砝码：mg − T = ma。联立得 a = g(m − μM)/(M + m)。当 m ≤ μM 时 a = 0（静摩擦平衡）；m → ∞ 时 a → g（水平渐近线）。曲线起点 (μM, 0)，单调增渐近 g。D 图正是这一形状。'
   },
   totalT: T_total,
   speedFactor: 0.7,

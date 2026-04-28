@@ -38,7 +38,8 @@ const T_period = t_air + t_contact;
 const T_total = 5;
 
 function evalState(t){
-  const tInPeriod = t % T_period;
+  // 对负 t 钳制（拖动时间轴回退安全）
+  const tInPeriod = ((t % T_period) + T_period) % T_period;
   let y, F, v, phase;
   if(tInPeriod < t_air){
     // 空中：上抛 + 下落
@@ -65,6 +66,9 @@ function evalState(t){
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // 左：运动员 + 蹦床
   drawScene_jumper(ctx, 0, 0, W*0.4, H, state);
   // 右：F-t 图
@@ -191,7 +195,7 @@ function drawGraph_Ft(ctx, x, y, w, h, state, t){
   const padL = 38, padR = 14, padT = 28, padB = 28;
   const cw = w-padL-padR, ch = h-padT-padB;
   const x0 = x+padL, y0 = y+padT;
-  const X = tv => x0 + (tv % T_period)/T_period * cw;
+  const X = tv => x0 + (((tv % T_period) + T_period) % T_period)/T_period * cw;
   const F_peak = 1500 * Math.PI;     // ≈ 4712 N
   const Y = fv => y0+ch - fv/5500 * ch;
 
@@ -241,7 +245,7 @@ function drawGraph_Ft(ctx, x, y, w, h, state, t){
 
   // 当前点
   ctx.fillStyle = '#c2611f';
-  const tInP = t % T_period;
+  const tInP = ((t % T_period) + T_period) % T_period;
   ctx.beginPath(); ctx.arc(X(tInP), Y(state.F), 5, 0, Math.PI*2); ctx.fill();
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
 

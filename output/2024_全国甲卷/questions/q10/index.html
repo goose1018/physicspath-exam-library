@@ -44,6 +44,9 @@ function evalState(t){ return {phase:1, t}; }
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   if(viewMode === 'circuit') drawCircuit(ctx, W, H);
   else drawCurve(ctx, W, H);
 }
@@ -171,7 +174,7 @@ function drawCircuit(ctx, W, H){
   ctx.fillText('(1) 滑动变阻分压式 + mA 内接 ✓', W*0.10, H*0.93);
   ctx.fillStyle = '#5d6964';
   ctx.font = '500 12px "Noto Sans SC",sans-serif';
-  ctx.fillText('(3) 闭合开关前滑片滑到 a 端 → 传感器电压 0', W*0.55, H*0.93);
+  ctx.fillText('(3) 闭合开关前滑片滑到 b 端 → 传感器电压 0（保护）', W*0.55, H*0.93);
 }
 
 function drawCurve(ctx, W, H){

@@ -51,8 +51,8 @@ function getCurrent(){ return getU2() / (getR() + R0 + R1); }   // 三阻串联
 function getP_R1(){ const I = getCurrent(); return I*I*R1; }
 
 function evalState(t){
-  // 自动演示：分四段切换 ABCD
-  const seg = Math.floor(t / 2) % 4;
+  // 自动演示：分四段切换 ABCD（对负 t 钳制）
+  const seg = ((Math.floor(t / 2) % 4) + 4) % 4;
   if(seg === 0){ T_pos = 0.5; R_pos = 1.0; }    // A: T 中, R→f
   else if(seg === 1){ T_pos = 0.0; R_pos = 0.5; }  // B: T→b, R 中
   else if(seg === 2){ T_pos = 1.0; R_pos = 1.0; }  // C: T→a, R→f
@@ -62,6 +62,9 @@ function evalState(t){
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   const phase = state.phase;
   const phaseName = ['A · T不动 R→f', 'B · T→b R不变', 'C · T→a R→f', 'D · T→b R→e'][phase-1];
   const phaseColor = ['#16613f', '#b4442e', '#16613f', '#b4442e'][phase-1];
@@ -319,7 +322,7 @@ PathQuestion({
   drawScene,
   phases: [
     {label:'A · T不动 R→f ✓', label_short:'A',
-     formula_tex: String.raw`R\downarrow \;\Rightarrow\; I = \dfrac{U_2}{R+R_1}\uparrow \;\Rightarrow\; P_{R_1} = I^2 R_1\uparrow`,
+     formula_tex: String.raw`R\downarrow \;\Rightarrow\; I = \dfrac{U_2}{R+R_0+R_1}\uparrow \;\Rightarrow\; P_{R_1} = I^2 R_1\uparrow`,
      note:'T 不动 → U₂ 不变；R 滑向 f → R 减小 → 总电阻减小 → 电流增大 → R₁ 热功率增大。'},
     {label:'B · T→b 不变 ✗', label_short:'B',
      formula_tex: String.raw`U_2\downarrow,\; R=\text{const} \;\Rightarrow\; I\downarrow \;\Rightarrow\; P_{R_1}\downarrow`,

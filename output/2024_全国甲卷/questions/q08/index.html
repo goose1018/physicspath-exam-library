@@ -102,12 +102,16 @@ function getSim(){
 
 function evalState(t){
   const data = getSim();
-  const idx = Math.min(data.length-1, Math.floor(t / 0.005));
+  // 对负 t 钳到 0，对超界 t 钳到末尾
+  const idx = Math.max(0, Math.min(data.length-1, Math.floor(t / 0.005)));
   return {phase: data[idx].phase, v: data[idx].v, s: data[idx].s, t};
 }
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // 左：物理场景
   drawSetup(ctx, 0, 0, W*0.45, H, state, opts);
   // 右：v-t 图
@@ -261,7 +265,7 @@ PathQuestion({
   subtitle: '绝缘细绳跨过滑轮，一端连矩形金属线框（质量 M）、另一端连物块（质量 m）。线框上边以初速 v 从磁场下方进入。求 v-t 图可能正确选项。',
   deliv: {
     title: '滑轮+磁场+线框 · v-t 图',
-    sub: '动量牛二 + 安培力 · 答案 AC（A：m>M 终速正；C：m=M 终速 0）'
+    sub: '动量牛二 + 安培力 · 答案 AC（A：m&gt;M 终速正；C：m=M 终速 0）'
   },
   originalProblem: {
     meta: '2024 全国甲卷 · 第 8 题 · 6 分',
@@ -288,12 +292,12 @@ PathQuestion({
      note:'完全出场无 EMF。系统在重力差作用下以恒定加速度运动（或匀速若 m=M）。'}
   ],
   stats: [
-    {label:'当前 v',  fmt:s=>s.v?.toFixed(3)+' (单位)' || '—'},
-    {label:'当前 s',  fmt:s=>s.s?.toFixed(2) || '—'},
+    {label:'当前 v',  fmt:s=>(s.v != null ? s.v.toFixed(3)+' (单位)' : '—')},
+    {label:'当前 s',  fmt:s=>(s.s != null ? s.s.toFixed(2) : '—')},
     {label:'阶段',    fmt:s=>'阶段 '+s.phase}
   ],
   conclusions: [
-    {label_text:'A 对', value_text:'m>M 终速正',  note:'加速度减小的减速 → 匀速'},
+    {label_text:'A 对', value_text:'m&gt;M 终速正',  note:'加速度减小的减速 → 匀速'},
     {label_text:'B 错', value_text:'不可能匀减速', note:'a 与 v 耦合非恒定'},
     {label_text:'C 对', value_tex: String.raw`m=M, v_\text{term}=0`,  note:'减速到 0 → 匀速 0 → 反向减速到 0'},
     {label_text:'D 错', value_text:'不可能',     note:'物理不自洽'}

@@ -46,6 +46,9 @@ function evalState(t){
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 第一行铺底 — 防 WebM 黑屏
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   const theta = state.theta || 0;
   // 主图：大圆环+小环+受力
   drawRing(ctx, 0, 0, W*0.6, H, theta, t, opts);
@@ -156,7 +159,7 @@ function drawNGraph(ctx, x, y, w, h, theta){
   const cw = w-padL-padR, ch = h-padT-padB;
   const x0 = x+padL, y0 = y+padT;
   const X = th => x0 + th/Math.PI * cw;
-  const Y = N => y0+ch - Math.min(N, 4)/4 * ch;
+  const Y = N => y0+ch - Math.min(N, 5)/5 * ch;     // 底端 |N|=5mg，上限设 5
   // 轴
   ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
   ctx.beginPath();
@@ -218,7 +221,7 @@ PathQuestion({
       'C. 先减小后增大',
       'D. 先增大后减小'
     ],
-    officialAnswer: 'C · 由机械能守恒 v² = 2gR(1−cosθ)，向心方向 N − mg cosθ = mv²/R 联立得 N = mg(2−3cosθ)（朝向圆心为正）。临界 cosθ=2/3 (θ≈48°) 时 N=0；之前 |N| 由 mg 减到 0；之后由 0 增到 5mg。先减小后增大。'
+    officialAnswer: 'C · 由机械能守恒 v² = 2gR(1−cosθ)，向心方向 mg cosθ − N = mv²/R 联立得 N = mg(3cosθ − 2)（背离圆心为正，即向外推小环为正）。临界 cosθ=2/3 (θ≈48°) 时 N=0；之前 |N| 从 mg 减到 0（外壁支撑）；之后从 0 增到 5mg（内壁托起，方向反）。小环对大圆环作用力大小先减后增。'
   },
   deliv: {
     title: '大圆环上小环下滑',
