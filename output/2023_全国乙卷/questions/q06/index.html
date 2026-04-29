@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 6 题 · 正点电荷+负电小球轨迹（多选）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：O 是固定正点电荷，球带负电，从 P 由静止释放。
+// 球受 (i) 重力 mg 向下；(ii) 库仑引力（指向 O）。
+// 题图：O 在左下方，P 在右上方；轨迹从 P 向下弯曲经 M 到 N，
+//       M、N 满足 OM = ON（图示位置：M 在轨迹中段、N 在轨迹下方）
+//
+// 关键物理：
+// - 电势 φ_O ∝ 1/r > 0（正电荷周围）
+// - 电势能 W = q_球 · φ = (负 q)·(正 φ) < 0
+// - r 减小 → φ 增大 → W 更负（电势能减小）
+// - r 增大 → φ 减小 → W 更接近 0（电势能增大）
+//
+// 4 选项（多选）：
+// A 错：电势能"先增后减"反了。球从 P 被吸引 → r 先减小 → 电势能先减小；
+//       之后 r 可能增大 → 电势能增大。所以是"先减后增"
+// B 对：OP > OM = ON → W_P > W_N（P 距离最远，电势能最不负 = 最大）
+// C 对：OM = ON → 电势能相等 → 由总能守恒 KE+GPE+EPE=const，
+//       电势能消去 → 机械能(KE+GPE)_M = 机械能(KE+GPE)_N
+// D 错：ΔW_电(M→N)=0 仅净功为零；过程中电场力沿任意非径向方向做正/负功
+
+// 物理参数（无量纲）
+const m_ball = 0.1;
+const g_acc = 9.8;
+const k_e = 1.0;            // 库仑常数 × q_q
+const Q_q = 0.6;            // |Q·q| 乘积（让库仑力与重力量级匹配）
+const O_pos = {x: -0.5, y: 0};
+const P_pos = {x: 1.2, y: 1.6};
+
+// 数值积分
+function simulate(){
+  const data = [];
+  let x = P_pos.x, y = P_pos.y, vx = 0, vy = 0, t = 0;
+  const dt = 0.0008;
+  const tMax = 2.4;
+  const r_clamp = 0.18;     // 防 1/r² 爆炸
+  while(t <= tMax){
+    const dx = x - O_pos.x, dy = y - O_pos.y;
+    let r = Math.hypot(dx, dy);
+    r = Math.max(r, r_clamp);
+    // 库仑引力（球带负电、O 带正电 → 吸引 → 力指向 O）
+    const F_mag = k_e * Q_q / (r*r);
+    const ax_e = -F_mag * dx / r / m_ball;
+    const ay_e = -F_mag * dy / r / m_ball;
+    const ax = ax_e;
+    const ay = ay_e - g_acc;     // 重力向下（-y）
+    vx += ax*dt; vy += ay*dt;
+    x += vx*dt; y += vy*dt;
+    t += dt;
+    data.push({t, x, y, vx, vy, r: Math.hypot(x-O_pos.x, y-O_pos.y)});
+  }
+  return {data, tMax};
+}
+const sim = simulate();
+
+// 选 M 和 N：M 在去程靠近 O（先减小 r 阶段），N 在返程同 r 处
+// 找 r 的最小值索引
+let idx_min = 0;
+for(let i = 1; i < sim.data.length; i++){
+  if(sim.data[i].r < sim.data[idx_min].r) idx_min = i;
+}
+// M 在去程：选 idx 在 0 到 idx_min 之间，r 取一个中间值
+const r_target = (sim.data[0].r + sim.data[idx_min].r) / 2 * 0.92;
+let idx_M = 0;
+for(let i = 1; i < idx_min; i++){
+  if(Math.abs(sim.data[i].r - r_target) < Math.abs(sim.data[idx_M].r - r_target)){
+    idx_M = i;
+  }
+}
+// N 在返程：从 idx_min 之后找 r ≈ r_M
+const r_M = sim.data[idx_M].r;
+let idx_N = idx_min;
+for(let i = idx_min + 1; i < sim.data.length; i++){
+  if(Math.abs(sim.data[i].r - r_M) < Math.abs(sim.data[idx_N].r - r_M)){
+    idx_N = i;
+  }
+}
+const M_pt = sim.data[idx_M];
+const N_pt = sim.data[idx_N];
+
+const T_total = 8;
+const slowFactor = T_total / sim.tMax;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* 预计算 sim 无需重置 */ }
+  lastT = t;
+  const tReal = Math.max(0, Math.min(t/slowFactor, sim.tMax));
+  let lo = 0, hi = sim.data.length - 1;
+  while(lo < hi){
+    const mid = (lo+hi)>>1;
+    if(sim.data[mid].t < tReal) lo = mid+1; else hi = mid;
+  }
+  const idx = Math.max(0, lo - 1);
+  const d = sim.data[idx];
+  return {idx, x:d.x, y:d.y, vx:d.vx, vy:d.vy, r:d.r, tReal, t};
+}
+
+// 能量计算（约定零点：电势能在无穷远 = 0；重力势能在 y=0 = 0）
+function energy(d){
+  const v2 = d.vx*d.vx + d.vy*d.vy;
+  const KE = 0.5 * m_ball * v2;
+  const GPE = m_ball * g_acc * d.y;
+  // EPE = q_球 · φ = (-|q|) · (k·Q/r) = -k·Q·|q|/r
+  // 取符号约定：W = -k_e·Q_q/r（带负号，因球带负电）
+  const r = Math.max(d.r, 0.18);
+  const EPE = -k_e * Q_q / r;
+  const total = KE + GPE + EPE;
+  return {KE, GPE, EPE, total};
+}
+const energy_P = energy(sim.data[0]);
+const energy_M = energy(M_pt);
+const energy_N = energy(N_pt);
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawTrajectory(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawEnergy(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function makeProj(panelX, panelY, panelW, panelH){
+  const xMin = -1.4, xMax = 1.6, yMin = -0.8, yMax = 2.2;
+  const padX = 30, padY = 30;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - 2*padY) / (yMax - yMin);
+  const s = Math.min(sx, sy);
+  const offX = panelX + padX + (-xMin)*s + (panelW - 2*padX - (xMax-xMin)*s)/2;
+  const offY = panelY + padY + yMax*s + (panelH - 2*padY - (yMax-yMin)*s)/2;
+  return {
+    px: x => offX + x*s,
+    py: y => offY - y*s,     // canvas y 向下；物理 y 向上 → 反向
+    s
+  };
+}
+
+function drawTrajectory(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('竖直面内 · 重力 + 库仑引力（O 正、球负）', panelX+12, panelY+18);
+
+  const proj = makeProj(panelX, panelY+10, panelW, panelH-30);
+
+  // 等势圆 OM=ON（虚线圆）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.arc(proj.px(O_pos.x), proj.py(O_pos.y), proj.s * energy_M_R(), 0, Math.PI*2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`等势圆 r=OM=ON`, proj.px(O_pos.x) - 40, proj.py(O_pos.y) - proj.s*energy_M_R() - 4);
+
+  // O 正电荷
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(proj.px(O_pos.x), proj.py(O_pos.y), 10, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px Georgia,serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('+', proj.px(O_pos.x), proj.py(O_pos.y)+5);
+  ctx.textAlign = 'start';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('O', proj.px(O_pos.x)-18, proj.py(O_pos.y)+4);
+
+  // 已走过的轨迹（实线，跟随当前粒子位置增长 — C2 修复：避免 t=0 剧透 r 先减后增）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let i = 0; i <= state.idx; i += 5){
+    const d = sim.data[i];
+    const px = proj.px(d.x), py = proj.py(d.y);
+    if(i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // P, M, N 标
+  const pts = [
+    {p: {x: P_pos.x, y: P_pos.y}, label: 'P', dx: 8, dy: -6},
+    {p: {x: M_pt.x, y: M_pt.y}, label: 'M', dx: 8, dy: 4},
+    {p: {x: N_pt.x, y: N_pt.y}, label: 'N', dx: 8, dy: 4}
+  ];
+  pts.forEach(pt => {
+    ctx.fillStyle = '#3a3a3c';
+    ctx.beginPath(); ctx.arc(proj.px(pt.p.x), proj.py(pt.p.y), 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 800 13px Georgia,serif';
+    ctx.fillText(pt.label, proj.px(pt.p.x)+pt.dx, proj.py(pt.p.y)+pt.dy);
+  });
+
+  // 当前球
+  const cx = proj.px(state.x), cy = proj.py(state.y);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px Georgia,serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('-', cx, cy+4);
+  ctx.textAlign = 'start';
+
+  // 力箭头：重力（灰）+ 库仑引力（向 O）
+  const fScale = 0.5;
+  // 重力
+  PPath.arrow(ctx, cx, cy, cx, cy + g_acc * 2.0, '#5d6068', 1.6);
+  ctx.fillStyle = '#5d6068';
+  ctx.font = '700 9.5px "Cambria Math",serif';
+  ctx.fillText('mg', cx-22, cy+18);
+  // 库仑力指向 O
+  const dx_to_O = O_pos.x - state.x, dy_to_O = O_pos.y - state.y;
+  const r_now = Math.max(Math.hypot(dx_to_O, dy_to_O), 0.18);
+  const Fc_mag = k_e * Q_q / (r_now * r_now);
+  const Fc_x = Fc_mag * dx_to_O / r_now;
+  const Fc_y = Fc_mag * dy_to_O / r_now;
+  PPath.arrow(ctx, cx, cy, cx + Fc_x*fScale*proj.s/3, cy - Fc_y*fScale*proj.s/3, '#7d4f9c', 1.8);
+  ctx.fillStyle = '#7d4f9c';
+  ctx.font = '700 9.5px "Cambria Math",serif';
+  ctx.fillText('F_e', cx + Fc_x*fScale*proj.s/3 + 4, cy - Fc_y*fScale*proj.s/3);
+
+  // 实时数值
+  const en = energy(state);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`r=${state.r.toFixed(3)} · |v|=${Math.hypot(state.vx, state.vy).toFixed(2)}`, panelX+12, panelY+panelH-22);
+  ctx.fillText(`KE=${en.KE.toFixed(3)} · GPE=${en.GPE.toFixed(3)} · EPE=${en.EPE.toFixed(3)}`, panelX+12, panelY+panelH-8);
+}
+
+function energy_M_R(){
+  return Math.hypot(M_pt.x - O_pos.x, M_pt.y - O_pos.y);
+}
+
+function drawEnergy(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量分析（KE / GPE / EPE / 机械能）', panelX+12, panelY+18);
+
+  const en = energy(state);
+
+  // 4 选项判定区（按 phase 阶段渐进显示 — C2 修复：避免 t=0 剧透答案）
+  const u_now = state.tReal / sim.tMax;
+  const items = [
+    {tag:'A 错', text:'电势能"先增后减"反了 —— 实为"先减后增"', correct:false, showAt:0.35},
+    {tag:'B 对', text:'OP > OM=ON → W_P > W_N（距离更远 → EPE 更接近 0 即更大）', correct:true, showAt:0.50},
+    {tag:'C 对', text:'OM = ON → EPE_M = EPE_N → 机械能(KE+GPE)_M = 机械能_N', correct:true, showAt:0.65},
+    {tag:'D 错', text:'M→N 净电场功 =0 但过程做正负功，"始终不做功"错', correct:false, showAt:0.80}
+  ];
+  let yy = panelY + 38;
+  items.forEach(it => {
+    if(u_now >= it.showAt){
+      ctx.fillStyle = it.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${it.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(it.tag, panelX+12, yy);
+      ctx.fillStyle = it.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      wrapText(ctx, it.text, panelX+50, yy, panelW-60, 13);
+    } else {
+      // 占位（仅显示 tag 灰色，不显示对错和详细推理）
+      ctx.fillStyle = '#dad6c8';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(it.tag.charAt(0) + ' ?', panelX+12, yy);
+      ctx.fillStyle = '#94a09b';
+      ctx.font = '500 10px "Noto Sans SC",sans-serif';
+      ctx.fillText('（待推导）', panelX+50, yy);
+    }
+    yy += 38;
+  });
+
+  // 关键比较：P / M / N 三处能量条
+  const cmpY0 = panelY + 220;
+  const barH = 10, barW = panelW - 60;
+  const data = [
+    {label:'P', en: energy_P, color: '#3a3a3c'},
+    {label:'M', en: energy_M, color: '#3f6f8f'},
+    {label:'N', en: energy_N, color: '#7d4f9c'}
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('三处对比（KE+GPE = 机械能 / EPE 单独显示）', panelX+12, cmpY0);
+  data.forEach((d, i) => {
+    const yRow = cmpY0 + 20 + i*38;
+    ctx.fillStyle = d.color;
+    ctx.font = 'italic 800 12px Georgia,serif';
+    ctx.fillText(d.label, panelX+12, yRow);
+    // 机械能 = KE + GPE
+    const mech = d.en.KE + d.en.GPE;
+    const epe = d.en.EPE;
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '600 10px ui-monospace,monospace';
+    ctx.fillText(`机械能=${mech.toFixed(3)} · EPE=${epe.toFixed(3)}`, panelX+30, yRow);
+    // 机械能条
+    ctx.fillStyle = '#16613f';
+    ctx.fillRect(panelX+30, yRow+4, Math.abs(mech)*barW*0.4, barH);
+    ctx.fillStyle = '#7d4f9c';
+    ctx.fillRect(panelX+30, yRow+4+barH+2, Math.abs(epe)*barW*0.4, barH-2);
+  });
+
+  // 答案徽章（80%+ 才显）
+  const u = state.tReal / sim.tMax;
+  if(u > 0.78){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+panelW-104, panelY+8, 92, 26, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BC', panelX+panelW-86, panelY+25);
+  }
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH){
+  const words = text.split('');
+  let line = '', yy = y;
+  for(const ch of words){
+    const test = line + ch;
+    const w = ctx.measureText(test).width;
+    if(w > maxW && line.length > 0){
+      ctx.fillText(line, x, yy);
+      line = ch; yy += lineH;
+    } else {
+      line = test;
+    }
+  }
+  if(line) ctx.fillText(line, x, yy);
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '正点电荷 + 负电小球 · 重力+库仑力轨迹',
+  subtitle: 'O 固定正电荷，P 在 O 右上方；从 P 释放负电小球；OP &gt; OM = ON。判 4 选项。',
+  deliv: {
+    title: '电势能 / 机械能 · 等势面分析',
+    sub: 'OM=ON 等势 → 机械能守恒（M=N）'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 多选 · 第 6 题 · 6 分',
+    image: '../../source/images/image27.png',
+    text: `在 O 点处固定一个正点电荷，P 点在 O 点右上方。从 P 点由静止释放一个带负电的小球，小球仅在重力和该点电荷电场力作用下在竖直面内运动，其一段轨迹如图所示。M、N 是轨迹上的两点，OP &gt; OM，OM = ON，则小球（    ）`,
+    subQuestions: [
+      'A. 在运动过程中，电势能先增加后减少',
+      'B. 在 P 点的电势能大于在 N 点的电势能',
+      'C. 在 M 点的机械能等于在 N 点的机械能',
+      'D. 从 M 点运动到 N 点的过程中，电场力始终不做功'
+    ],
+    officialAnswer: 'BC · 由 OP &gt; OM = ON 与正点电荷电势分布 φ ∝ 1/r 知 φ_M = φ_N &gt; φ_P。带负电小球的电势能 W = q·φ &lt; 0：r 越大 W 越接近 0（即越大）。A 错：球被吸引 → r 先减后增 → W 先减后增（与 A 反）。B 对：OP &gt; ON → φ_P &lt; φ_N → W_P &gt; W_N。C 对：OM = ON → W_M = W_N → 由总能守恒 KE+GPE+W=const 得 (KE+GPE)_M = (KE+GPE)_N（机械能相等）。D 错：M→N 净电场功为零，但过程中电场力沿径向做正/负功，并非"始终不做功"。故选 BC。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 电势能符号', label_short:'EPE 符号',
+     formula_tex: String.raw`W = q\,\varphi,\;\; q<0,\;\varphi>0 \;\Rightarrow\; W < 0`,
+     note:'正电荷周围 φ ∝ 1/r &gt; 0；带负电小球电势能 W = q·φ 始终 &lt; 0。r 越小 → φ 越大 → W 越负；r 越大 → φ 越小 → W 越接近 0（即越大）。'},
+    {label:'阶段 ② 选项 A 反向（先减后增）', label_short:'A 反',
+     formula_tex: String.raw`r_P \to r_M \to r_{\min} \to r_N \;\Rightarrow\; W \text{ 先减后增}`,
+     note:'球从 P 被吸引 → 距离 r 先减小 → 电势能先减小（更负）；之后远离 → r 增大 → 电势能增大。A 写"先增后减"，反了。'},
+    {label:'阶段 ③ 选项 B 大小', label_short:'B 对',
+     formula_tex: String.raw`OP > ON \;\Rightarrow\; \varphi_P < \varphi_N \;\Rightarrow\; W_P > W_N`,
+     note:'P 距离更远 → φ_P 更小 → 负电荷电势能 W_P 更接近 0 即更大。'},
+    {label:'阶段 ④ 选项 C 机械能守恒', label_short:'C 对',
+     formula_tex: String.raw`OM = ON \;\Rightarrow\; W_M = W_N \;\Rightarrow\; (KE{+}GPE)_M = (KE{+}GPE)_N`,
+     note:'总能守恒：KE+GPE+EPE = const。OM=ON → EPE_M = EPE_N → 机械能(KE+GPE)_M = 机械能_N。'},
+    {label:'阶段 ⑤ 选项 D 净功 vs 过程功', label_short:'D 反',
+     formula_tex: String.raw`\Delta W_{\text{电}}(M\to N) = 0 \;\not\Rightarrow\; \text{始终不做功}`,
+     note:'M→N 净电场功为零（W_M = W_N），但过程中电场力沿径向方向，与运动一般不垂直 → 做正负功。D 错。'}
+  ],
+  stats: [
+    {label:'O 位置',     fmt:()=>`(${O_pos.x.toFixed(2)}, ${O_pos.y.toFixed(2)})`},
+    {label:'P 位置',     fmt:()=>`(${P_pos.x.toFixed(2)}, ${P_pos.y.toFixed(2)})`},
+    {label:'OP 距离',    fmt:()=>Math.hypot(P_pos.x-O_pos.x, P_pos.y-O_pos.y).toFixed(3)},
+    {label:'OM = ON',    fmt:()=>energy_M_R().toFixed(3)},
+    {label:'当前 r',     fmt:s=>s.r.toFixed(3)},
+    {label:'当前 |v|',   fmt:s=>Math.hypot(s.vx, s.vy).toFixed(3)},
+    {label:'KE',         fmt:s=>energy(s).KE.toFixed(3)},
+    {label:'GPE',        fmt:s=>energy(s).GPE.toFixed(3)},
+    {label:'EPE',        fmt:s=>energy(s).EPE.toFixed(3)}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'EPE 先减后增', note:'反了'},
+    {label_text:'B 对', value_text:'W_P &gt; W_N',  note:'OP > ON'},
+    {label_text:'C 对', value_text:'机械能 M = N', note:'OM=ON 等势'},
+    {label_text:'D 错', value_text:'净功 ≠ 始终',  note:'径向力非垂直'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'O 正电荷（固定）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'负电小球'},
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'重力 mg'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'库仑引力 F_e'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'轨迹'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:true, guide:true},
+  fileName: '2023全国乙-Q6-正电荷负球'
+});
+</script>
+</body>
+</html>

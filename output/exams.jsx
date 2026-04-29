@@ -162,6 +162,8 @@ const REAL_PROBLEMS = [
   { id:'2023-gk2-q01', year:2023, paper:'gk2', no:'1',  module:'力学',     tplId:null, title:'排球上抛 + 空气阻力（f=k|v|）',          summary:'上升 t 短 / 被垫起瞬间 v₀ 最大 / 最高点 a=g / 下落变加速。答案 B。', diff:'中', heat:80, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q01/index.html' },
   { id:'2023-gk2-q02', year:2023, paper:'gk2', no:'2',  module:'力学',     tplId:null, title:'小车曲线运动 · 合力方向判断',            summary:'凹侧原则（曲线运动法向需求）+ 锐角原则（动能↑→F·v>0）→ 答案 D。', diff:'易', heat:70, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q02/index.html' },
   { id:'2023-gk2-q05', year:2023, paper:'gk2', no:'5',  module:'电磁学',   tplId:null, title:'带电粒子磁场+电场（速度选择器）· 比荷',  summary:'r=2a 几何 / v=2aqB/m 圆周 / v=E/B 速度选择器 / q/m = E/(2aB²)。答案 A。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q05/index.html', paid:true },
+  { id:'2023-gk2-q06', year:2023, paper:'gk2', no:'6',  module:'电磁学',   tplId:null, title:'正电荷+负电小球 · 重力+库仑力轨迹（多选）',     summary:'电势能符号 W=qφ<0；A 错（先减后增）/ B 对（OP>ON→W_P>W_N）/ C 对（OM=ON→机械能等）/ D 错。答案 BC。', diff:'中', heat:110, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q06/index.html' },
+  { id:'2023-gk2-q08', year:2023, paper:'gk2', no:'8',  module:'力学',     tplId:null, title:'木板+物块滑动摩擦 · 动能与摩擦热（多选）',       summary:'光滑桌面，相对位移 Δs=l；摩擦热 Q=fl；木板 E_M=f·s_M<fl（B 对）；物块 (1/2)mv₁²<(1/2)mv₀²-fl（D 对）。答案 BD。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q08/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -254,6 +256,8 @@ const PROBLEM_META = {
   '2023-gk2-q01': { type:'choice-single', answer:'B' },
   '2023-gk2-q02': { type:'choice-single', answer:'D' },
   '2023-gk2-q05': { type:'choice-single', answer:'A' },
+  '2023-gk2-q06': { type:'choice-multi',  answer:'BC' },
+  '2023-gk2-q08': { type:'choice-multi',  answer:'BD' },
 };
 
 // 按 year×paper 计数

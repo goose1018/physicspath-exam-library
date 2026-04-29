@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 8 题 · 木板+物块滑动摩擦（多选）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：光滑桌面，长 l 木板 M 静止；物块 m 从左端以 v0 滑入
+// 摩擦力 f：物块受 -f（减速），木板受 +f（加速）
+// 物块离开木板右端 = 相对位移 Δs = s_m - s_M = l
+//
+// 选项（多选 BD）：
+// A. 木板动能 = fl  错（s_M < l → E_M = f·s_M < fl）
+// B. 木板动能 < fl  对
+// C. 物块动能 > (1/2)mv0² - fl  错
+// D. 物块动能 < (1/2)mv0² - fl  对
+// 能量守恒：(1/2)mv0² = (1/2)mv1² + (1/2)MV² + fl
+// → (1/2)mv1² = (1/2)mv0² - fl - (1/2)MV² < (1/2)mv0² - fl
+
+const m_b = 1.0, M_p = 2.0, v0 = 4.0, f_fric = 2.0, l_board = 2.0;
+const a_m = -f_fric/m_b;     // 物块加速度（负）
+const a_M = f_fric/M_p;       // 木板加速度（正）
+// 离开时刻：x_m - x_M = l → v0·t + (1/2)(a_m - a_M)t² = l
+// 即 4t - 1.5t² = 2 → 1.5t² - 4t + 2 = 0 → t = 2/3
+const t_leave = (4 - Math.sqrt(16 - 12)) / 3;     // 取较小根（先离开）
+const v1 = v0 + a_m * t_leave;     // 物块末速度
+const V_p = a_M * t_leave;          // 木板末速度
+const E_m_end = 0.5 * m_b * v1 * v1;
+const E_M_end = 0.5 * M_p * V_p * V_p;
+const Q_heat = f_fric * l_board;     // 摩擦热
+const E_initial = 0.5 * m_b * v0 * v0;
+const E_threshold = E_initial - Q_heat;     // (1/2)mv0² - fl
+
+const T_total = 6;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = Math.max(0, Math.min(t / T_total, 1));
+  const tReal = u * t_leave;
+  const x_m = v0 * tReal + 0.5 * a_m * tReal * tReal;     // 物块对地位移
+  const x_M = 0.5 * a_M * tReal * tReal;                   // 木板对地位移
+  const v_m = v0 + a_m * tReal;
+  const v_M = a_M * tReal;
+  return {tReal, u, x_m, x_M, v_m, v_M};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawAnimation(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawEnergy(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawAnimation(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('光滑桌面 · 物块 m 在木板 M 上滑动（摩擦 f）', panelX+12, panelY+18);
+
+  // 视图：x 范围足够大放下木板末态
+  const xMin = -1, xMax = 6;
+  const padX = 24, padY = 70;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const px = x => panelX + padX + (x - xMin)*sx;
+  const yGround = panelY + panelH - 60;
+
+  // 桌面（光滑示意：用平直线 + 文字）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(px(xMin), yGround); ctx.lineTo(px(xMax), yGround); ctx.stroke();
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 9.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('（光滑桌面）', px(xMax)-50, yGround+14);
+
+  // 木板
+  const boardLeft = state.x_M;
+  const boardRight = boardLeft + l_board;
+  const boardH = 18;
+  ctx.fillStyle = '#c8a06a';
+  ctx.strokeStyle = '#8a6e3a'; ctx.lineWidth = 1.5;
+  ctx.fillRect(px(boardLeft), yGround - boardH, sx*l_board, boardH);
+  ctx.strokeRect(px(boardLeft), yGround - boardH, sx*l_board, boardH);
+  ctx.fillStyle = '#5d3a1a';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('M', px((boardLeft+boardRight)/2)-6, yGround - 4);
+
+  // 物块
+  const blockX = state.x_m;
+  const blockSize = 22;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(px(blockX) - blockSize/2, yGround - boardH - blockSize, blockSize, blockSize);
+  ctx.strokeStyle = '#1f4f6f'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(px(blockX) - blockSize/2, yGround - boardH - blockSize, blockSize, blockSize);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'italic 800 11px Georgia,serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('m', px(blockX), yGround - boardH - blockSize/2 + 4);
+  ctx.textAlign = 'start';
+
+  // 速度向量
+  const vScale = 18;
+  PPath.arrow(ctx, px(blockX), yGround - boardH - blockSize - 5, px(blockX) + state.v_m*vScale, yGround - boardH - blockSize - 5, '#16613f', 2);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('v_m='+state.v_m.toFixed(2), px(blockX) + state.v_m*vScale + 4, yGround - boardH - blockSize - 4);
+  PPath.arrow(ctx, px((boardLeft+boardRight)/2), yGround + 14, px((boardLeft+boardRight)/2) + state.v_M*vScale, yGround + 14, '#7d4f9c', 2);
+  ctx.fillStyle = '#7d4f9c';
+  ctx.fillText('v_M='+state.v_M.toFixed(2), px((boardLeft+boardRight)/2) + state.v_M*vScale + 4, yGround + 18);
+
+  // 摩擦力箭头（动画时显示）
+  if(state.u < 0.99){
+    // 物块上：摩擦向左（-x）
+    PPath.arrow(ctx, px(blockX), yGround - boardH - 4, px(blockX) - 24, yGround - boardH - 4, '#b4442e', 1.6);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 9px "Cambria Math",serif';
+    ctx.fillText('f', px(blockX) - 30, yGround - boardH - 6);
+    // 木板上：摩擦向右（反作用力）
+    PPath.arrow(ctx, px(blockX), yGround - 4, px(blockX) + 24, yGround - 4, '#b4442e', 1.6);
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('f', px(blockX) + 26, yGround - 6);
+  }
+
+  // 位移标注（虚线）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  // 物块位移 s_m
+  ctx.beginPath();
+  ctx.moveTo(px(0), yGround + 32); ctx.lineTo(px(state.x_m), yGround + 32);
+  ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`s_m = ${state.x_m.toFixed(2)}`, px(state.x_m/2)-22, yGround + 30);
+  // 木板位移 s_M
+  ctx.beginPath();
+  ctx.moveTo(px(0), yGround + 46); ctx.lineTo(px(state.x_M), yGround + 46);
+  ctx.stroke();
+  ctx.fillStyle = '#7d4f9c';
+  ctx.fillText(`s_M = ${state.x_M.toFixed(2)}`, px(state.x_M/2)-22, yGround + 44);
+  // 相对位移 Δs = s_m - s_M
+  const rel = state.x_m - state.x_M;
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+  ctx.fillText(`Δs = s_m - s_M = ${rel.toFixed(2)} (目标 l=${l_board})`, panelX + 12, panelY + panelH - 8);
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`t=${state.tReal.toFixed(3)}s · u=${(state.u*100).toFixed(0)}%`, panelX + 12, panelY + panelH - 22);
+}
+
+function drawEnergy(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量守恒：(1/2)mv₀² = E_m + E_M + fl', panelX+12, panelY+18);
+
+  const u = state.u;
+  // 当前能量
+  const KE_m = 0.5 * m_b * state.v_m * state.v_m;
+  const KE_M = 0.5 * M_p * state.v_M * state.v_M;
+  const Q = f_fric * (state.x_m - state.x_M);
+
+  // 横向能量条（占总能量比例）
+  const E_total = E_initial;
+  const barX = panelX + 20, barY = panelY + 50;
+  const barW = panelW - 40, barH = 28;
+  const wKEm = KE_m / E_total * barW;
+  const wKEM = KE_M / E_total * barW;
+  const wQ = Q / E_total * barW;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(barX, barY, wKEm, barH);
+  ctx.fillStyle = '#7d4f9c';
+  ctx.fillRect(barX + wKEm, barY, wKEM, barH);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(barX + wKEm + wKEM, barY, wQ, barH);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(barX, barY, barW, barH);
+
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText(`E_m=${KE_m.toFixed(2)}`, barX, barY - 4);
+  ctx.fillStyle = '#7d4f9c';
+  ctx.fillText(`E_M=${KE_M.toFixed(2)}`, barX + wKEm, barY - 4);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText(`Q=fl·(Δs/l)=${Q.toFixed(2)}`, barX + wKEm + wKEM, barY - 4);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`总 = ${(KE_m+KE_M+Q).toFixed(2)}（守恒于 ${E_initial.toFixed(2)}）`, barX, barY + barH + 14);
+
+  // 4 选项判定（按 phase 阶段揭晓）
+  const items = [
+    {tag:'A 错', text:`木板动能 ≠ fl（=${E_M_end.toFixed(2)} < ${(f_fric*l_board).toFixed(2)}=fl）`, correct:false, showAt:0.5},
+    {tag:'B 对', text:`木板动能 < fl（s_M < l → E_M = f·s_M < fl）`, correct:true, showAt:0.5},
+    {tag:'C 错', text:`物块动能 ≯ (1/2)mv₀²-fl（=${E_m_end.toFixed(2)} < ${E_threshold.toFixed(2)}）`, correct:false, showAt:0.7},
+    {tag:'D 对', text:`物块动能 < (1/2)mv₀²-fl（差 (1/2)MV²=${E_M_end.toFixed(2)}）`, correct:true, showAt:0.7}
+  ];
+  let yy = panelY + 110;
+  items.forEach(it => {
+    if(u >= it.showAt){
+      ctx.fillStyle = it.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${it.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(it.tag, panelX+12, yy);
+      ctx.fillStyle = it.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(it.text, panelX+50, yy);
+    } else {
+      ctx.fillStyle = '#dad6c8';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(it.tag.charAt(0)+' ?', panelX+12, yy);
+      ctx.fillStyle = '#94a09b';
+      ctx.font = '500 10px "Noto Sans SC",sans-serif';
+      ctx.fillText('（待推导）', panelX+50, yy);
+    }
+    yy += 26;
+  });
+
+  // 关键不等式（按 phase 阶段揭晓 — C2 修复：避免 t=0 全程剧透推理链）
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10px "Cambria Math",serif';
+  yy += 10;
+  if(u >= 0.3) ctx.fillText(`关键：摩擦热 Q = f·Δs，其中 Δs = l（相对位移）`, panelX+12, yy);
+  yy += 14;
+  if(u >= 0.5) ctx.fillText(`木板动能 = f·s_M（< f·l 因 s_M < l）`, panelX+12, yy);
+  yy += 14;
+  if(u >= 0.7) ctx.fillText(`(1/2)mv₀² = (1/2)mv₁² + (1/2)MV² + fl`, panelX+12, yy);
+
+  // 答案徽章
+  if(u > 0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+panelW-100, panelY+8, 88, 26, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BD', panelX+panelW-82, panelY+25);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '物块在木板上滑动 · 动能/摩擦热/能量守恒',
+  subtitle: '光滑桌面、长 l 木板 M、物块 m 从左端 v₀ 滑入；摩擦力 f；判 4 选项（多选）',
+  deliv: {
+    title: '能量守恒 · 摩擦热 = f·Δs',
+    sub: 'B + D 对（木板动能 < fl，物块动能 < (1/2)mv₀² - fl）'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 多选 · 第 8 题 · 6 分',
+    image: '../../source/images/image33.png',
+    text: `如图，一质量为 M、长为 l 的木板静止在光滑水平桌面上，另一质量为 m 的小物块（可视为质点）从木板上的左端以速度 v₀ 开始运动。已知物块与木板间的滑动摩擦力大小为 f，当物块从木板右端离开时（    ）`,
+    subQuestions: [
+      'A. 木板的动能一定等于 fl',
+      'B. 木板的动能一定小于 fl',
+      'C. 物块的动能一定大于 (1/2)mv₀² - fl',
+      'D. 物块的动能一定小于 (1/2)mv₀² - fl'
+    ],
+    officialAnswer: 'BD · 摩擦力 f：物块受 -f 减速，木板受 +f 加速（反作用力）。物块离开木板右端时相对位移 Δs = s_m − s_M = l（板长）。摩擦热 Q = f·Δs = fl。木板动能 E_M = f·s_M，因 s_M &lt; l → E_M &lt; fl（B 对，A 错）。能量守恒 (1/2)mv₀² = (1/2)mv₁² + (1/2)MV² + fl → (1/2)mv₁² = (1/2)mv₀² − fl − (1/2)MV² &lt; (1/2)mv₀² − fl（D 对，C 错）。故选 BD。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 受力 + 加速度', label_short:'受力',
+     formula_tex: String.raw`a_m = -f/m,\quad a_M = f/M`,
+     note:'物块受摩擦 -f 减速；木板受反作用 +f 加速。'},
+    {label:'阶段 ② 相对位移 Δs = l', label_short:'Δs=l',
+     formula_tex: String.raw`\Delta s = s_m - s_M = l`,
+     note:'物块离开木板右端时，物块相对木板移动了一个板长 l。'},
+    {label:'阶段 ③ 摩擦热 Q = fl', label_short:'Q=fl',
+     formula_tex: String.raw`Q = f \cdot \Delta s = f \cdot l`,
+     note:'摩擦热 = 摩擦力 × 相对位移。这就是能量耗散量。'},
+    {label:'阶段 ④ 木板动能与 fl 的关系', label_short:'板能',
+     formula_tex: String.raw`E_M = f \cdot s_M,\quad s_M < l \Rightarrow E_M < fl`,
+     note:'木板动能 = 摩擦力对木板做的功 = f·s_M。s_M（木板对地位移）&lt; l（相对位移）。'},
+    {label:'阶段 ⑤ 物块动能与 (1/2)mv₀²−fl 的关系', label_short:'块能',
+     formula_tex: String.raw`\tfrac12 mv_1^2 = \tfrac12 mv_0^2 - fl - \tfrac12 MV^2 < \tfrac12 mv_0^2 - fl`,
+     note:'能量守恒消去摩擦热和木板动能。物块动能比 (1/2)mv₀²−fl 还少一项 (1/2)MV²。'}
+  ],
+  stats: [
+    {label:'m / M',         fmt:()=>`${m_b} / ${M_p} kg`},
+    {label:'v₀',            fmt:()=>v0+' m/s'},
+    {label:'f',             fmt:()=>f_fric+' N'},
+    {label:'l',             fmt:()=>l_board+' m'},
+    {label:'离开时刻 t',    fmt:()=>t_leave.toFixed(3)+' s'},
+    {label:'物块末速 v₁',   fmt:()=>v1.toFixed(2)+' m/s'},
+    {label:'木板末速 V',    fmt:()=>V_p.toFixed(2)+' m/s'},
+    {label:'物块末动能 E_m',fmt:()=>E_m_end.toFixed(2)+' J'},
+    {label:'木板末动能 E_M',fmt:()=>E_M_end.toFixed(2)+' J'},
+    {label:'摩擦热 fl',     fmt:()=>Q_heat.toFixed(2)+' J'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'E_M ≠ fl',         note:'s_M &lt; l'},
+    {label_text:'B 对', value_text:'E_M &lt; fl',      note:'f·s_M &lt; f·l'},
+    {label_text:'C 错', value_text:'E_m ≯ (1/2)mv₀²-fl', note:'还要扣 (1/2)MV²'},
+    {label_text:'D 对', value_text:'E_m &lt; (1/2)mv₀²-fl', note:'能量守恒'}
+  ],
+  legend: [
+    {swatch:{bg:'#c8a06a',border:'#8a6e3a',type:'rect'}, text:'木板 M（长 l）'},
+    {swatch:{bg:'#3f6f8f',border:'#1f4f6f',type:'rect'}, text:'物块 m'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'v_m'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'v_M'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'摩擦力 f（动作-反作用）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:true, guide:true},
+  fileName: '2023全国乙-Q8-木板物块'
+});
+</script>
+</body>
+</html>
