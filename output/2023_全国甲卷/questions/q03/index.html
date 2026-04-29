@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 3 题 · 小车 x-t 图</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 小车：0→t1 匀加速（v 从 0 → v_max），t1→t2 匀减速（v 从 v_max → 0），t2 后停止
+// x-t 图斜率 = v：
+//   0→t1：斜率从 0 单调增 → 上凹抛物线
+//   t1→t2：斜率从 v_max 单调减到 0 → 下凹抛物线（顶点在 t2）
+//   t2→：斜率 0 → 水平直线
+// 答案 D（唯一同时满足"先上凹、后下凹至水平"的曲线）
+
+const a1 = 2;     // 匀加速 m/s²
+const t1 = 3;     // 加速结束时刻 s
+const v_max = a1*t1;  // 6 m/s
+const a2 = -3;    // 匀减速
+const dt2 = -v_max/a2; // 2 s
+const t2 = t1 + dt2;   // 5 s
+const t_end = t2 + 1.2; // 多展示 1.2 s 停止段
+const x_t1 = 0.5*a1*t1*t1;       // 9 m
+const x_t2 = x_t1 + v_max*dt2 + 0.5*a2*dt2*dt2; // 15 m
+
+const T_total = 6;
+const slowFactor = T_total / t_end;
+
+function evalState(t){
+  const tReal = Math.max(0, Math.min(t/slowFactor, t_end));
+  let phase, x, v;
+  if(tReal <= t1){
+    phase = 1;
+    x = 0.5*a1*tReal*tReal;
+    v = a1*tReal;
+  } else if(tReal <= t2){
+    phase = 2;
+    const dt = tReal - t1;
+    x = x_t1 + v_max*dt + 0.5*a2*dt*dt;
+    v = v_max + a2*dt;
+  } else {
+    phase = 3;
+    x = x_t2;
+    v = 0;
+  }
+  return {phase, tReal, x, v, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawCar(ctx, 14, 30, W-28, H*0.36-30, state);
+  drawXT(ctx, 14, H*0.4+10, W-28, H*0.6-30, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('小车：0→t₁ 匀加速 · t₁→t₂ 匀减速 · t₂ 后停止 → x-t 图形状', 24, 22);
+
+  // 答案徽章
+  if(state.tReal > t1){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 208, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 D · 上凹+下凹+水平', W-208, 30);
+  }
+}
+
+function drawCar(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const yRoad = Y + h*0.65;
+  // 路面
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(X+30, yRoad, w-60, 6);
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(X+30, yRoad+8, w-60, 14);
+  // 路面虚线
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([10,8]);
+  ctx.beginPath(); ctx.moveTo(X+30, yRoad+15); ctx.lineTo(X+w-30, yRoad+15); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 像素 / 米
+  const pxPerM = (w-100) / x_t2;
+  const carX0 = X + 50;
+  const carX = carX0 + state.x*pxPerM;
+
+  // 起点 / t1 / t2 标
+  const xPxT1 = carX0 + x_t1*pxPerM;
+  const xPxT2 = carX0 + x_t2*pxPerM;
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(carX0, yRoad-30); ctx.lineTo(carX0, yRoad+25); ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('起 (t=0,v=0)', carX0-20, yRoad-34);
+
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(xPxT1, yRoad-30); ctx.lineTo(xPxT1, yRoad+25); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText(`t₁=${t1}s · v_max=${v_max}`, xPxT1-30, yRoad-34);
+
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(xPxT2, yRoad-30); ctx.lineTo(xPxT2, yRoad+25); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText(`t₂=${t2}s · v=0`, xPxT2-25, yRoad-34);
+
+  // 小车
+  ctx.fillStyle = state.phase===1 ? '#16613f' : (state.phase===2 ? '#c2611f' : '#86868b');
+  if(ctx.roundRect){
+    ctx.beginPath();
+    ctx.roundRect(carX-20, yRoad-18, 40, 18, 4);
+    ctx.fill();
+  } else {
+    ctx.fillRect(carX-20, yRoad-18, 40, 18);
+  }
+  // 车顶
+  ctx.fillStyle = state.phase===1 ? '#1d4a32' : (state.phase===2 ? '#a85219' : '#5d6968');
+  if(ctx.roundRect){
+    ctx.beginPath();
+    ctx.roundRect(carX-12, yRoad-26, 24, 10, 3);
+    ctx.fill();
+  } else {
+    ctx.fillRect(carX-12, yRoad-26, 24, 10);
+  }
+  // 轮子
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(carX-12, yRoad+1, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(carX+12, yRoad+1, 4, 0, Math.PI*2); ctx.fill();
+
+  // 速度矢量
+  if(state.v > 0.05){
+    const arrLen = (state.v/v_max) * 50 + 6;
+    drawArrow(ctx, carX+22, yRoad-12, carX+22+arrLen, yRoad-12, '#3f6f8f', 2.2);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText(`v=${state.v.toFixed(2)}m/s`, carX+24, yRoad-16);
+  }
+
+  // 阶段徽章
+  ctx.fillStyle = state.phase===1 ? '#16613f' : (state.phase===2 ? '#c2611f' : '#86868b');
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  const lbl = state.phase===1 ? '阶段 ①匀加速 (a=2 m/s²)' :
+              state.phase===2 ? '阶段 ②匀减速 (a=-3 m/s²)' :
+                                '阶段 ③静止';
+  ctx.fillText(lbl, X+12, Y+22);
+
+  // 实时数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px ui-monospace,monospace';
+  ctx.fillText(`t=${state.tReal.toFixed(2)} s`, X+w-130, Y+22);
+  ctx.fillText(`x=${state.x.toFixed(2)} m`, X+w-130, Y+38);
+}
+
+function drawXT(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('x-t 图（斜率 = 速度 v）', X+12, Y+18);
+
+  const padL=46, padR=22, padT=30, padB=32;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = X+padL, y0 = Y+padT+ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, Y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('x / m', x0-30, Y+padT-2);
+  ctx.fillText('t / s', x0+cw+4, y0+12);
+
+  // 刻度
+  const tMax = t_end + 0.3;
+  const xMax = x_t2 * 1.1;
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let k=0; k<=Math.ceil(tMax); k++){
+    const px = x0 + (k/tMax)*cw;
+    ctx.fillText(k.toString(), px-3, y0+15);
+    ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, y0+3); ctx.stroke();
+  }
+  for(let k=0; k<=Math.ceil(xMax); k+=3){
+    const py = y0 - (k/xMax)*ch;
+    ctx.fillText(k.toString(), x0-22, py+3);
+    ctx.beginPath(); ctx.moveTo(x0-3, py); ctx.lineTo(x0, py); ctx.stroke();
+  }
+
+  // t1 / t2 竖虚线
+  const xPxT1 = x0 + (t1/tMax)*cw;
+  const xPxT2 = x0 + (t2/tMax)*cw;
+  ctx.strokeStyle = 'rgba(63,111,143,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(xPxT1, y0); ctx.lineTo(xPxT1, Y+padT); ctx.stroke();
+  ctx.strokeStyle = 'rgba(180,68,46,0.5)';
+  ctx.beginPath(); ctx.moveTo(xPxT2, y0); ctx.lineTo(xPxT2, Y+padT); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('t₁', xPxT1-5, Y+padT-4);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText('t₂', xPxT2-5, Y+padT-4);
+
+  // 完整 D 图（淡）
+  ctx.strokeStyle = 'rgba(40,40,40,0.18)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+  drawXTCurve(ctx, x0, y0, cw, ch, tMax, xMax, t_end, 0);
+  ctx.setLineDash([]);
+
+  // 已经过的曲线（实线，颜色按阶段）
+  drawXTCurveColored(ctx, x0, y0, cw, ch, tMax, xMax, state.tReal);
+
+  // 当前点
+  const pxNow = x0 + (state.tReal/tMax)*cw;
+  const pyNow = y0 - (state.x/xMax)*ch;
+  ctx.fillStyle = state.phase===1 ? '#16613f' : (state.phase===2 ? '#c2611f' : '#86868b');
+  ctx.beginPath(); ctx.arc(pxNow, pyNow, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 切线（表示瞬时速度）— 仅当 v>0 时画
+  if(state.v > 0.1){
+    const tanLen = 35;
+    // 切线斜率 dy/dx = v / (xMax/tMax) * (-ch/cw)... 转 px：dpx_y/dpx_x = -v * (ch/xMax) / (cw/tMax)
+    const slopePx = -state.v * (ch/xMax) / (cw/tMax);
+    const dx = tanLen / Math.sqrt(1 + slopePx*slopePx);
+    const dy = slopePx * dx;
+    ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 2; ctx.setLineDash([2,2]);
+    ctx.beginPath();
+    ctx.moveTo(pxNow - dx, pyNow - dy);
+    ctx.lineTo(pxNow + dx, pyNow + dy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 标签
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('① 上凹（v 增）', x0+8, y0 - ch*0.78);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('② 下凹（v 减）', xPxT1+8, y0 - ch*0.55);
+  ctx.fillStyle = '#86868b';
+  ctx.fillText('③ 水平（v=0）', xPxT2+8, y0 - ch*0.32);
+}
+
+function drawXTCurve(ctx, x0, y0, cw, ch, tMax, xMax, tEnd, _){
+  ctx.beginPath();
+  let started = false;
+  for(let i=0; i<=120; i++){
+    const tau = (i/120)*tEnd;
+    let xv;
+    if(tau <= t1) xv = 0.5*a1*tau*tau;
+    else if(tau <= t2){ const dt = tau-t1; xv = x_t1 + v_max*dt + 0.5*a2*dt*dt; }
+    else xv = x_t2;
+    const px = x0 + (tau/tMax)*cw;
+    const py = y0 - (xv/xMax)*ch;
+    if(!started){ ctx.moveTo(px,py); started=true; } else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+}
+
+function drawXTCurveColored(ctx, x0, y0, cw, ch, tMax, xMax, tNow){
+  // 阶段 1 绿
+  if(tNow > 0){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    let s = false;
+    const upTo = Math.min(tNow, t1);
+    for(let i=0; i<=80; i++){
+      const tau = (i/80)*upTo;
+      const xv = 0.5*a1*tau*tau;
+      const px = x0 + (tau/tMax)*cw;
+      const py = y0 - (xv/xMax)*ch;
+      if(!s){ ctx.moveTo(px,py); s=true; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+  // 阶段 2 橙
+  if(tNow > t1){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    let s = false;
+    const upTo = Math.min(tNow, t2);
+    for(let i=0; i<=80; i++){
+      const tau = t1 + (i/80)*(upTo - t1);
+      const dt = tau - t1;
+      const xv = x_t1 + v_max*dt + 0.5*a2*dt*dt;
+      const px = x0 + (tau/tMax)*cw;
+      const py = y0 - (xv/xMax)*ch;
+      if(!s){ ctx.moveTo(px,py); s=true; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+  // 阶段 3 灰
+  if(tNow > t2){
+    ctx.strokeStyle = '#86868b'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    const px1 = x0 + (t2/tMax)*cw;
+    const py1 = y0 - (x_t2/xMax)*ch;
+    const px2 = x0 + (tNow/tMax)*cw;
+    ctx.moveTo(px1, py1); ctx.lineTo(px2, py1);
+    ctx.stroke();
+  }
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  const dx = x2-x1, dy = y2-y1, L = Math.sqrt(dx*dx+dy*dy);
+  if(L < 2) return;
+  const ax = dx/L, ay = dy/L;
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const head = 7;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - head*ax + head*0.6*ay, y2 - head*ay - head*0.6*ax);
+  ctx.lineTo(x2 - head*ax - head*0.6*ay, y2 - head*ay + head*0.6*ax);
+  ctx.closePath(); ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '小车 x-t 图 · 先匀加速后匀减速',
+  subtitle: '0→t₁ 匀加速 → t₁→t₂ 匀减速 → t₂ 后停止 · x-t 形状判定',
+  deliv: {
+    title: 'x-t 图 = ∫v dt',
+    sub: '上凹 → 下凹 → 水平 · 答案 D'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 3 题 · 6 分',
+    text: `一小车沿直线运动，从 t = 0 开始由静止匀加速至 t = t₁ 时刻，此后做匀减速运动，到 t = t₂ 时刻速度降为零。在下列小车位移 x 与时间 t 的关系曲线中，可能正确的是（&nbsp;&nbsp;&nbsp;&nbsp;）`,
+    subQuestions: [
+      'A. 0→t₁ 下凹 · t₁→t₂ 上凹（错：斜率方向相反）',
+      'B. 0→t₁ 直线（恒定斜率）· t₁→t₂ 直线（错：匀加速段 v 应递增，不应恒定）',
+      'C. 0→t₁ 上凹 · t₁→t₂ 仍上凹（错：第二段斜率应递减而非递增）',
+      'D. 0→t₁ 上凹 · t₁→t₂ 下凹至顶点 · t₂ 后水平（对）'
+    ],
+    officialAnswer: 'D · x-t 图斜率即速度 v。匀加速段 v 由 0 单调增 → 斜率单调增（上凹）；匀减速段 v 单调减到 0 → 斜率单调减（下凹至 t₂ 顶点）；t₂ 后 v=0 → 斜率为 0（水平直线）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① 0→t₁ 匀加速', label_short:'加速',
+     formula_tex: String.raw`x = \tfrac{1}{2}a_1 t^2 \;\Rightarrow\; \dfrac{dx}{dt} = a_1 t \;(\uparrow) \;\Rightarrow\; \text{x-t 上凹}`,
+     note:'加速度恒正，速度（=斜率）线性增大，曲线上凹。'},
+    {label:'② t₁→t₂ 匀减速', label_short:'减速',
+     formula_tex: String.raw`x = x_1 + v_{max}(t-t_1) + \tfrac{1}{2}a_2(t-t_1)^2,\; a_2<0 \;\Rightarrow\; v\downarrow,\; \text{x-t 下凹}`,
+     note:'加速度恒负，速度（=斜率）线性减到 0，曲线下凹至 t₂ 顶点。'},
+    {label:'③ t₂ 后静止', label_short:'静止',
+     formula_tex: String.raw`v = 0 \;\Rightarrow\; x = x_2 = \text{const} \;\Rightarrow\; \text{水平直线}`,
+     note:'速度归零，位移不再变化，x-t 图水平。'}
+  ],
+  stats: [
+    {label:'a₁',         fmt:()=>`${a1} m/s²`},
+    {label:'t₁',         fmt:()=>`${t1} s`},
+    {label:'v_max',      fmt:()=>`${v_max} m/s`},
+    {label:'a₂',         fmt:()=>`${a2} m/s²`},
+    {label:'t₂',         fmt:()=>`${t2} s`},
+    {label:'当前 v',     fmt:s=>s.v.toFixed(2)+' m/s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'下凹+上凹', note:'斜率反了'},
+    {label_text:'B 错', value_text:'直线+直线', note:'匀加速段 v 应增'},
+    {label_text:'C 错', value_text:'两段上凹', note:'第二段斜率应递减'},
+    {label_text:'D 对', value_text:'上凹+下凹+水平', note:'匹配 v 先增后减归零'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'阶段① 匀加速'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'阶段② 匀减速'},
+    {swatch:{bg:'#86868b',border:'#86868b',type:'rect'}, text:'阶段③ 静止'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'当前切线（瞬时 v）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023全国甲-Q3-小车xt图'
+});
+</script>
+</body>
+</html>

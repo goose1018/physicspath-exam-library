@@ -65,7 +65,12 @@ function drawScene(ctx, view, state, t, opts){
   else drawStage4(ctx, 14, 40, W-28, H-60, state);
 }
 
-// 通用：画装置（圆弧 P + 板 Q + 弹簧 + 小球）
+// 通用：画装置（P 块带右上凹弧 + Q 板紧挨右侧 + 弹簧 + 小球）
+// 几何（按原题）：
+//   - P 是带凹弧的物块，立在地面，高度 = R + Q板厚
+//   - P 上表面右端是弧顶 A（高位），弧从 A 凹下到 Q 板上表面（弧底）
+//   - Q 板紧挨 P 右下侧，水平薄板，上表面与弧底等高
+//   - 弹簧水平放在 Q 上，左端为弹簧自由端（小球压这里），右端固定（在 Q 板末端立柱）
 function drawApparatus(ctx, x, y, w, h, ballPos, qOffset){
   ctx.fillStyle = '#fffdf9';
   ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
@@ -75,61 +80,112 @@ function drawApparatus(ctx, x, y, w, h, ballPos, qOffset){
   const yGround = y + h - 30;
   ctx.fillStyle = '#dad6c8';
   ctx.fillRect(x+20, yGround, w-40, 5);
+  // 地面网格（细短线表示固定）
+  ctx.strokeStyle = '#9a8e72'; ctx.lineWidth = 1;
+  for(let xi = x+24; xi < x+w-24; xi += 14){
+    ctx.beginPath(); ctx.moveTo(xi, yGround+5); ctx.lineTo(xi-4, yGround+10); ctx.stroke();
+  }
 
-  // P (固定块) — 左侧带圆弧
-  const Rpx = 60;
-  const Px = x+w*0.18;
-  const Py = yGround - 5;
-  ctx.fillStyle = '#86868b';
-  ctx.fillRect(Px-30, Py-Rpx, 60, Rpx);
-  // 圆弧（从顶部 A 到弧底）
-  ctx.fillStyle = '#fdfaf2';
+  // 几何参数（缩小装置 + 左移，让推导卡（右半）不重叠）
+  const Rpx = 45;          // 弧半径
+  const H_Q = 9;           // Q 板厚度
+  const H_P = Rpx + H_Q;   // P 块总高
+  const W_P_left = 48;     // P 块左侧矩形部分宽度（不含弧凹陷区）
+
+  // P 块基准
+  const P_left_x = x + w*0.05;
+  const P_top_y = yGround - H_P;     // P 块上表面 y
+  // 弧顶 A 在 P 上表面右端
+  const A_x = P_left_x + W_P_left;
+  const A_y = P_top_y;
+  // 弧底（与 Q 板上表面等高）
+  const arcBot_x = A_x + Rpx;
+  const arcBot_y = A_y + Rpx;        // = yGround - H_Q
+  // 圆心：A 正右方 R（由切线条件：A 处切线竖直、弧底切线水平 → 圆心在 (A_x + R, A_y)）
+  // 这样弧从 A 先朝下、再朝右弯到弧底，凹面朝右上 — 与原题图一致
+  const Ox = A_x + Rpx;
+  const Oy = A_y;
+
+  // P 块外轮廓（一笔画完，含右上凹弧）
+  ctx.fillStyle = '#a8aab0';
   ctx.beginPath();
-  ctx.arc(Px+30, Py-Rpx, Rpx, Math.PI/2, Math.PI, true);
-  ctx.lineTo(Px+30-Rpx, Py); ctx.lineTo(Px+30, Py-Rpx); ctx.closePath();
+  ctx.moveTo(P_left_x, yGround);                  // 左下
+  ctx.lineTo(P_left_x, P_top_y);                  // 左上
+  ctx.lineTo(A_x, P_top_y);                       // 上表面右端 = A
+  // 弧从 A（angle 3π/2）顺时针到弧底（angle 2π=0）
+  // 新圆心 (A_x+R, A_y) 下：A relative O = (-R, 0) → angle π；弧底 relative O = (0, R) → angle π/2
+  // 90° 短弧需 anticlockwise=true（angle π → π/2 逆时针走 90°，经过左下方区域 → 弧凹向右上）
+  ctx.arc(Ox, Oy, Rpx, Math.PI, Math.PI/2, true);
+  // 现在在 (arcBot_x, arcBot_y)
+  ctx.lineTo(arcBot_x, yGround);                  // 沿右侧下到地面
+  ctx.closePath();
   ctx.fill();
-  // 圆弧线（实际轨道）
+  // P 边线
+  ctx.strokeStyle = '#5d6068'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(P_left_x, yGround);
+  ctx.lineTo(P_left_x, P_top_y);
+  ctx.lineTo(A_x, P_top_y);
+  ctx.stroke();
+  // 弧线（用粗黑色突出"轨道"）
   ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.arc(Px+30, Py-Rpx, Rpx, Math.PI/2, Math.PI, true);
+  // 新圆心 (A_x+R, A_y) 下：A relative O = (-R, 0) → angle π；弧底 relative O = (0, R) → angle π/2
+  // 90° 短弧需 anticlockwise=true（angle π → π/2 逆时针走 90°，经过左下方区域 → 弧凹向右上）
+  ctx.arc(Ox, Oy, Rpx, Math.PI, Math.PI/2, true);
   ctx.stroke();
 
   // P 标
   ctx.fillStyle = '#1d1d1f';
-  ctx.font = '900 14px "Cambria Math",serif';
-  ctx.fillText('P', Px-15, Py-10);
-  // A 标（弧顶）
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('P', P_left_x + W_P_left/2 - 5, yGround - 6);
+  // A 点 + 标
   ctx.fillStyle = '#16613f';
-  ctx.font = '900 12px "Cambria Math",serif';
-  ctx.fillText('A', Px+30-5, Py-Rpx-8);
-  ctx.beginPath(); ctx.arc(Px+30, Py-Rpx, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(A_x, A_y, 3.5, 0, Math.PI*2); ctx.fill();
+  ctx.font = 'italic 900 13px "Cambria Math",serif';
+  ctx.fillText('A', A_x + 5, A_y - 4);
 
-  // Q (薄板，紧挨 P 右侧，可移动)
-  const Qx = Px+30 + (qOffset || 0);     // qOffset 用于显示分离
-  const Qy = Py;
-  const Qlen = w*0.4;
+  // Q 板（紧挨 P 弧底右侧，水平薄板）— 缩短让装置占左半 < 0.45w
+  const Qx_start = arcBot_x + (qOffset || 0);
+  const Qlen = w*0.22;
+  const Qy_top = arcBot_y;            // Q 板上表面与弧底等高
   ctx.fillStyle = '#3f6f8f';
-  ctx.fillRect(Qx, Qy-12, Qlen, 12);
+  ctx.fillRect(Qx_start, Qy_top, Qlen, H_Q);
+  // Q 板下方支撑（如果 qOffset=0，紧挨 P 块；qOffset>0 时悬空显示分离）
+  if((qOffset || 0) > 0){
+    // 显示 Q 已脱离 P：在 Q 板下方画一个细缝隙提示
+    ctx.fillStyle = 'rgba(180,68,46,0.18)';
+    ctx.fillRect(arcBot_x, Qy_top, qOffset, H_Q);
+  }
+  // Q 标
   ctx.fillStyle = '#fff';
   ctx.font = '900 11px "Cambria Math",serif';
-  ctx.fillText('Q', Qx+10, Qy-3);
+  ctx.fillText('Q', Qx_start + 12, Qy_top + 8);
 
-  // 弹簧（在 Q 右部）
-  const springX0 = Qx + Qlen*0.3;
-  const springX1 = Qx + Qlen*0.85;
-  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  // 弹簧（在 Q 上方，水平放置）
+  // 左端为弹簧自由端 = 小球压住的位置；右端固定在 Q 板末端的立柱
+  // 弹簧从 Q 板左端开始（紧接弧底，便于小球从弧底滑出立刻接触弹簧）
+  const springGap = 7;        // 弹簧距 Q 上表面距离
+  const spring_y = Qy_top - springGap;
+  const spring_left = Qx_start + Qlen*0.10;   // 弹簧左端（自由，紧接弧底）
+  const spring_right = Qx_start + Qlen*0.88;  // 弹簧右端（固定立柱）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.6;
   ctx.beginPath();
-  for(let s=0; s<=1; s+=0.05){
-    const sx = springX0 + s*(springX1-springX0);
-    const sy = Qy-22 + Math.sin(s*Math.PI*8)*5;
-    if(s===0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+  const N_coil = 12;
+  for(let s = 0; s <= 1; s += 0.02){
+    const sx = spring_left + s*(spring_right - spring_left);
+    const sy = spring_y + Math.sin(s*Math.PI*N_coil)*4;
+    if(s === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
   }
   ctx.stroke();
-  // 弹簧右端固定（在 Q 上的固定点）
+  // 弹簧右端固定立柱
   ctx.fillStyle = '#1d1d1f';
-  ctx.fillRect(springX1, Qy-26, 4, 14);
+  ctx.fillRect(spring_right, spring_y - 8, 3, 16);
+  // 弹簧左端自由（小圆点示意）
+  ctx.fillStyle = '#5d6964';
+  ctx.beginPath(); ctx.arc(spring_left, spring_y, 3, 0, Math.PI*2); ctx.fill();
 
-  // 小球
+  // 小球（如果给了位置）
   if(ballPos){
     ctx.fillStyle = '#c2611f';
     ctx.beginPath(); ctx.arc(ballPos.x, ballPos.y, 8, 0, Math.PI*2); ctx.fill();
@@ -141,18 +197,39 @@ function drawApparatus(ctx, x, y, w, h, ballPos, qOffset){
     ctx.textAlign = 'left';
   }
 
-  return {Px, Py, Rpx, Qx, Qy, Qlen, springX0, springX1, yGround};
+  return {
+    P_left_x, P_top_y, W_P_left, H_P,
+    A_x, A_y,
+    arcBot_x, arcBot_y,
+    Ox, Oy, Rpx,
+    Qx_start, Qy_top, Qlen, H_Q,
+    spring_left, spring_right, spring_y,
+    yGround
+  };
+}
+
+// 单独画球（drawApparatus 不画球时使用）
+function drawBall(ctx, pos){
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(pos.x, pos.y, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 9px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('m', pos.x, pos.y+3);
+  ctx.textAlign = 'left';
 }
 
 function drawStage1(ctx, x, y, w, h, state){
-  // 演示小球从 A 沿弧滑到弧底
-  // 与 drawApparatus 中 Py = (y+h-30)-5 = y+h-35 保持一致（修 5px 错位 bug）
-  const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy = (y+h-35) - Rpx;
-  const ang = Math.PI - state.u*Math.PI/2;     // 从 π (左侧, A) 到 π/2 (弧底)
-  const ball = {x: cx + Rpx*Math.cos(ang), y: cy + Rpx*Math.sin(ang)};
-
-  const apparatus = drawApparatus(ctx, x, y, w, h, ball, 0);
+  // 先画装置（不带球）拿到几何
+  const a = drawApparatus(ctx, x, y, w, h, null, 0);
+  // 球沿弧从 A (angle π) 逆时针到弧底 (angle π/2)：先朝下、再朝右弯
+  const ang = Math.PI - state.u * Math.PI/2;
+  const ball = {
+    x: a.Ox + a.Rpx * Math.cos(ang),
+    y: a.Oy + a.Rpx * Math.sin(ang)
+  };
+  drawBall(ctx, ball);
 
   // 推导卡
   ctx.fillStyle = '#fdf3e6';
@@ -180,42 +257,44 @@ function drawStage1(ctx, x, y, w, h, state){
 }
 
 function drawStage2(ctx, x, y, w, h, state){
-  // 显示 B 点 + 自由落到 A + 沿弧滑到 v₀
-  // 与 drawApparatus 中 Py = y+h-35 保持一致（修 5px 错位 bug）
-  const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy_base = (y+h-35) - Rpx;
-  const A_x = cx, A_y = cy_base;
-  const B_y = A_y - 80;     // B 在 A 上方 (代表 h_BA, 简化为 80px)
+  // 先画装置（不带球）拿到几何
+  const a = drawApparatus(ctx, x, y, w, h, null, 0);
+  const B_y = a.A_y - 90;     // B 在 A 正上方（h_BA 视觉 90px）
   let ball;
   if(state.u < 0.3){
     // 自由落 B → A
     const k = state.u/0.3;
-    ball = {x:cx, y: B_y + (A_y-B_y)*k};
+    ball = {x: a.A_x, y: B_y + (a.A_y - B_y)*k};
   } else if(state.u < 0.7){
-    // 沿弧 A → 弧底
+    // 沿弧 A → 弧底（angle π → π/2 逆时针：先朝下、再朝右弯，凹面朝右上）
     const k = (state.u-0.3)/0.4;
-    const ang = Math.PI - k*Math.PI/2;
-    ball = {x: cx + Rpx*Math.cos(ang), y: cy_base + Rpx*Math.sin(ang)};
+    const ang = Math.PI - k * Math.PI/2;
+    ball = {
+      x: a.Ox + a.Rpx * Math.cos(ang),
+      y: a.Oy + a.Rpx * Math.sin(ang)
+    };
   } else {
-    // 在 Q 上向右压弹簧（Py = cy_base + Rpx 是 Q 表面）
+    // 沿 Q 板向右压弹簧（球在 Q 上表面之上 8px = 球半径）
     const k = (state.u-0.7)/0.3;
-    ball = {x: cx + 30 + k*60, y: cy_base + Rpx - 8};
+    const xStart = a.arcBot_x;
+    const xEnd   = a.spring_left;        // 弹簧左端（自由端）
+    ball = {x: xStart + k*(xEnd - xStart), y: a.Qy_top - 8};
   }
-  const apparatus = drawApparatus(ctx, x, y, w, h, ball, 0);
+  drawBall(ctx, ball);
 
   // B 点标
   ctx.fillStyle = '#b4442e';
-  ctx.beginPath(); ctx.arc(cx, B_y, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(a.A_x, B_y, 4, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#b4442e';
   ctx.font = '900 12px "Cambria Math",serif';
-  ctx.fillText('B', cx-15, B_y);
+  ctx.fillText('B', a.A_x - 14, B_y - 2);
   // h_BA 标
   ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
-  ctx.beginPath(); ctx.moveTo(cx, B_y); ctx.lineTo(cx, A_y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(a.A_x, B_y); ctx.lineTo(a.A_x, a.A_y); ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = '#94a09b';
   ctx.font = 'italic 700 11px Georgia,serif';
-  ctx.fillText('h_BA', cx+8, (B_y+A_y)/2);
+  ctx.fillText('h_BA', a.A_x + 6, (B_y + a.A_y)/2);
 
   // 推导
   ctx.fillStyle = '#fdf3e6';
@@ -253,14 +332,15 @@ function drawStage2(ctx, x, y, w, h, state){
 }
 
 function drawStage3(ctx, x, y, w, h, state){
-  // P-Q 已断开，Q 与小球被弹簧驱动 → 共速时弹簧最大 EP=2.2mgR
-  // 修 5px 错位 + 小球跟随 Q 移动（保持视觉接触）
-  const qOffset = 30 + state.u*40;     // Q 向右移
-  const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy_base = (y+h-35) - Rpx;
-  // 小球在 Q 上跟随移动（贴近弹簧自由端）：基准位置 + qOffset 跟随
-  const ball = {x: cx + 30 + qOffset*0.5 + state.u*15, y: cy_base + Rpx - 8};
-  drawApparatus(ctx, x, y, w, h, ball, qOffset);
+  // P-Q 已断开，Q 整体向右移动；小球被弹簧驱动跟随 Q 一起向右
+  // 共速时弹簧最大 EP=2.2mgR
+  // qOffset 缩小：避免 Q+弹簧位置进入推导卡区（x+w*0.5 起点）
+  const qOffset = 15 + state.u*30;     // Q 向右脱离 P 的距离 (max 45)
+  const a = drawApparatus(ctx, x, y, w, h, null, qOffset);
+  // 小球贴近弹簧自由端（弹簧左端跟随 Q 一起移动）
+  // 球的 x 位置 = 弹簧左端附近
+  const ball = {x: a.spring_left - 4, y: a.Qy_top - 8};
+  drawBall(ctx, ball);
 
   // 推导
   ctx.fillStyle = '#fdf3e6';
@@ -300,13 +380,14 @@ function drawStage3(ctx, x, y, w, h, state){
 
 function drawStage4(ctx, x, y, w, h, state){
   // Q 最终动能最大 → 弹簧恢复原长 + 小球速度=0
-  // 修 5px 错位；小球停在 Q 离开瞬间的位置（弹簧恢复时与 Q 脱离）
-  const qOffset = 50 + state.u*60;
-  const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy_base = (y+h-35) - Rpx;
-  // 小球停在弹簧释放时的接触点（约 Q 离开 50 时）
-  const ball = {x: cx + 30 + 50, y: cy_base + Rpx - 8};
-  drawApparatus(ctx, x, y, w, h, ball, qOffset);
+  // Q 已脱离 P 向右远去，小球停在 P 弧底点（视觉贴 P 内凹弧底，避免悬浮）
+  // qOffset 缩小：避免 Q+弹簧立柱进入推导卡区（x+w*0.5 起点）
+  const qOffset = 25 + state.u*40;     // max 65
+  const a = drawApparatus(ctx, x, y, w, h, null, qOffset);
+  // 小球贴 P 弧底（球中心在弧底点正上 8px，球底刚好等于 arcBot_y）
+  // 注：Q 已远离 → 球右半下方虽空但停在 P 弧底凹陷处合理
+  const ball = {x: a.arcBot_x - 4, y: a.arcBot_y - 8};
+  drawBall(ctx, ball);
 
   // 推导
   ctx.fillStyle = '#fdf3e6';

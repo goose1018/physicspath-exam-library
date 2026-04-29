@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 7 题 · 圆筒粒子碰撞</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 几何核心：
+// 粒子从 P 沿 PO 方向射入，做圆周运动半径 r。
+// 由 v_P ⊥ PO' → O' 在 P 处 OP 的垂线上，距 P 为 r。
+// 关键定理：每次撞壁前的 v_A 沿 OA 方向（径向朝外），
+// 碰撞后 v_A' 反向 → 沿 -OA → 仍平行 OA（D 对）。
+// 由对称性，从 A 出发等价于从 P 出发的"旋转副本"，
+// 经 2 次碰撞后回到 P 射出 → 三角形（B 对）。
+// 取 r = R√3 让筒上每段对应 120°，正三角形内接，最少 2 次碰撞。
+// 答案 BD：A 错（轨迹不过 O：x²+y² ≠ 0），C 错（v 大→r 大→碰撞次数可能更多）
+
+const R_unit = 1;
+const r_unit = Math.sqrt(3);  // r = R√3
+const T_total = 9;            // 整段动画时长 s
+
+// 极坐标在 canvas 上：物理 y 向上 = canvas y 朝下，所以画时 yCanvas = centerY - y_phys
+function getOcK(k){
+  // 第 k 段圆周圆心（k=0,1,2），相对 O 的极角依次顺时针 120°
+  // O'_0 在 (r, R) = (√3, 1) 极角 = atan2(1, √3) = 30°，模 = 2
+  const ang = (30 - k*120) * Math.PI/180;
+  return {x: 2*R_unit*Math.cos(ang), y: 2*R_unit*Math.sin(ang)};
+}
+function getPk(k){
+  // 第 k 个交点（碰撞点 P_0=P, P_1, P_2, P_3=P）
+  const ang = (90 - k*120) * Math.PI/180;
+  return {x: R_unit*Math.cos(ang), y: R_unit*Math.sin(ang)};
+}
+
+function evalState(t){
+  const tNorm = Math.max(0, Math.min(t/T_total, 1));
+  const totalSeg = 3;
+  const segIdx_f = tNorm * totalSeg;
+  const segIdx = Math.min(2, Math.floor(segIdx_f));
+  const segFrac = Math.max(0, Math.min(1, segIdx_f - segIdx));
+  const Oc_k = getOcK(segIdx);
+  // P_segIdx 相对 Oc_k 的起始角 = 180° - segIdx·120°
+  const startAng = (180 - segIdx*120) * Math.PI/180;
+  // 逆时针 60° to P_{segIdx+1}
+  const curAng = startAng + (60 * Math.PI/180) * segFrac;
+  const px = Oc_k.x + r_unit*Math.cos(curAng);
+  const py = Oc_k.y + r_unit*Math.sin(curAng);
+  // 切线（逆时针方向）：将径向 (cos,sin) 逆时针 90° → (-sin, cos)
+  const vx_phys = -Math.sin(curAng);
+  const vy_phys =  Math.cos(curAng);
+  return {tNorm, segIdx, segFrac, px, py, vx: vx_phys, vy: vy_phys, Oc_k, curAng, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawCylinder(ctx, 14, 30, W*0.62-20, H-50, state);
+  drawAnnotations(ctx, W*0.62, 30, W*0.38-14, H-50, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('粒子从 P 沿 PO 方向射入光滑圆筒（内有平行轴的匀强磁场）', 24, 22);
+
+  if(state.tNorm > 0.05){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 208, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BD · 2 次碰撞 + v\'∥OA', W-208, 30);
+  }
+}
+
+function drawCylinder(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  // 中心
+  const cx = X + w/2;
+  const cy = Y + h/2 + 10;
+  // 缩放比例：半径取面板较小维度的 ~0.32 倍
+  const S = Math.min(w, h-40) * 0.34;
+
+  // 物理坐标 → canvas
+  const toC = (px, py) => ({x: cx + px*S, y: cy - py*S});
+
+  // 筒（外圈）
+  const Pp = toC(0, R_unit);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R_unit*S, 0, Math.PI*2);
+  ctx.stroke();
+  // 筒内淡填
+  ctx.fillStyle = 'rgba(173,196,213,0.10)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, R_unit*S, 0, Math.PI*2);
+  ctx.fill();
+
+  // 磁场标识（×符号阵列示意"指向纸里"）
+  ctx.fillStyle = 'rgba(125,79,156,0.35)';
+  ctx.font = '700 11px ui-monospace,monospace';
+  for(let dx=-R_unit; dx<=R_unit; dx+=0.4){
+    for(let dy=-R_unit; dy<=R_unit; dy+=0.4){
+      if(dx*dx+dy*dy < (R_unit*0.85)*(R_unit*0.85)){
+        const p = toC(dx, dy);
+        ctx.fillText('×', p.x-3, p.y+4);
+      }
+    }
+  }
+
+  // 中心 O
+  const Oc = toC(0, 0);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Oc.x, Oc.y, 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px "Cambria Math",serif';
+  ctx.fillText('O', Oc.x+5, Oc.y+5);
+
+  // 三段轨迹（虚线全部，已走部分实线覆盖）
+  for(let k=0; k<3; k++){
+    drawSegmentArc(ctx, toC, k, false);  // 全段虚线
+  }
+  // 已走过段（实线，按段着色）
+  for(let k=0; k<=state.segIdx; k++){
+    const frac = (k < state.segIdx) ? 1 : state.segFrac;
+    drawSegmentArcPartial(ctx, toC, k, frac);
+  }
+
+  // 三个内接点 P, P_1=A, P_2=A'
+  const colors = ['#16613f', '#c2611f', '#3f6f8f'];
+  const labels = ['P', 'A', 'A\''];
+  for(let k=0; k<3; k++){
+    const Pk = getPk(k);
+    const cp = toC(Pk.x, Pk.y);
+    ctx.fillStyle = colors[k];
+    ctx.beginPath(); ctx.arc(cp.x, cp.y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = 'italic 900 14px "Cambria Math",serif';
+    // 文字偏移到外侧
+    const out = Math.atan2(Pk.y, Pk.x);
+    ctx.fillText(labels[k], cp.x + Math.cos(out)*16 - 5, cp.y - Math.sin(out)*16 + 5);
+  }
+
+  // 小孔 P 缺口标记
+  ctx.strokeStyle = '#fffdf9'; ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R_unit*S, Math.PI/2 - 0.08, Math.PI/2 + 0.08);
+  ctx.stroke();
+  // 小孔提示
+  ctx.fillStyle = '#16613f';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('（小孔）', Pp.x - 24, Pp.y - 14);
+
+  // OA 连线（在 A、A' 处碰撞后画 v 平行 OA 的提示）
+  if(state.segIdx >= 1){
+    const A = getPk(1);
+    const Ac = toC(A.x, A.y);
+    ctx.strokeStyle = 'rgba(93,105,100,0.55)'; ctx.lineWidth = 1.4; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(Oc.x, Oc.y); ctx.lineTo(Ac.x, Ac.y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if(state.segIdx >= 2){
+    const A2 = getPk(2);
+    const Ac2 = toC(A2.x, A2.y);
+    ctx.strokeStyle = 'rgba(93,105,100,0.55)'; ctx.lineWidth = 1.4; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(Oc.x, Oc.y); ctx.lineTo(Ac2.x, Ac2.y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 当前粒子
+  const cur = toC(state.px, state.py);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cur.x, cur.y, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fdf3e6'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 速度箭头
+  const vlen = 32;
+  drawArrow(ctx, cur.x, cur.y, cur.x + state.vx*vlen, cur.y - state.vy*vlen, '#7d4f9c', 2.5);
+
+  // 起始 PO 方向参考（淡）
+  if(state.segIdx === 0 && state.segFrac < 0.05){
+    const Pp2 = toC(0, R_unit);
+    ctx.strokeStyle = 'rgba(125,79,156,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(Pp2.x, Pp2.y); ctx.lineTo(Oc.x, Oc.y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawSegmentArc(ctx, toC, k, _){
+  // k 段全程：从 P_k 起逆时针 60° 到 P_{k+1}（小圆角度）
+  const Oc_k = getOcK(k);
+  const startAng = (180 - k*120) * Math.PI/180;
+  const endAng = startAng + 60 * Math.PI/180;
+  ctx.strokeStyle = 'rgba(63,111,143,0.30)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  for(let i=0; i<=40; i++){
+    const a = startAng + (endAng - startAng)*(i/40);
+    const px = Oc_k.x + r_unit*Math.cos(a);
+    const py = Oc_k.y + r_unit*Math.sin(a);
+    const c = toC(px, py);
+    if(i===0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawSegmentArcPartial(ctx, toC, k, frac){
+  const colors = ['#16613f', '#c2611f', '#3f6f8f'];
+  const Oc_k = getOcK(k);
+  const startAng = (180 - k*120) * Math.PI/180;
+  const totalDelta = 60 * Math.PI/180;
+  const endAng = startAng + totalDelta * Math.max(0, Math.min(1, frac));
+  ctx.strokeStyle = colors[k]; ctx.lineWidth = 3;
+  ctx.beginPath();
+  const N = 40;
+  for(let i=0; i<=N; i++){
+    const a = startAng + (endAng - startAng)*(i/N);
+    const px = Oc_k.x + r_unit*Math.cos(a);
+    const py = Oc_k.y + r_unit*Math.sin(a);
+    const c = toC(px, py);
+    if(i===0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
+}
+
+function drawAnnotations(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fdf9ee';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('几何关键事实', X+12, Y+22);
+
+  const facts = [
+    {color:'#16613f', title:'B 对 · 最少 2 次碰撞', body:'选 r=R√3 时筒上每段对应 120°，正三角形内接 → P→A→A\'→P 共 2 次碰撞射出'},
+    {color:'#7d4f9c', title:'D 对 · v\' 平行 OA',  body:'碰撞前 v_A 已沿 OA 径向朝外（数学可证），法向反向后 v_A\' 沿 -OA → 仍平行 OA'},
+    {color:'#b4442e', title:'A 错 · 轨迹不过 O',   body:'轨迹圆 (x-r)²+(y-R)²=r²，代入 O=(0,0) 得 R²+r²=r² → R=0，矛盾'},
+    {color:'#86868b', title:'C 错 · v 大未必时间短', body:'r=mv/qB 随 v 增大；半径增大 → 碰撞次数可能增多 → 总时间不一定减少'}
+  ];
+
+  facts.forEach((f, i) => {
+    const yy = Y + 50 + i*78;
+    ctx.fillStyle = '#fffdf9';
+    ctx.strokeStyle = f.color; ctx.lineWidth = 1.4;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X+12, yy, w-24, 70, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = f.color;
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(f.title, X+22, yy+18);
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '500 10.5px "Noto Sans SC",sans-serif';
+    wrapText(ctx, f.body, X+22, yy+34, w-44, 14);
+  });
+
+  // 当前阶段标
+  const phaseTxt = state.segIdx===0 ? '阶段 P → A（绿弧）' :
+                   state.segIdx===1 ? '阶段 A → A\'（橙弧）' :
+                                       '阶段 A\' → P（蓝弧）';
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px ui-monospace,monospace';
+  ctx.fillText(phaseTxt, X+12, Y+h-12);
+  ctx.fillText(`碰撞计数：${state.segIdx}`, X+w-100, Y+h-12);
+}
+
+function wrapText(ctx, text, x, y, maxW, lh){
+  const words = text.split('');
+  let line = '';
+  let yy = y;
+  for(let i=0; i<words.length; i++){
+    const test = line + words[i];
+    if(ctx.measureText(test).width > maxW && line){
+      ctx.fillText(line, x, yy);
+      line = words[i];
+      yy += lh;
+    } else {
+      line = test;
+    }
+  }
+  if(line) ctx.fillText(line, x, yy);
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  const dx = x2-x1, dy = y2-y1, L = Math.sqrt(dx*dx+dy*dy);
+  if(L < 2) return;
+  const ax = dx/L, ay = dy/L;
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const head = 7;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - head*ax + head*0.6*ay, y2 - head*ay - head*0.6*ax);
+  ctx.lineTo(x2 - head*ax - head*0.6*ay, y2 - head*ay + head*0.6*ax);
+  ctx.closePath(); ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '光滑圆筒带电粒子碰撞 · 几何分析',
+  subtitle: '从 P 沿 PO 射入 · 碰撞前后切向不变法向反向 · 求轨迹/碰撞次数/方向规律',
+  deliv: {
+    title: '正三角形内接（r=R√3 情形）',
+    sub: '答案 BD · 2 次碰撞射出 + v\'∥OA'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 7 题 · 6 分（多选）',
+    text: `光滑刚性绝缘圆筒内存在着平行于轴的匀强磁场，筒上 P 点开有一个小孔，过 P 的横截面是以 O 为圆心的圆，如图所示。一带电粒子从 P 点沿 PO 射入，然后与筒壁发生碰撞。假设粒子在每次碰撞前、后瞬间，速度沿圆上碰撞点的切线方向的分量大小不变，沿法线方向的分量大小不变、方向相反；电荷量不变。不计重力。下列说法正确的是（&nbsp;&nbsp;&nbsp;&nbsp;）`,
+    subQuestions: [
+      'A. 粒子的运动轨迹可能通过圆心 O',
+      'B. 最少经 2 次碰撞，粒子就可能从小孔射出',
+      'C. 射入小孔时粒子的速度越大，在圆内运动时间越短',
+      'D. 每次碰撞后瞬间，粒子速度方向一定平行于碰撞点与圆心 O 的连线'
+    ],
+    officialAnswer: 'BD · D 由几何（v_A=v·n_OA → 法向反向后仍平行 OA）；B 由对称性，存在 r=R√3 使正三角形内接，2 次碰撞回到 P；A 错（轨迹圆 (x-r)²+(y-R)²=r² 不过原点）；C 错（v↑→r↑→碰撞次数可能更多，时间不一定短）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'D 对 · v\'∥OA', label_short:'D',
+     formula_tex: String.raw`\vec v_A = v\cdot \hat n_{OA} \;(\text{径向朝外}) \;\xrightarrow{\text{法向反向}}\; \vec v_A' = -v\cdot \hat n_{OA} \;\Rightarrow\; \vec v_A' \parallel OA`,
+     note:'核心定理：碰撞前速度恰沿 OA 方向 → 反射后仍沿 OA（朝 O）。'},
+    {label:'B 对 · 最少 2 次碰撞', label_short:'B',
+     formula_tex: String.raw`r = R\sqrt{3} \;\Rightarrow\; \angle POA = 120^\circ \;\Rightarrow\; \text{正三角形内接}\;\Rightarrow\; 2\;\text{次碰撞射出}`,
+     note:'选合适的 r/R 比可使 P-A-A\' 构成正三角形，最少 2 次撞壁回到小孔。'},
+    {label:'A 错 · 不过 O', label_short:'A',
+     formula_tex: String.raw`(0-r)^2 + (0-R)^2 = r^2 \;\Rightarrow\; r^2 + R^2 = r^2 \;\Rightarrow\; R = 0\; \text{(矛盾)}`,
+     note:'轨迹圆方程不允许 (0,0) 为解。'},
+    {label:'C 错 · v↑ 不一定时间短', label_short:'C',
+     formula_tex: String.raw`r = \dfrac{mv}{qB} \;\Rightarrow\; v\uparrow \Rightarrow r\uparrow \Rightarrow \text{碰撞次数可能增多}`,
+     note:'弧线变长 + 段数增加 → 时间不一定缩短。'}
+  ],
+  stats: [
+    {label:'筒半径 R',     fmt:()=>'1（归一）'},
+    {label:'轨道半径 r',   fmt:()=>'√3 ≈ 1.732'},
+    {label:'每段筒上转角', fmt:()=>'120°'},
+    {label:'每段小圆转角', fmt:()=>'60°'},
+    {label:'当前段',       fmt:s=>['P→A','A→A\'','A\'→P'][s.segIdx]},
+    {label:'碰撞次数',     fmt:s=>String(s.segIdx)}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'轨迹不过 O',                  note:'轨道圆代入原点矛盾'},
+    {label_text:'B 对', value_text:'最少 2 次碰撞',               note:'r=R√3 时正三角形内接'},
+    {label_text:'C 错', value_text:'v 大时间不一定短',            note:'r 也变大，碰撞次数可能更多'},
+    {label_text:'D 对', value_text:'v&#39; 平行 OA',              note:'v_A 已沿 OA，法向反向后 v_A&#39; 仍 ∥ OA'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'第 1 段 P→A（绿）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'第 2 段 A→A&#39;（橙）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'第 3 段 A&#39;→P（蓝，射出）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'速度矢量（紫）'},
+    {swatch:{bg:'rgba(93,105,100,0.55)',border:'#5d6964',type:'rect'}, text:'OA 几何辅助线（灰虚）'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'circle'}, text:'粒子'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:true},
+  fileName: '2023全国甲-Q7-圆筒粒子碰撞'
+});
+</script>
+</body>
+</html>

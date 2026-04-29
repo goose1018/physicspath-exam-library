@@ -132,13 +132,8 @@ function drawRotation(ctx, x, y, w, h, state){
   ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(Px, Py); ctx.lineTo(Ox, Oy); ctx.stroke();
 
-  // O 的运动轨迹（淡）
-  ctx.strokeStyle = 'rgba(194,97,31,0.25)'; ctx.lineWidth = 1;
-  ctx.setLineDash([3,3]);
-  ctx.beginPath(); ctx.arc(Px, Py, Rpx, 0, Math.PI*2); ctx.stroke();
-  ctx.setLineDash([]);
-
   // 旋转方向箭头（顺时针小弧）
+  // 注：删除原"O 运动轨迹圆"——视觉上易与圆环本身混淆，学生误以为有两个圆环
   ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(Px, Py, Rpx*0.4, Math.PI*0.7, Math.PI*1.3);

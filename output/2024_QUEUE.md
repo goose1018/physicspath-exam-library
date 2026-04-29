@@ -16,11 +16,18 @@
 | 2024 新课标卷 | 12/13 | 真 4 关 ✅ | `9f65f1b` |
 | 2024 北京卷 | 16/22 | 真 4 关 ✅ 修 7 视觉 bug | `ed9d6e0` |
 | 2025 陕晋宁青卷 | 13/14 | 真 4 关 ✅ 修 Q12-Q13 | `27b471e` |
-| 2025 全国卷 | **12/12** ✅ | 真独立 4 agent ✅ 修 Q3/Q5/Q6/Q8/Q12 共 5 个视觉 bug。**全卷完成**（源文件只 12 道，无 Q13/Q14） | `df7ebf2` `39778ac` |
+| 2025 全国卷 | 10/10 ✅（删 Q9/Q10 实验题）| 真独立 4 agent ✅ 修 Q3/Q5/Q6/Q8/Q12 共 5 个视觉 bug。**Q12 圆弧 anticlockwise 大半圆 bug 2026-04-29 用户报告后修** | `df7ebf2` `39778ac` + 待 commit |
+| **2023 全国甲卷** | **8/16 进行中**（Q1/Q3/Q6/Q7/Q8/Q11/Q12/Q15 ✅；Q16 待做；跳过 Q2/Q4/Q5/Q9/Q10/Q13/Q14 = 概念/纯公式/实验）| 真独立 4 agent ✅ 修 Q1 变量遮蔽 / Q3 措辞 / Q7 题面 / Q12 KaTeX aligned / Q15 死代码+优先级 共 5 个 bug | 待 commit |
 
 **两条铁律已写入** `CLAUDE.md` + `~/.claude/rules/common/`：
 - 铁律 1：禁合并 agent，4 关 = 4 个独立调用
 - 铁律 2：sub-agent 测试必须跑完整套件 + 报告所有失败
+
+**2026-04-29 新增血泪教训**（详见 AUDIT_LOG.md 顶部）：
+- **Q1 变量遮蔽 bug**：函数参数 `h` 遮蔽全局 `const h=1.8`（推出高度 m）→ `1.8m·pxPerM_y ≈ 1.4 像素` → 视觉上铅球不下落。**4 关 agent 全 PASS 但漏抓**（agent 基于代数推理，抓不到 JS 变量遮蔽）。从此 C/D 关 prompt 加「变量作用域 / 遮蔽检查」。
+- **Q12 KaTeX bug**：phases[0] 用 `\begin{aligned}` 在 q-shell.js（`displayMode:false`）下不能渲染。从此 D 关 prompt 加「检查多行环境 aligned/align/cases/gather」。
+- **2025 Q12 圆弧 bug（历史欠账）**：`ctx.arc(..., PI/2, PI, true)` anticlockwise=true 导致大半圆而非 90° 弧。原 `df7ebf2` 4 关 agent 漏抓 → 用户在浏览器实测发现。教训：**agent 审核必须配合浏览器实测**。
+- **C 关漏抓视觉 bug 系统性原因**：之前 C 关只读代码逻辑，没真在浏览器看动画。今后 commit 前必须**至少手动开浏览器看一眼**。
 
 ### 2024 进行中 / 待办
 

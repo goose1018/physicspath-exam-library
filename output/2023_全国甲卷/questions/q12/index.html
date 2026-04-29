@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 12 题 · U 型导轨碰撞 + 电磁感应</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：弹性碰撞 + 电磁阻力 + 平抛 + 落地同点
+// 由"落地同点" + 同 H 下落 → v_P_out = v_Q_out
+// Q 是绝缘棒，光滑导轨 → 匀速 → v_Q_out = v_Q_碰
+// P 减速到 v_P_out → v_P_out = v_Q_碰
+// 弹性 + 等质量分析得 m_Q = 3m_P
+// → v_P_碰 = 3v₀/2，v_Q_碰 = v₀/2 = v_P_out
+// (1) v_P_out = v₀/2
+// (2) Q_热 = ½m·[(3v₀/2)²-(v₀/2)²] = mv₀²
+// (3) 由动量定理对 P：BL·q = m·Δv = m·v₀，q = BL·L_P/R → L_P = mv₀R/(B²L²)
+//     t_Q = L_P/v_Q_碰 = 2L_P/v₀ = 2mR/(B²L²)
+
+// 数值化：m_P=1 kg, v₀=4 m/s, m_Q=3 kg, B=1 T, L=1 m, R=1 Ω
+const m = 1, v0 = 4, mQ = 3*m, B = 1, L = 1, Rcoil = 1, g = 10;
+const v_P_collision = 1.5 * v0;     // 6 m/s
+const v_Q_collision = 0.5 * v0;     // 2 m/s
+const v_P_out = 0.5 * v0;            // 2 m/s
+const L_P = m * v0 * Rcoil / (B*B*L*L);   // 4 m  导轨长度（碰撞点到右端）
+const tau_decay = m * Rcoil / (B*B*L*L);   // 1 s  指数衰减时间常数
+const t_P_exit = tau_decay * Math.log(v_P_collision / v_P_out);  // ln(3) ≈ 1.099 s
+const t_Q_exit = L_P / v_Q_collision;   // 2 s
+const H = 0.8;                            // 桌面高度
+const t_fall = Math.sqrt(2*H/g);         // 0.4 s
+const Q_heat = m * v0 * v0;               // 1·16 = 16 J（即 mv₀²）
+const d_land = v_P_out * t_fall;         // 0.8 m
+
+// 动画时间分配
+const t_pre = 0.5;                       // Q 接近 P 物理 0.5s（视觉拉伸）
+const t_total_phys = t_pre + t_Q_exit + t_fall;  // 0.5 + 2 + 0.4 = 2.9 s
+const T_total = 9;                        // 视觉 9s
+const slowFactor = T_total / t_total_phys;
+
+function evalState(t){
+  const tt = Math.max(0, Math.min(t/slowFactor, t_total_phys));
+  const t_phys = tt - t_pre;       // 碰撞瞬间为 t_phys=0
+
+  let phase, x_P, x_Q, y_P, y_Q, v_P, v_Q;
+
+  if(tt < t_pre){
+    // 阶段 0：Q 接近 P
+    phase = 0;
+    x_Q = -v0 * (t_pre - tt);     // 从 -v0·t_pre 走到 0
+    x_P = 0;
+    v_P = 0; v_Q = v0;
+    y_P = H; y_Q = H;
+  } else if(t_phys < t_P_exit){
+    // 阶段 1：碰撞后 P 减速 + Q 匀速（在导轨上）
+    phase = 1;
+    v_P = v_P_collision * Math.exp(-t_phys/tau_decay);
+    // x_P = ∫v dt = v_P_collision · tau · (1 - exp(-t/tau))
+    x_P = v_P_collision * tau_decay * (1 - Math.exp(-t_phys/tau_decay));
+    v_Q = v_Q_collision;
+    x_Q = v_Q_collision * t_phys;
+    y_P = H; y_Q = H;
+  } else if(t_phys < t_Q_exit){
+    // 阶段 2：P 已离开导轨平抛 + Q 仍在导轨
+    phase = 2;
+    const dt_P = t_phys - t_P_exit;
+    if(dt_P < t_fall){
+      x_P = L_P + v_P_out * dt_P;
+      y_P = H - 0.5 * g * dt_P * dt_P;
+      v_P = v_P_out;
+    } else {
+      // P 已落地，停留
+      x_P = L_P + v_P_out * t_fall;
+      y_P = 0;
+      v_P = v_P_out;
+    }
+    v_Q = v_Q_collision;
+    x_Q = v_Q_collision * t_phys;
+    y_Q = H;
+  } else {
+    // 阶段 3：Q 滑出做平抛
+    phase = 3;
+    const dt_P = t_phys - t_P_exit;
+    if(dt_P < t_fall){
+      x_P = L_P + v_P_out * dt_P;
+      y_P = H - 0.5*g*dt_P*dt_P;
+    } else {
+      x_P = L_P + v_P_out * t_fall;
+      y_P = 0;
+    }
+    v_P = v_P_out;
+
+    const dt_Q = t_phys - t_Q_exit;
+    if(dt_Q < t_fall){
+      x_Q = L_P + v_Q_collision * dt_Q;
+      y_Q = H - 0.5*g*dt_Q*dt_Q;
+    } else {
+      x_Q = L_P + v_Q_collision * t_fall;
+      y_Q = 0;
+    }
+    v_Q = v_Q_collision;
+  }
+
+  return {phase, t_phys, tt, x_P, x_Q, y_P, y_Q, v_P, v_Q};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H_canvas = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H_canvas);
+
+  drawWorld(ctx, 14, 30, W-28, H_canvas-50, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('Q 撞 P（弹性，等质量分析得 m_Q=3m_P）→ P 在磁场中减速 → P/Q 落地同点', 24, 22);
+
+  if(state.phase >= 1){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-280, 12, 268, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('(1) v_P=v₀/2  (2) Q=mv₀²  (3) t_Q=2mR/(B²L²)', W-272, 30);
+  }
+}
+
+function drawWorld(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const padL = 50, padR = 30, padT = 50, padB = 36;
+  const cw = w - padL - padR, ch = h - padT - padB;
+
+  // 物理坐标范围
+  const xMin_phys = -2.5;
+  const xMax_phys = L_P + d_land + 0.6;   // 包含落地点
+  const yMin_phys = 0;
+  const yMax_phys = H + 0.4;
+  const sx = cw / (xMax_phys - xMin_phys);
+  const sy = ch / (yMax_phys - yMin_phys);
+  const s = Math.min(sx, sy);
+
+  const x0 = X + padL;
+  const groundY = Y + padT + s*(yMax_phys - yMin_phys);
+  const toC = (xp, yp) => ({x: x0 + (xp - xMin_phys)*s, y: groundY - yp*s});
+
+  // 地面
+  const gleft = toC(xMin_phys, 0);
+  const gright = toC(xMax_phys, 0);
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(gleft.x, gleft.y, gright.x - gleft.x, 6);
+  ctx.fillStyle = '#86868b';
+  for(let xi = gleft.x + 6; xi < gright.x - 6; xi += 16){
+    ctx.fillRect(xi, gleft.y + 6, 6, 4);
+  }
+
+  // 桌面（导轨段，从 xMin 到 0=L_P 即右端）
+  // 但题目说 "导轨右端与桌面右边缘对齐" → 桌面右边 = 导轨右端 (x = L_P)
+  const tableLeft = toC(xMin_phys + 0.3, H);
+  const tableRight = toC(L_P, H);
+  ctx.fillStyle = '#9aa19c';
+  ctx.fillRect(tableLeft.x, tableLeft.y, tableRight.x - tableLeft.x, 6);
+  // 桌脚
+  ctx.fillRect(tableLeft.x + 8, tableLeft.y + 6, 8, groundY - (tableLeft.y + 6));
+  ctx.fillRect(tableRight.x - 16, tableLeft.y + 6, 8, groundY - (tableLeft.y + 6));
+
+  // 导轨（在桌面上从 -2.5 到 L_P=4，俯视示意为两条平行线）
+  const railTop = toC(xMin_phys + 0.3, H);
+  const railBot = toC(L_P, H);
+  // 两条平行轨道（侧视近似）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(railTop.x, railTop.y - 2); ctx.lineTo(railBot.x, railTop.y - 2);
+  ctx.moveTo(railTop.x, railTop.y - 14); ctx.lineTo(railBot.x, railTop.y - 14);
+  ctx.stroke();
+  // U 型左闭合
+  ctx.beginPath();
+  ctx.moveTo(railTop.x, railTop.y - 14);
+  ctx.lineTo(railTop.x - 6, railTop.y - 14);
+  ctx.lineTo(railTop.x - 6, railTop.y - 2);
+  ctx.lineTo(railTop.x, railTop.y - 2);
+  ctx.stroke();
+
+  // 磁场标识（× 阵列竖直向上 — 标注为"⊙"或"·"通常向上... 实际是箭头⊥纸出，但题目说"竖直向上" — 即沿 +z 朝上垂直桌面）
+  // 俯视图中 × 表示纸内、· 表示纸外。但侧视图中无法直观表示"竖直向上的磁场"。
+  // 用箭头数组示意
+  const Bx0 = railTop.x + 8;
+  const By0 = railTop.y - 28;
+  for(let i=0; i<6; i++){
+    const bx = Bx0 + i * (railBot.x - railTop.x - 16) / 5;
+    ctx.strokeStyle = 'rgba(125,79,156,0.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(bx, By0+12); ctx.lineTo(bx, By0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, By0); ctx.lineTo(bx-3, By0+4); ctx.lineTo(bx+3, By0+4); ctx.closePath();
+    ctx.fillStyle = 'rgba(125,79,156,0.5)'; ctx.fill();
+  }
+  ctx.fillStyle = '#7d4f9c';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('B↑', railBot.x + 4, By0 + 8);
+
+  // 飞出点（桌面右沿）
+  const exitC = toC(L_P, H);
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(exitC.x, exitC.y); ctx.lineTo(exitC.x, groundY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 落地点 (P 和 Q 的)
+  const landC = toC(L_P + d_land, 0);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(landC.x, landC.y, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('落地点（P/Q 同地）', landC.x - 50, landC.y + 16);
+
+  // 完整 P 平抛轨迹
+  ctx.strokeStyle = 'rgba(63,111,143,0.30)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  for(let i=0; i<=30; i++){
+    const tau = (i/30)*t_fall;
+    const xp = L_P + v_P_out * tau;
+    const yp = H - 0.5*g*tau*tau;
+    const c = toC(xp, yp);
+    if(i===0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
+  // Q 平抛
+  ctx.beginPath();
+  for(let i=0; i<=30; i++){
+    const tau = (i/30)*t_fall;
+    const xp = L_P + v_Q_collision * tau;
+    const yp = H - 0.5*g*tau*tau;
+    const c = toC(xp, yp);
+    if(i===0) ctx.moveTo(c.x, c.y); else ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 距离标注 d
+  const dlabel = (exitC.x + landC.x)/2;
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(exitC.x, groundY + 10); ctx.lineTo(landC.x, groundY + 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(exitC.x, groundY+6); ctx.lineTo(exitC.x, groundY+14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(landC.x, groundY+6); ctx.lineTo(landC.x, groundY+14); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('d=0.8 m', dlabel - 24, groundY + 26);
+
+  // 桌面高 H 标
+  const hLabelTop = toC(xMin_phys + 0.05, H);
+  const hLabelBot = toC(xMin_phys + 0.05, 0);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(hLabelTop.x, hLabelTop.y); ctx.lineTo(hLabelBot.x, hLabelBot.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('H', hLabelTop.x - 14, (hLabelTop.y + hLabelBot.y)/2);
+
+  // 棒 P
+  drawBar(ctx, toC, state.x_P, state.y_P, '#3f6f8f', 'P', 'm');
+  // 棒 Q
+  drawBar(ctx, toC, state.x_Q, state.y_Q, '#16613f', 'Q', '3m');
+
+  // 速度矢量
+  if(state.phase >= 0){
+    const vScale = 6;
+    const Pc = toC(state.x_P, state.y_P);
+    const Qc = toC(state.x_Q, state.y_Q);
+    if(Math.abs(state.v_P) > 0.01){
+      drawArrow(ctx, Pc.x, Pc.y - 14, Pc.x + state.v_P*vScale, Pc.y - 14, '#3f6f8f', 2);
+    }
+    if(Math.abs(state.v_Q) > 0.01){
+      drawArrow(ctx, Qc.x, Qc.y - 26, Qc.x + state.v_Q*vScale, Qc.y - 26, '#16613f', 2);
+    }
+  }
+
+  // 阶段标
+  const phaseTxt = state.phase===0 ? '阶段 ① Q 接近 P（v=v₀=4 m/s）' :
+                   state.phase===1 ? '阶段 ② P 减速（指数衰减）+ Q 匀速' :
+                   state.phase===2 ? '阶段 ③ P 已平抛 + Q 仍在导轨' :
+                                      '阶段 ④ Q 也滑出平抛';
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTxt, X+12, Y+22);
+
+  // 实时数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px ui-monospace,monospace';
+  ctx.fillText(`v_P=${state.v_P.toFixed(2)} m/s  v_Q=${state.v_Q.toFixed(2)} m/s`, X + w - 280, Y+22);
+  ctx.fillText(`t_phys=${state.t_phys.toFixed(2)} s`, X + w - 280, Y+38);
+}
+
+function drawBar(ctx, toC, xp, yp, color, label, mlabel){
+  const c = toC(xp, yp);
+  // 棒：竖直向上长 16 px（侧视）
+  ctx.fillStyle = color;
+  ctx.fillRect(c.x - 4, c.y - 18, 8, 18);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 0.6;
+  ctx.strokeRect(c.x - 4, c.y - 18, 8, 18);
+  // 标签
+  ctx.fillStyle = color;
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText(label, c.x - 4, c.y - 24);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 9px ui-monospace,monospace';
+  ctx.fillText(mlabel, c.x - 8, c.y - 35);
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  const dx = x2-x1, dy = y2-y1, L_ = Math.sqrt(dx*dx+dy*dy);
+  if(L_ < 2) return;
+  const ax = dx/L_, ay = dy/L_;
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const head = 6;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - head*ax + head*0.6*ay, y2 - head*ay - head*0.6*ax);
+  ctx.lineTo(x2 - head*ax - head*0.6*ay, y2 - head*ay + head*0.6*ax);
+  ctx.closePath(); ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算题 · 第 12 题',
+  title: 'U 型导轨 · 弹性碰撞 + 电磁感应 + 落地同点',
+  subtitle: '光滑 U 型导轨 + 竖直向上磁场 + Q（绝缘）撞 P（金属）+ 落地同点 → 求 P 滑出 v、热量、Q 在轨时间',
+  deliv: {
+    title: 'm_Q = 3m_P · v_P_out = v₀/2',
+    sub: '(1) v₀/2 (2) mv₀² (3) 2mR/(B²L²)'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 12 题（计算）',
+    text: `如图，水平桌面上固定一光滑 U 型金属导轨，其平行部分的间距为 L，导轨的最右端与桌面右边缘对齐，导轨的电阻忽略不计。导轨所在区域有方向竖直向上的匀强磁场，磁感应强度大小为 B。一质量为 m、电阻为 R、长度也为 L 的金属棒 P 静止在导轨上。导轨上质量为 3m 的绝缘棒 Q 位于 P 的左侧，以大小为 v₀ 的速度向 P 运动并与 P 发生弹性碰撞，碰撞时间很短。碰撞一次后，P 和 Q 先后从导轨的最右端滑出，并落在地面上同一地点。P 在导轨上运动时，两端与导轨接触良好，P 与 Q 始终平行。不计空气阻力。求：`,
+    subQuestions: [
+      '（1）金属棒 P 滑出导轨时的速度大小；',
+      '（2）金属棒 P 在导轨上运动过程中产生的热量；',
+      '（3）与 P 碰撞后，绝缘棒 Q 在导轨上运动的时间。'
+    ],
+    officialAnswer: '（1）v_P = v₀/2；（2）Q_热 = m·v₀²；（3）t_Q = 2mR/(B²L²)。【推导】Q 绝缘 + 光滑 → 匀速 v_Q\'；落地同点（同 H）→ v_P_out = v_Q\'。弹性碰撞 + m_Q=3m → v_P_碰=3v₀/2，v_Q\'=v₀/2 → v_P_out = v₀/2。Q_热 = ½m·[(3v₀/2)²−(v₀/2)²] = mv₀²。动量定理：BL·∫I dt = m·Δv_P → BL·BL·L_P/R = m·v₀ → L_P = mv₀R/(B²L²)；t_Q = L_P/v_Q\' = 2mR/(B²L²)。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① 弹性碰撞（瞬间）', label_short:'①',
+     formula_tex: String.raw`3m\,v_0 = 3m\,v_Q' + m\,v_P',\quad \tfrac{1}{2}\cdot 3m\,v_0^2 = \tfrac{1}{2}\cdot 3m\,v_Q'^2 + \tfrac{1}{2}m\,v_P'^2 \;\Rightarrow\; v_P' = \tfrac{3}{2}v_0,\; v_Q' = \tfrac{1}{2}v_0`,
+     note:'等比 3:1 弹性碰撞：动量+能量联立，P 取三半倍速度，Q 减速到半倍。'},
+    {label:'② 落地同点 → v_P_out', label_short:'②',
+     formula_tex: String.raw`\text{同 }H \Rightarrow t_{fall}\text{ 相同} \Rightarrow v_{P,out}\cdot t_{fall} = v_{Q,out}\cdot t_{fall} \Rightarrow v_{P,out} = v_{Q,out} = \tfrac{1}{2}v_0`,
+     note:'P、Q 从同一桌面边缘飞出，落地同点 → 滑出速度必相等；Q 匀速 → v_Q_out = v_Q_碰。'},
+    {label:'③ 热量', label_short:'③',
+     formula_tex: String.raw`Q_{\text{热}} = \tfrac{1}{2}m(v_{P,碰}^2 - v_{P,out}^2) = \tfrac{1}{2}m\left[\left(\tfrac{3v_0}{2}\right)^2 - \left(\tfrac{v_0}{2}\right)^2\right] = m v_0^2`,
+     note:'P 在导轨上动能损失 = 全部转为电阻产生的热量。'},
+    {label:'④ Q 在轨时间', label_short:'④',
+     formula_tex: String.raw`BL\cdot\!\!\int\! I\, dt = m\Delta v_P,\; q = BL\cdot \dfrac{L_P}{R} \Rightarrow L_P = \dfrac{mv_0 R}{B^2 L^2},\; t_Q = \dfrac{L_P}{v_Q'} = \dfrac{2mR}{B^2 L^2}`,
+     note:'用动量定理 + 电荷量公式求 P 走过的距离 L_P；Q 匀速跨同段距离的时间。'}
+  ],
+  stats: [
+    {label:'m（P 质量）',     fmt:()=>`${m} kg`},
+    {label:'m_Q（Q 质量）',   fmt:()=>`${mQ} kg`},
+    {label:'v₀',              fmt:()=>`${v0} m/s`},
+    {label:'v_P_碰',          fmt:()=>v_P_collision+' m/s'},
+    {label:'v_P_out=v_Q\'',   fmt:()=>v_P_out+' m/s'},
+    {label:'L_P',             fmt:()=>L_P+' m'},
+    {label:'t_Q',             fmt:()=>t_Q_exit+' s'},
+    {label:'落地距离 d',      fmt:()=>d_land+' m'}
+  ],
+  conclusions: [
+    {label_text:'（1）',   value_text:'v_P = v₀/2',          note:'落地同点 + Q 匀速 → v_P_out = v_Q_碰'},
+    {label_text:'（2）',   value_text:'Q_热 = m·v₀²',         note:'½m·[(3v₀/2)²-(v₀/2)²]'},
+    {label_text:'（3）',   value_text:'t_Q = 2mR/(B²L²)',    note:'动量定理 + q=BL·L_P/R'},
+    {label_text:'弹碰后', value_text:'v_P=3v₀/2, v_Q=v₀/2',  note:'m_Q=3m + 弹性碰撞解'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'金属棒 P（质量 m, 电阻 R）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'绝缘棒 Q（质量 3m）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'磁场 B（竖直向上）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'circle'}, text:'落地点（P/Q 同地）'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:true},
+  fileName: '2023全国甲-Q12-U型导轨'
+});
+</script>
+</body>
+</html>

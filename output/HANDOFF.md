@@ -566,3 +566,63 @@ P2 (低优)：2017-2023 共约 90 份
 **最后**：这个项目的核心价值是**物理正确性 + 视觉可投屏**。两者都有了，老师才付费。代码再炫如果物理错了直接归零。所以**关 B 物理审是命门，永远不要为了赶进度跳过**。
 
 完。读完后记得用一句话向用户复述上面那 5 件事。
+
+---
+
+## VI. 2026-04-29 新增血泪教训（2023 全国甲卷工作期间）
+
+### Bug 1：JS 变量遮蔽（最严重，4 关全过仍漏）
+
+**症状**：2023 全国甲 Q1 铅球水平向前几乎不下落
+**根因**：
+```js
+const h = 1.8;  // 全局：物理推出高度 m
+function drawTrajectory(ctx, X, Y, w, h, state){  // 参数 h 遮蔽全局！
+  const pxPerM_y = ch / (h * 1.05);  // h 此时是面板像素高度（≈350），不是 1.8m
+  const startY = ground - h * pxPerM_y;
+}
+```
+结果：1.8m × pxPerM_y ≈ 1.4 px，铅球视觉只下落 1 像素。
+**修复**：函数参数重命名 `h` → `panelH`。
+**教训**：**4 关 agent 都基于代数推理审 PASS，但抓不到 JS 词法作用域陷阱**。从今往后 C/D 关 prompt 必须加「**变量作用域 / 遮蔽检查**」一项，明确扫全局 const vs 函数参数同名冲突。
+
+### Bug 2：KaTeX aligned 多行环境
+
+**症状**：Q12 phases[0] 公式渲染失败
+**根因**：q-shell.js 用 `katex.render(..., {displayMode:false})`，不支持 `\begin{aligned}...\end{aligned}` 多行环境
+**修复**：改单行 `\quad` 间隔
+**教训**：**禁止在 formula_tex 用 aligned/align/cases/gather**（行内模式 KaTeX 不支持）。D 关 prompt 已加这一项检查。
+
+### Bug 3：ctx.arc anticlockwise 错误（历史欠账）
+
+**症状**：2025 全国卷 Q12 圆弧画成大半圆"奇怪盘子"形状
+**根因**：`ctx.arc(cx, cy, R, PI/2, PI, true)` — anticlockwise=true 从 PI/2 逆时针走到 PI 经过 270°（大半圆），应为 false（顺时针 90° 小弧）
+**修复**：true → false
+**教训**：原 commit `df7ebf2` 的 4 关 agent 漏抓。**ctx.arc 的 anticlockwise 参数在 canvas y 翻转坐标系下极易出错**，C 关检查圆弧时必须**心算两端点位置 + 走向**确认。
+
+### Bug 4：运算符优先级冗余
+
+**症状**：Q15 line 230 `progress >= 2 && |tNorm-1|<0.001 || progress === 2` 因 `&&` 优先于 `||`，等价于 `progress === 2`
+**修复**：直接简化为 `progress === 2`
+**教训**：D 关 prompt 已加「逻辑表达式优先级审查」。
+
+### Bug 5：死代码污染全局命名空间
+
+**症状**：Q15 顶层 `const seg1_t = (P_in_to_BC) => P_in_to_BC.t; const total_t_jia = ...` 三个变量从未被引用
+**修复**：删除
+**教训**：D 关 prompt 加「未使用全局变量检查」。
+
+---
+
+## VII. agent 审核方法论的根本局限（2026-04-29 新认知）
+
+agent 是基于**代码代数推理**审核，**不真在浏览器跑动画**。所以以下几类 bug 必须靠**用户/作者浏览器实测**才能抓到：
+
+1. **JS 词法陷阱**：变量遮蔽、闭包、this 绑定、作用域链
+2. **canvas 视觉细节**：anticlockwise、坐标变换、字体度量、roundRect 兼容
+3. **KaTeX 渲染失败**：aligned 环境、displayMode 不匹配、未转义反斜杠
+4. **CSS 布局问题**：overflow、z-index、flex/grid
+
+**结论**：commit 前必须**至少手动开浏览器看一眼新做的题**。从今往后 commit 前 todo 列表必加一项「浏览器实测每道新题」。
+
+---

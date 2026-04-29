@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 6 题 · F-a 图线</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 牛二：F - μmg = ma → F = m·a + μmg
+// 斜率 = m（质量），纵截距 = μmg（最大静摩擦近似为动摩擦力，物体起动时的 F 值）
+// 题图：两条直线，甲乙图线纵截距相同 → μ甲·m甲·g = μ乙·m乙·g
+//      甲斜率大 → m甲 > m乙（B 对）
+//      由 μ甲·m甲 = μ乙·m乙 + m甲>m乙 → μ甲 < μ乙
+// 答案 BC
+// A 错（m甲 ≯ m乙），B 对（m甲 > m乙），C 对（μmg 相等），D 错（μ甲 < μ乙）
+
+const g = 10;
+const m_jia = 2;       // kg
+const m_yi  = 1;       // kg
+const F0    = 4;       // 共同纵截距 N（即 μmg）
+const mu_jia = F0/(m_jia*g);  // 0.2
+const mu_yi  = F0/(m_yi*g);   // 0.4
+const F_max = 14;      // 横轴最大 F (N)
+// 物体动画用：动画里让 F 从 F0 到 F_max 扫一遍
+
+const T_total = 6;
+const F_anim_min = F0 + 0.1;
+const F_anim_max = F_max;
+
+function evalState(t){
+  const tNorm = Math.max(0, Math.min(t/T_total, 1));
+  const F = F_anim_min + (F_anim_max - F_anim_min)*tNorm;
+  const a_jia = Math.max(0, (F - F0)/m_jia);  // F-μmg/m
+  const a_yi  = Math.max(0, (F - F0)/m_yi );
+  // 物体位置（积分一下展示运动差异）
+  // 用 Δt 步进
+  // 简化：让位置正比于当前 a × tNorm² 的形式
+  const x_jia = 0.5 * a_jia * Math.pow(tNorm*1.5, 2);
+  const x_yi  = 0.5 * a_yi  * Math.pow(tNorm*1.5, 2);
+  return {tNorm, F, a_jia, a_yi, x_jia, x_yi, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawFA(ctx, 14, 30, W*0.55-20, H-50, state);
+  drawObjects(ctx, W*0.55, 30, W*0.45-14, H-50, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('牛二：F - μmg = ma → F = m·a + μmg · 斜率=m, 纵截距=μmg', 24, 22);
+
+  if(state.tNorm > 0.15){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 208, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BC · m甲>m乙, μm 相等', W-216, 30);
+  }
+}
+
+function drawFA(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('F-a 图（横 a, 纵 F）', X+12, Y+18);
+
+  // 注意：题图横 F 纵 a 还是横 a 纵 F？由解析「斜率=m, 纵截距=μmg」推：
+  // F = m·a + μmg → 当 a 为横轴、F 为纵轴时，斜率 m 才有意义。
+  // 故横 a、纵 F。
+  const padL=46, padR=22, padT=30, padB=34;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = X+padL, y0 = Y+padT+ch;
+
+  const aMax = (F_max - F0)/m_yi;  // 乙物 a 较大，约 10
+  const FmaxAxis = F_max;
+
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, Y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('F / N', x0-30, Y+padT-2);
+  ctx.fillText('a / m·s⁻²', x0+cw-50, y0+24);
+
+  // 刻度
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let k=0; k<=10; k+=2){
+    const px = x0 + (k/aMax)*cw;
+    if(px > x0+cw) break;
+    ctx.fillText(k.toString(), px-4, y0+15);
+    ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, y0+3); ctx.stroke();
+  }
+  for(let k=0; k<=14; k+=2){
+    const py = y0 - (k/FmaxAxis)*ch;
+    ctx.fillText(k.toString(), x0-22, py+3);
+    ctx.beginPath(); ctx.moveTo(x0-3, py); ctx.lineTo(x0, py); ctx.stroke();
+  }
+
+  // 共同纵截距标线（虚线水平在 F=F0）
+  const yIntercept = y0 - (F0/FmaxAxis)*ch;
+  ctx.strokeStyle = 'rgba(125,79,156,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(x0, yIntercept); ctx.lineTo(x0+cw, yIntercept);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#7d4f9c';
+  ctx.font = '900 10px "Cambria Math",serif';
+  ctx.fillText('共同纵截距 μmg = 4 N', x0+8, yIntercept-3);
+
+  // 甲线（斜率大 → m_jia=2 kg）：F = 4 + 2·a
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(x0, yIntercept);
+  // 终点：a = (F_max-F0)/m_jia = 10/2 = 5
+  const a_jia_end = (F_max-F0)/m_jia;
+  const px_jia_end = x0 + (a_jia_end/aMax)*cw;
+  ctx.lineTo(px_jia_end, y0 - (F_max/FmaxAxis)*ch);
+  ctx.stroke();
+
+  // 乙线（斜率小 → m_yi=1 kg）：F = 4 + 1·a
+  // 但等等：题目"甲乙图中斜率谁大"。由解析"m甲>m乙"且"斜率=m"，所以甲斜率大。
+  // 但视觉上两线哪条"斜率大"？斜率大 = 单位 a 增长更多 F = 在横 a 纵 F 图上线更陡（更竖立）
+  // 但实际题中 F-a 图横轴常为 F 纵轴为 a。让我重新看。
+  // 解析说"F-a 图像斜率为 m"。如果横轴是 F，纵轴是 a，则 a = (F-μmg)/m，斜率为 1/m。
+  // 然而这跟解析"斜率为 m"矛盾。所以横轴必为 a、纵轴为 F。
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(x0, yIntercept);
+  const a_yi_end = (F_max-F0)/m_yi;  // = 10
+  const px_yi_end = x0 + (a_yi_end/aMax)*cw;
+  ctx.lineTo(px_yi_end, y0 - (F_max/FmaxAxis)*ch);
+  ctx.stroke();
+
+  // 标线
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('甲（斜率大 = m甲=2 kg）', px_jia_end-150, y0-(F_max/FmaxAxis)*ch + 4);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('乙（斜率小 = m乙=1 kg）', px_yi_end-30, y0-(F_max/FmaxAxis)*ch + 14);
+
+  // 当前点（甲乙两条线在 F=state.F 处的 a）
+  const yNow = y0 - (state.F/FmaxAxis)*ch;
+  const px_jia_now = x0 + (state.a_jia/aMax)*cw;
+  const px_yi_now = x0 + (state.a_yi/aMax)*cw;
+  // 甲点
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(px_jia_now, yNow, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  // 乙点
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(px_yi_now, yNow, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 横线：当前 F
+  ctx.strokeStyle = 'rgba(63,111,143,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  ctx.moveTo(x0, yNow); ctx.lineTo(x0+cw, yNow);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 10px ui-monospace,monospace';
+  ctx.fillText(`F=${state.F.toFixed(2)} N`, x0+cw-72, yNow-3);
+}
+
+function drawObjects(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fdf9ee';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('两物体在水平桌面上 · 当前 F 下的加速度', X+12, Y+18);
+
+  const yJia = Y + 60, yYi = Y + h - 80;
+  // 桌面（甲）
+  drawTableScene(ctx, X+16, yJia, w-32, '甲', '#16613f', m_jia, mu_jia, state.F, state.a_jia, state.x_jia);
+  drawTableScene(ctx, X+16, yYi, w-32, '乙', '#c2611f', m_yi,  mu_yi,  state.F, state.a_yi,  state.x_yi);
+
+  // 比较条形
+  const cmpY = (yJia+yYi)/2 + 30;
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('a 比较 (相同 F):', X+16, cmpY-4);
+  // 甲条
+  const maxA = (F_max-F0)/m_yi;
+  const cmpW = w-150;
+  ctx.fillStyle = '#16613f';
+  ctx.fillRect(X+90, cmpY+2, cmpW * (state.a_jia/maxA), 10);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 10px ui-monospace,monospace';
+  ctx.fillText(`甲 a=${state.a_jia.toFixed(2)}`, X+16, cmpY+11);
+  // 乙条
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(X+90, cmpY+16, cmpW * (state.a_yi/maxA), 10);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillText(`乙 a=${state.a_yi.toFixed(2)}`, X+16, cmpY+25);
+
+  // 物理含义说明
+  ctx.fillStyle = '#7d4f9c';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('同 F 下乙 a 大（m 小）→ B 对：m甲>m乙', X+16, cmpY+44);
+  ctx.fillText('两线纵截距共点 → C 对：μmg 相同', X+16, cmpY+58);
+}
+
+function drawTableScene(ctx, X, Y, w, label, color, m, mu, F, a, xPos){
+  // 桌面
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(X, Y+30, w, 6);
+  ctx.fillStyle = '#9a8e72';
+  ctx.fillRect(X, Y+36, w, 4);
+
+  // 物块
+  const boxW = 30 + m*8;  // 大物块视觉
+  const boxH = 22;
+  const startX = X+10;
+  const maxShift = w - boxW - 80;
+  const shift = Math.min(xPos*8, maxShift);
+  const bx = startX + shift;
+  const by = Y+30 - boxH;
+  ctx.fillStyle = color;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx, by, boxW, boxH, 3);ctx.fill();}
+  else ctx.fillRect(bx, by, boxW, boxH);
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, bx + boxW/2 - 6, by + 15);
+
+  // 拉力 F 箭头（向右）
+  if(F > 0){
+    const arrLen = Math.min(50, F*3);
+    drawArrow(ctx, bx+boxW, by+boxH/2, bx+boxW+arrLen, by+boxH/2, '#3f6f8f', 2.5);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText(`F=${F.toFixed(1)}N`, bx+boxW+8, by+boxH/2 - 6);
+  }
+  // 摩擦力 f 箭头（向左）
+  const f_friction = mu*m*g;
+  const fLen = Math.min(40, f_friction*4);
+  drawArrow(ctx, bx, by+boxH/2, bx-fLen, by+boxH/2, '#b4442e', 2.2);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText(`f=${f_friction.toFixed(1)}`, bx-fLen-50, by+boxH/2 + 4);
+
+  // 标签
+  ctx.fillStyle = color;
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(`${label}: m=${m} kg, μ=${mu.toFixed(2)}`, X, Y+8);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText(`a=${a.toFixed(2)} m/s²`, X+w-90, Y+8);
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  const dx = x2-x1, dy = y2-y1, L = Math.sqrt(dx*dx+dy*dy);
+  if(L < 2) return;
+  const ax = dx/L, ay = dy/L;
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const head = 7;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - head*ax + head*0.6*ay, y2 - head*ay - head*0.6*ax);
+  ctx.lineTo(x2 - head*ax - head*0.6*ay, y2 - head*ay + head*0.6*ax);
+  ctx.closePath(); ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: 'F-a 图线 · 由斜率与截距判 m、μ',
+  subtitle: '水平拉力 F 推甲、乙物块沿桌面运动 · 由 F-a 直线斜率与纵截距判质量与摩擦因数关系',
+  deliv: {
+    title: 'F = m·a + μmg',
+    sub: '斜率=m · 纵截距=μmg · 答案 BC'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 6 题 · 6 分（多选）',
+    text: `用水平拉力使质量分别为 m_甲、m_乙 的甲、乙两物体在水平桌面上由静止开始沿直线运动，两物体与桌面间的动摩擦因数分别为 μ_甲 和 μ_乙。甲、乙两物体运动后，所受拉力 F 与其加速度 a 的关系图线如图所示（甲斜率较大，两线纵截距相同）。由图可知（&nbsp;&nbsp;&nbsp;&nbsp;）`,
+    subQuestions: [
+      'A. m_甲 &lt; m_乙',
+      'B. m_甲 &gt; m_乙',
+      'C. μ_甲·m_甲·g = μ_乙·m_乙·g',
+      'D. μ_甲 &gt; μ_乙'
+    ],
+    officialAnswer: 'BC · 由牛二 F − μmg = ma → F = m·a + μmg。F-a 直线斜率即 m，纵截距即 μmg。题图甲斜率大于乙 → m_甲 &gt; m_乙（B 对）；两线纵截距相同 → μ_甲·m_甲·g = μ_乙·m_乙·g（C 对）；由 m_甲 &gt; m_乙 与 μ_甲·m_甲 = μ_乙·m_乙 推得 μ_甲 &lt; μ_乙（D 错，A 错）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'F-a 直线方程', label_short:'方程',
+     formula_tex: String.raw`F - \mu m g = m a \;\Rightarrow\; F = m\cdot a + \mu m g \;\;(\text{斜率}=m,\;\text{纵截距}=\mu m g)`,
+     note:'拉力先克服摩擦力再产生加速度。F-a 图为直线，斜率给出质量、纵截距给出 μmg。'}
+  ],
+  stats: [
+    {label:'m_甲',           fmt:()=>`${m_jia} kg`},
+    {label:'m_乙',           fmt:()=>`${m_yi} kg`},
+    {label:'μ_甲',           fmt:()=>mu_jia.toFixed(2)},
+    {label:'μ_乙',           fmt:()=>mu_yi.toFixed(2)},
+    {label:'共同纵截距',     fmt:()=>F0+' N'},
+    {label:'当前 F',         fmt:s=>s.F.toFixed(2)+' N'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'m_甲 &lt; m_乙 不成立',  note:'由斜率大小：甲斜率大→m_甲>m_乙'},
+    {label_text:'B 对', value_text:'m_甲 &gt; m_乙',          note:'斜率=m，甲斜率大'},
+    {label_text:'C 对', value_text:'μmg 相等',                note:'两线纵截距相同'},
+    {label_text:'D 错', value_text:'μ_甲 &lt; μ_乙',          note:'由 μm 相等且 m_甲>m_乙 反推'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'甲（m=2 kg, μ=0.20）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'乙（m=1 kg, μ=0.40）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'共同纵截距 μmg=4 N'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'拉力 F'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'摩擦力 f=μmg'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023全国甲-Q6-Fa图线'
+});
+</script>
+</body>
+</html>

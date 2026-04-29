@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 16 题 · 两波干涉</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：两列同振幅同波长同波速、振动方向相同的横波，沿 +x、-x 反向传播
+// P 波（沿 +x，t=0 刚到原点 0，原点处质点向下振动）
+// Q 波（沿 -x，t=0 刚到 x=8m 处，那里质点向上振动）
+// 振幅 A=5cm，波长 λ=8m，波速 v=4m/s → 周期 T=2s
+// 频率相同、振动方向相反 → 干涉
+//
+// (1) t=0 时刻波形图
+// (2) 干涉极大/极小点：因两源波相位条件，加强点：到两源距离差 = (2n+1)·λ/2
+//     在 [0, 8] 范围（设 P 源在 0、Q 源在 8）：x ∈ [0,8]，加强 x=2,6
+//     极小点：x=0,4,8
+
+const A_amp = 5;       // cm
+const lambda = 8;      // m
+const v_wave = 4;      // m/s
+const T_period = lambda / v_wave;  // 2 s
+const omega = 2*Math.PI / T_period;
+const k_wave = 2*Math.PI / lambda;
+
+const x_min = -2;
+const x_max = 12;       // 显示范围
+
+const T_total = 8;       // 动画总时长（视觉）
+// 物理时间从 t_phys=0 开始，到 t_phys=2T 即 4s
+const t_phys_max = 2 * T_period;
+const slowFactor = T_total / t_phys_max;
+
+// P 波：在 t=0 刚传到 x=0；P 在 x=0 处自平衡向下振动
+// 即 y_P(0, 0) = 0, ∂y/∂t < 0
+// 沿 +x 传播：y_P(x, t) = -A·sin(ω(t - x/v))   for x <= v·t
+// 验证 ∂y/∂t at (0, 0) = -A·ω·cos(0) = -A·ω < 0 ✓
+function y_P(x, t){
+  const arg = omega * (t - x/v_wave);
+  if(t - x/v_wave < 0) return 0;        // 波尚未到达 x
+  return -A_amp * Math.sin(arg);
+}
+
+// Q 波：在 t=0 刚传到 x=lambda=8m；Q 在 x=8 处自平衡向上振动
+// 沿 -x 传播：y_Q(x, t) = A·sin(ω(t + (x - 8)/v))  for (x - 8)/v_neg < t
+// 即条件 8 - x <= v·t → x >= 8 - v·t
+// 验证 ∂y/∂t at (8, 0) = A·ω·cos(0) = A·ω > 0 ✓ (向上)
+function y_Q(x, t){
+  const tau = t - (8 - x)/v_wave;       // 等价于 x >= 8 - v·t 即 tau >= 0
+  if(tau < 0) return 0;
+  return A_amp * Math.sin(omega * tau);
+}
+
+function evalState(t){
+  const tt = Math.max(0, Math.min(t/slowFactor, t_phys_max));
+  return {tt, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawWavePanel(ctx, 14, 30, W-28, H*0.55-30, state);
+  drawAnalysis(ctx, 14, H*0.6, W-28, H*0.4-30, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('两横波 P(→) 与 Q(←) 同振幅同波长同波速 · 干涉极大/极小', 24, 22);
+
+  // 答案徽章
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-280, 12, 268, 28, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('极大 x=2,6 m · 极小 x=0,4,8 m', W-272, 30);
+}
+
+function drawWavePanel(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const padL = 50, padR = 30, padT = 30, padB = 36;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  const x0 = X + padL;
+  const yMid = Y + padT + ch/2;
+  const sx = cw / (x_max - x_min);
+  const sy_amp = (ch/2) / (A_amp * 2.6);   // 显示空间稍大于振幅
+
+  const toX = xp => x0 + (xp - x_min)*sx;
+  const toY = yp => yMid - yp*sy_amp;
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(`两波形 · 当前 t=${state.tt.toFixed(2)} s（T=${T_period}s）`, X+12, Y+18);
+
+  // x 轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(toX(x_min), yMid); ctx.lineTo(toX(x_max), yMid);
+  ctx.stroke();
+  // 0 点垂直轴
+  ctx.beginPath();
+  ctx.moveTo(toX(0), Y + padT); ctx.lineTo(toX(0), Y + padT + ch);
+  ctx.stroke();
+  // 刻度
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let xv = x_min; xv <= x_max; xv += 2){
+    const px = toX(xv);
+    ctx.beginPath(); ctx.moveTo(px, yMid); ctx.lineTo(px, yMid+4); ctx.stroke();
+    ctx.fillText(xv + 'm', px-8, yMid+16);
+  }
+  ctx.fillText('y/cm', toX(x_min)-32, Y+padT-2);
+  ctx.fillText('x/m',  toX(x_max)+4,  yMid+4);
+
+  // 振幅刻度
+  for(let yv = -A_amp; yv <= A_amp; yv += 5){
+    if(yv === 0) continue;
+    const py = toY(yv);
+    ctx.fillText(yv.toString(), toX(x_min)-22, py+3);
+    ctx.beginPath(); ctx.moveTo(toX(x_min)-3, py); ctx.lineTo(toX(x_min), py); ctx.stroke();
+  }
+
+  // 干涉点标记（在 t=0 之前显示作为参考）
+  // 极大 x=2, 6
+  ['#16613f', '#16613f'].forEach((col, i) => {
+    const xx = [2, 6][i];
+    const px = toX(xx);
+    ctx.strokeStyle = 'rgba(22,97,63,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(px, Y+padT); ctx.lineTo(px, Y+padT+ch); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 9px "Noto Sans SC",sans-serif';
+    ctx.fillText(`极大 x=${xx}`, px - 25, Y+padT+10);
+  });
+  // 极小 x=0, 4, 8
+  [0, 4, 8].forEach(xx => {
+    const px = toX(xx);
+    ctx.strokeStyle = 'rgba(180,68,46,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(px, Y+padT); ctx.lineTo(px, Y+padT+ch); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 9px "Noto Sans SC",sans-serif';
+    ctx.fillText(`极小 x=${xx}`, px + 4, Y+padT+ch-4);
+  });
+
+  // 画 P 波（蓝色）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  let started = false;
+  const N = 200;
+  for(let i = 0; i <= N; i++){
+    const xp = x_min + (i/N)*(x_max - x_min);
+    const yp = y_P(xp, state.tt);
+    const px = toX(xp), py = toY(yp);
+    if(!started){ ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 画 Q 波（橙色）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  started = false;
+  for(let i = 0; i <= N; i++){
+    const xp = x_min + (i/N)*(x_max - x_min);
+    const yp = y_Q(xp, state.tt);
+    const px = toX(xp), py = toY(yp);
+    if(!started){ ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 画合成波（紫色，粗）
+  ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  started = false;
+  for(let i = 0; i <= N; i++){
+    const xp = x_min + (i/N)*(x_max - x_min);
+    const yp = y_P(xp, state.tt) + y_Q(xp, state.tt);
+    const px = toX(xp), py = toY(yp);
+    if(!started){ ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 图例
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('P 波（→）', X + w - 100, Y + padT + 10);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('Q 波（←）', X + w - 100, Y + padT + 26);
+  ctx.fillStyle = '#7d4f9c';
+  ctx.fillText('合 P+Q', X + w - 100, Y + padT + 42);
+}
+
+function drawAnalysis(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fdf9ee';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('干涉分析（频率相同 + 振动方向相反 → 反相叠加）', X+12, Y+18);
+
+  // 公式块
+  let yy = Y + 38;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('两波在 (x, t) 处叠加：y = y_P + y_Q', X+12, yy); yy += 18;
+  ctx.fillText('两源同频反向相位 → 加强（极大）：到两源距离差 = (2n+1)·λ/2', X+12, yy); yy += 18;
+  ctx.fillText('减弱（极小）：到两源距离差 = n·λ', X+12, yy); yy += 22;
+
+  // 数值
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('设 P 源在 x=0、Q 源在 x=8m，λ=8m：', X+12, yy); yy += 20;
+
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('极大点（加强）：x = 2 m, 6 m', X+12, yy); yy += 18;
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText('极小点（减弱）：x = 0 m, 4 m, 8 m', X+12, yy); yy += 18;
+
+  // 周期 / 频率信息
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const tNorm = state.tt / T_period;
+  ctx.fillText(`波长 λ=${lambda} m, 振幅 A=${A_amp} cm, 波速 v=${v_wave} m/s, 周期 T=${T_period}s`, X+w*0.5, Y+38);
+  ctx.fillText(`当前 t/T = ${tNorm.toFixed(2)}`, X+w*0.5, Y+58);
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算题 · 第 16 题（选修 3-4）',
+  title: '两横波相向传播 · 干涉极大/极小',
+  subtitle: 'P 沿 +x、Q 沿 -x 传播；同振幅 5 cm、波长 8 m、波速 4 m/s；t=0 时 P 到 x=0 向下振动，Q 到 x=8 向上振动',
+  deliv: {
+    title: '反相叠加 · 极大/极小',
+    sub: '极大 x=2,6 m · 极小 x=0,4,8 m'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 16 题（选修 3-4）',
+    text: `分别沿 x 轴正向和负向传播的两列简谐横波 P、Q 的振动方向相同，振幅均为 5 cm，波长均为 8 m，波速均为 4 m/s。t=0 时刻，P 波刚好传播到坐标原点处，该处的质点将自平衡位置向下振动；Q 波刚好传到 x=8 m 处，该处的质点将自平衡位置向上振动。经过一段时间后，两列波相遇。`,
+    subQuestions: [
+      '（1）画出 P、Q 两列波在 t=0 时刻的波形图（P 波用虚线，Q 波用实线）；',
+      '（2）求出图示范围内的介质中，因两列波干涉而振动振幅最大和振幅最小的平衡位置。'
+    ],
+    officialAnswer: '（1）t=0 时 P 在 x=0 处向下振动且沿 +x 传播，由"上下坡"法 P 波形从 x=0 出发向 -x 方向延伸，振幅由 0 增至 +5 在 x=-2 处波峰、回到 0 在 x=-4、-5 在 x=-6 波谷、回 0 在 x=-8（一个完整波长）。Q 波从 x=8 出发向 +x 方向延伸的镜像类似。（2）两波相遇区干涉：因 P 在 x=0 向下、Q 在 x=8 向上 — 两源初始相位相反。加强条件：到两源距离差 |d_P - d_Q| = (2n+1)·λ/2 → x=2,6 m；减弱条件：差 = n·λ → x=0, 4, 8 m。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① 两波公式', label_short:'①',
+     formula_tex: String.raw`y_P(x,t) = -A\sin\!\big(\omega(t - x/v)\big),\quad y_Q(x,t) = A\sin\!\big(\omega(t + (x-8)/v)\big)`,
+     note:'P 沿 +x 传播、初始向下；Q 沿 -x 传播、初始向上。'},
+    {label:'② 周期 / 波长 / 频率', label_short:'②',
+     formula_tex: String.raw`\lambda = 8\,\text{m},\; v = 4\,\text{m/s} \;\Rightarrow\; T = \dfrac{\lambda}{v} = 2\,\text{s},\; f = \dfrac{1}{T} = 0.5\,\text{Hz}`,
+     note:'两波同频率同波长同波速 → 满足干涉条件。'},
+    {label:'③ 加强（极大）条件', label_short:'③',
+     formula_tex: String.raw`|d_P - d_Q| = (2n+1)\dfrac{\lambda}{2} \;\Rightarrow\; x_{\max} = 2,\, 6\,\text{m}`,
+     note:'两源相位差 π → 距离差为半波长奇数倍时加强。'},
+    {label:'④ 减弱（极小）条件', label_short:'④',
+     formula_tex: String.raw`|d_P - d_Q| = n\,\lambda \;\Rightarrow\; x_{\min} = 0,\, 4,\, 8\,\text{m}`,
+     note:'距离差为整数波长时减弱（节点）。'}
+  ],
+  stats: [
+    {label:'振幅 A',     fmt:()=>`${A_amp} cm`},
+    {label:'波长 λ',     fmt:()=>`${lambda} m`},
+    {label:'波速 v',     fmt:()=>`${v_wave} m/s`},
+    {label:'周期 T',     fmt:()=>`${T_period} s`},
+    {label:'极大点',     fmt:()=>`x=2, 6 m`},
+    {label:'极小点',     fmt:()=>`x=0, 4, 8 m`}
+  ],
+  conclusions: [
+    {label_text:'(1)',     value_text:'见波形图（紫色合成）',  note:'P 蓝虚线 + Q 橙实线 + 合成紫'},
+    {label_text:'(2) 极大', value_text:'x = 2, 6 m',           note:'到两源距离差 (2n+1)·λ/2'},
+    {label_text:'(2) 极小', value_text:'x = 0, 4, 8 m',         note:'到两源距离差 n·λ'},
+    {label_text:'相位关系', value_text:'两源反相',              note:'P 向下 + Q 向上 → π 相位差'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'P 波（沿 +x 传播）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'Q 波（沿 -x 传播）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'合 P+Q（紫粗）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'极大点 x=2, 6 m'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'极小点 x=0, 4, 8 m'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:true},
+  fileName: '2023全国甲-Q16-两波干涉'
+});
+</script>
+</body>
+</html>

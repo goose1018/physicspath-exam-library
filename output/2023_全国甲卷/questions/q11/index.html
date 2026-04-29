@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 11 题 · 弹簧平抛反弹</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// (1) 弹簧释放：E_p = ½ m v₀² → v₀ = √(2E_p/m)
+// (2) 平抛 + 碰地（垂直分量变为 1/2）+ 反弹高度 h
+//     落地前 v_y² = 2gH，反弹后 v_y' = v_y/2，h = v_y'²/(2g) = v_y²/(8g) → v_y = 2√(2gh)
+//     桌面高 H = v_y²/(2g) = 4h
+//     落地时间 t_fall = v_y/g = 2√(2h/g)
+//     水平距离 d = v₀·t_fall = √(2E_p/m) · 2√(2h/g) = 4·√(E_p·h/(mg))
+// 取参数：m=0.5 kg, E_p=4 J, g=10, h=1 m
+//   v₀=4 m/s, v_y=8.94 m/s, H=4 m, t_fall=0.894 s, d=3.578 m
+
+const m = 0.5;
+const Ep = 4;
+const g = 10;
+const h_bounce = 1;        // 反弹最大高度（题中给定）
+const v0 = Math.sqrt(2*Ep/m);          // 4 m/s
+const v_y_drop = 2*Math.sqrt(2*g*h_bounce);  // 8.944 m/s
+const H_table = v_y_drop*v_y_drop/(2*g);     // 4 m
+const t_fall = v_y_drop/g;                    // 0.894 s
+const d_first = v0 * t_fall;                  // 3.578 m
+const v_y_bounce = v_y_drop/2;                // 4.472 m/s
+const t_up = v_y_bounce/g;                    // 0.447 s
+
+// 阶段时间（动画归一化）
+const T_total = 8;
+const T1 = 1.6;   // 弹簧释放（视觉）
+const T2 = 3.2;   // 平抛（约 1.6 s 视觉对应 0.894 物理）
+const T3 = 1.4;   // 反弹上升
+const T4 = 1.4;   // 反弹下降（再次落地后停止）
+
+const tEnd1 = T1;
+const tEnd2 = T1 + T2;
+const tEnd3 = T1 + T2 + T3;
+const tEnd4 = T1 + T2 + T3 + T4;
+
+function evalState(t){
+  const tt = Math.max(0, Math.min(t, tEnd4));
+  let phase, x, y_phys, vx, vy;
+  // x: 水平（向右为正），y_phys: 高度（地面为 0，桌面 = H_table）
+
+  if(tt <= tEnd1){
+    // 阶段 1：弹簧释放（在桌面上由弹簧加速到 v0）
+    phase = 1;
+    const f = tt/T1;
+    // 简化：加速度恒定，使最末速度恰为 v0；位移从压缩点 -L_compress 到 0
+    const v = v0 * f;
+    x = -1.0 + 1.0*f;     // 在桌面 x=-1 → 0（左端为压缩位置）
+    y_phys = H_table;     // 在桌面上
+    vx = v; vy = 0;
+  } else if(tt <= tEnd2){
+    // 阶段 2：平抛
+    phase = 2;
+    const tau = (tt - tEnd1) / T2 * t_fall;  // 物理时间 0..t_fall
+    x = v0 * tau;
+    y_phys = H_table - 0.5*g*tau*tau;
+    vx = v0;
+    vy = -g*tau;
+  } else if(tt <= tEnd3){
+    // 阶段 3：反弹上升（v_y_bounce 向上，水平 v0 不变）
+    phase = 3;
+    const tau = (tt - tEnd2) / T3 * t_up;     // 物理时间 0..t_up
+    x = d_first + v0 * tau;
+    y_phys = v_y_bounce*tau - 0.5*g*tau*tau;
+    vx = v0;
+    vy = v_y_bounce - g*tau;
+  } else {
+    // 阶段 4：反弹下降到再次落地
+    phase = 4;
+    const tau = (tt - tEnd3) / T4 * t_up;     // 物理 0..t_up
+    x = d_first + v0*t_up + v0*tau;
+    // y_phys 从 h_bounce 自由下落
+    y_phys = h_bounce - 0.5*g*tau*tau;
+    vx = v0;
+    vy = -g*tau;
+  }
+  return {phase, tt, x, y_phys, vx, vy};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawWorld(ctx, 14, 30, W-28, H-50, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('弹簧释放 → 平抛 → 碰地（v_y → ½ v_y）→ 反弹至 h', 24, 22);
+
+  if(state.phase >= 2){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-260, 12, 248, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('v₀=√(2E_p/m)=4 · d=4√(E_p·h/(mg))=3.58 m', W-256, 30);
+  }
+}
+
+function drawWorld(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const padL = 60, padR = 30, padT = 40, padB = 36;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  // 物理坐标范围：x ∈ [-1.5, d_first + d_bounce + 0.5]，y ∈ [0, H_table+0.5]
+  const xMin = -1.5;
+  const xMax = d_first + v0*t_up*2 + 0.5;    // 包含反弹运动
+  const yMin = 0;
+  const yMax = H_table + 0.5;
+  const xRange = xMax - xMin;
+  const yRange = yMax - yMin;
+  const sx = cw / xRange;
+  const sy = ch / yRange;
+  // 等比例（保正确几何）
+  const s = Math.min(sx, sy);
+  const x0 = X + padL;
+  const groundY = Y + padT + s*yRange;  // y_phys=0 在 canvas 这里
+
+  const toC = (xp, yp) => ({x: x0 + (xp - xMin)*s, y: groundY - yp*s});
+
+  // 地面
+  const ground_left = toC(xMin, 0);
+  const ground_right = toC(xMax, 0);
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(ground_left.x, ground_left.y, ground_right.x - ground_left.x, 8);
+  ctx.fillStyle = '#86868b';
+  for(let xi = ground_left.x + 6; xi < ground_right.x - 6; xi += 14){
+    ctx.fillRect(xi, ground_left.y + 8, 6, 4);
+  }
+
+  // 桌面（x_phys 在 [-1.5, 0.2] 之间，高度 H_table）
+  const tbl_left = toC(-1.5, H_table);
+  const tbl_right = toC(0.2, H_table);
+  ctx.fillStyle = '#9aa19c';
+  ctx.fillRect(tbl_left.x, tbl_left.y, tbl_right.x - tbl_left.x, 6);
+  // 桌脚
+  ctx.fillStyle = '#9aa19c';
+  ctx.fillRect(tbl_left.x + 8, tbl_left.y + 6, 8, groundY - (tbl_left.y + 6));
+  ctx.fillRect(tbl_right.x - 16, tbl_left.y + 6, 8, groundY - (tbl_left.y + 6));
+
+  // 墙（x_phys = -1.5）
+  ctx.fillStyle = '#5d6068';
+  const wall = toC(-1.5, H_table);
+  ctx.fillRect(wall.x - 12, tbl_left.y - 30, 12, 36);
+  // 阴影
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  for(let i=0; i<6; i++){
+    ctx.fillRect(wall.x - 16, tbl_left.y - 30 + i*6, 4, 3);
+  }
+
+  // 弹簧
+  drawSpring(ctx, toC, state);
+
+  // 桌面高度标尺 H = 4h
+  const yMid = toC(-0.3, H_table/2);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  const yTblTop = toC(-0.3, H_table);
+  const yGround = toC(-0.3, 0);
+  ctx.beginPath();
+  ctx.moveTo(yTblTop.x, yTblTop.y); ctx.lineTo(yTblTop.x, yGround.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('H = 4h', yMid.x - 28, yMid.y + 4);
+
+  // 反弹高度标尺 h
+  const xPeak = d_first + v0*t_up;
+  const peakC = toC(xPeak, h_bounce);
+  const peakBase = toC(xPeak, 0);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(peakC.x + 16, peakC.y); ctx.lineTo(peakC.x + 16, peakBase.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('h', peakC.x + 20, (peakC.y + peakBase.y)/2 + 4);
+
+  // 第一次落地点
+  const land1 = toC(d_first, 0);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(land1.x, land1.y, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('落地点 A', land1.x - 26, land1.y + 18);
+
+  // 飞出点
+  const launch = toC(0, H_table);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(launch.x, launch.y, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('飞出点 P', launch.x - 8, launch.y - 8);
+
+  // 水平距离 d 标尺
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(launch.x, land1.y + 12); ctx.lineTo(land1.x, land1.y + 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(launch.x, land1.y + 8); ctx.lineTo(launch.x, land1.y + 16);
+  ctx.moveTo(land1.x, land1.y + 8); ctx.lineTo(land1.x, land1.y + 16); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('d ≈ 3.58 m', (launch.x + land1.x)/2 - 26, land1.y + 28);
+
+  // 完整轨迹（虚线）
+  drawFullTrajectory(ctx, toC);
+
+  // 已走过轨迹（实线）
+  drawWalkedTrajectory(ctx, toC, state);
+
+  // 当前球
+  const ballC = toC(state.x, state.y_phys);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(ballC.x, ballC.y, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fdf3e6'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 速度矢量
+  if(Math.abs(state.vx) + Math.abs(state.vy) > 0.1){
+    const vScale = 4;
+    drawArrow(ctx, ballC.x, ballC.y, ballC.x + state.vx*vScale, ballC.y - state.vy*vScale, '#7d4f9c', 2.4);
+  }
+
+  // 阶段标
+  const phaseTxt = state.phase===1 ? '阶段 ① 弹簧释放（机械能守恒）' :
+                   state.phase===2 ? '阶段 ② 平抛（v_x=v₀, v_y=gτ）' :
+                   state.phase===3 ? '阶段 ③ 反弹上升（v_y\' = v_y/2 起步）' :
+                                     '阶段 ④ 反弹下降';
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTxt, X+12, Y+22);
+
+  // 数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px ui-monospace,monospace';
+  const dataX = X + w - 200;
+  ctx.fillText(`v_x = ${state.vx.toFixed(2)} m/s`, dataX, Y+22);
+  ctx.fillText(`v_y = ${state.vy.toFixed(2)} m/s`, dataX, Y+38);
+}
+
+function drawSpring(ctx, toC, state){
+  const xWall = -1.5;
+  let xBall;
+  if(state.phase === 1){
+    xBall = state.x;
+  } else {
+    xBall = 0.0; // 弹簧已恢复自然长度
+  }
+  // 弹簧从墙端 (-1.5, H_table) 到球端 (xBall, H_table)
+  const start = toC(xWall, H_table + 0.05);
+  const end   = toC(xBall, H_table + 0.05);
+  const len = end.x - start.x;
+  if(len < 4) return;
+  const N = 14;
+  const amp = 6;
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  for(let i=1; i<=N; i++){
+    const px = start.x + (i/N)*len;
+    const py = start.y + ((i % 2 === 0) ? -amp : amp);
+    ctx.lineTo(px, py);
+  }
+  ctx.lineTo(end.x, end.y);
+  ctx.stroke();
+}
+
+function drawFullTrajectory(ctx, toC){
+  ctx.strokeStyle = 'rgba(40,40,40,0.18)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+  // 平抛段
+  ctx.beginPath();
+  let started = false;
+  const N = 60;
+  for(let i=0; i<=N; i++){
+    const tau = (i/N)*t_fall;
+    const xp = v0*tau;
+    const yp = H_table - 0.5*g*tau*tau;
+    const c = toC(xp, yp);
+    if(!started){ ctx.moveTo(c.x, c.y); started = true; } else ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
+
+  // 反弹弧（上升 + 下降）
+  ctx.beginPath();
+  started = false;
+  for(let i=0; i<=N; i++){
+    const tau = (i/N)*(2*t_up);
+    const xp = d_first + v0*tau;
+    const yp = v_y_bounce*tau - 0.5*g*tau*tau;
+    const c = toC(xp, yp);
+    if(!started){ ctx.moveTo(c.x, c.y); started = true; } else ctx.lineTo(c.x, c.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawWalkedTrajectory(ctx, toC, state){
+  // 阶段 2：实线橙色
+  if(state.phase >= 2){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    let started = false;
+    const tEnd_phys = state.phase === 2 ?
+      ((state.tt - tEnd1) / T2 * t_fall) : t_fall;
+    const N = 40;
+    for(let i=0; i<=N; i++){
+      const tau = (i/N)*tEnd_phys;
+      const xp = v0*tau;
+      const yp = H_table - 0.5*g*tau*tau;
+      const c = toC(xp, yp);
+      if(!started){ ctx.moveTo(c.x, c.y); started = true; } else ctx.lineTo(c.x, c.y);
+    }
+    ctx.stroke();
+  }
+  // 阶段 3-4：实线蓝色
+  if(state.phase >= 3){
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    let started = false;
+    let tEnd_phys;
+    if(state.phase === 3) tEnd_phys = (state.tt - tEnd2) / T3 * t_up;
+    else if(state.phase === 4) tEnd_phys = t_up + (state.tt - tEnd3) / T4 * t_up;
+    else tEnd_phys = 2*t_up;
+    const N = 40;
+    for(let i=0; i<=N; i++){
+      const tau = (i/N)*tEnd_phys;
+      const xp = d_first + v0*tau;
+      const yp = v_y_bounce*tau - 0.5*g*tau*tau;
+      const c = toC(xp, yp);
+      if(!started){ ctx.moveTo(c.x, c.y); started = true; } else ctx.lineTo(c.x, c.y);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  const dx = x2-x1, dy = y2-y1, L = Math.sqrt(dx*dx+dy*dy);
+  if(L < 2) return;
+  const ax = dx/L, ay = dy/L;
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const head = 7;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - head*ax + head*0.6*ay, y2 - head*ay - head*0.6*ax);
+  ctx.lineTo(x2 - head*ax - head*0.6*ay, y2 - head*ay + head*0.6*ax);
+  ctx.closePath(); ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算题 · 第 11 题',
+  title: '弹簧 · 平抛 · 反弹（机械能 + 动量）',
+  subtitle: '弹簧推球 → 离开桌面平抛 → 落地后竖直分量减半 → 反弹高度 h',
+  deliv: {
+    title: 'v₀ = √(2E_p/m)，d = 4√(E_p·h/(mg))',
+    sub: '取 m=0.5, E_p=4, g=10, h=1 → v₀=4 m/s, d≈3.58 m'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 11 题',
+    text: `如图，光滑水平桌面上有一轻质弹簧，其一端固定在墙上。用质量为 m 的小球压弹簧的另一端，使弹簧的弹性势能为 E_p。释放后，小球在弹簧作用下从静止开始在桌面上运动，与弹簧分离后，从桌面水平飞出。小球与水平地面碰撞后瞬间，其平行于地面的速度分量与碰撞前瞬间相等；垂直于地面的速度分量大小变为碰撞前瞬间的 <b>1/2</b>。小球与地面碰撞后，弹起的最大高度为 h。重力加速度大小为 g，忽略空气阻力。求：`,
+    subQuestions: [
+      '（1）小球离开桌面时的速度大小；',
+      '（2）小球第一次落地点距桌面上其飞出点的水平距离。'
+    ],
+    officialAnswer: '（1）v₀ = √(2E_p/m)；（2）d = 4√(E_p·h/(mg))。【推导】(1) E_p = ½mv₀² → v₀=√(2E_p/m)。(2) 落地前 v_y² = 2gH（H 桌面高），反弹后 v_y\' = v_y/2，反弹高度 h = v_y\'²/(2g) = v_y²/(8g) → v_y = 2√(2gh) → H = v_y²/(2g) = 4h；t_fall = v_y/g = 2√(2h/g)；d = v₀·t_fall = √(2E_p/m)·2√(2h/g) = 4√(E_p·h/(mg))。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① 弹簧释放', label_short:'①',
+     formula_tex: String.raw`E_p = \tfrac{1}{2}m v_0^2 \;\Rightarrow\; v_0 = \sqrt{\dfrac{2E_p}{m}}`,
+     note:'光滑桌面 + 轻弹簧，机械能从弹性势能完全转为小球动能。'},
+    {label:'② 平抛', label_short:'②',
+     formula_tex: String.raw`x = v_0 \tau,\; y = H - \tfrac{1}{2}g\tau^2 \;\Rightarrow\; t_{fall} = \sqrt{\dfrac{2H}{g}}`,
+     note:'水平方向匀速 v₀，竖直方向自由落体到地面。'},
+    {label:'③ 反弹（已知 h，求 H）', label_short:'③',
+     formula_tex: String.raw`v_y' = \tfrac{1}{2}v_y,\; h = \dfrac{(v_y')^2}{2g} = \dfrac{v_y^2}{8g} \;\Rightarrow\; v_y = 2\sqrt{2gh},\; H = 4h`,
+     note:'由反弹最大高度 h 反推落地前竖直分量 v_y 与桌面高 H。'},
+    {label:'④ 水平距离 d', label_short:'④',
+     formula_tex: String.raw`d = v_0 \cdot t_{fall} = \sqrt{\dfrac{2E_p}{m}} \cdot 2\sqrt{\dfrac{2h}{g}} = 4\sqrt{\dfrac{E_p\,h}{m\,g}}`,
+     note:'第一次落地水平距离 = 平抛初速度 × 落地时间。'}
+  ],
+  stats: [
+    {label:'m',           fmt:()=>`${m} kg`},
+    {label:'E_p',         fmt:()=>`${Ep} J`},
+    {label:'h',           fmt:()=>`${h_bounce} m`},
+    {label:'v₀',          fmt:()=>v0.toFixed(2)+' m/s'},
+    {label:'桌面高 H=4h', fmt:()=>H_table+' m'},
+    {label:'落地距离 d',  fmt:()=>d_first.toFixed(2)+' m'}
+  ],
+  conclusions: [
+    {label_text:'（1）',  value_text:'v₀ = √(2E_p/m) = 4 m/s', note:'弹性势能 → 动能（光滑桌面）'},
+    {label_text:'（2）',  value_text:'d = 4√(E_p·h/(mg)) ≈ 3.58 m', note:'平抛初速度 × 落地时间'},
+    {label_text:'桌面高', value_text:'H = 4h = 4 m',                 note:'由反弹高度 h 反推'},
+    {label_text:'落地 v_y', value_text:'v_y = 2√(2gh) ≈ 8.94 m/s',  note:'反弹后变为 v_y/2 = 4.47'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'弹簧'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'平抛轨迹'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'反弹轨迹'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'circle'}, text:'小球'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'速度矢量'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:true},
+  fileName: '2023全国甲-Q11-弹簧平抛反弹'
+});
+</script>
+</body>
+</html>

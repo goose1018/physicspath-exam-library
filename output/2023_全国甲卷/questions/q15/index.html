@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 15 题 · 棱镜双色折射</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 等腰三角形棱镜（钝顶角 A=120°，便于平行 bc 的光从 ab 进入后能到 bc 反射）
+// a 顶部，b 左下，c 右下，bc 水平
+// 平行 bc 的光从 ab 射入，bc 反射，ac 出射，分两色：甲下方 / 乙上方
+// 已知"甲在乙下方" → 甲折射率小（n_甲<n_乙）
+// A 对：n_甲 小 → λ_甲 长（折射率随 1/λ 单调）
+// B 错：n_甲 小 → 频率低（频率 ∝ n 在折射时不变，但 n 与 f 同向单调）
+// C 对：v=c/n，n_甲 小 → v_甲 大
+// D 错：n_甲 < n_乙
+// E 对：bc 入射角 = 与 bc 法线（竖直）的夹角 = A/2 - r（钝顶时为另公式），n_甲 小 → r_甲 大 → 入射角...
+//   推导：光线在棱镜内方向相对水平的"朝下倾角" α = 90° - β - r = A/2 - r（β=ab 与水平的角=（180-A)/2）
+//   bc 入射角 = 与竖直 (n_bc)的夹角 = 90° - α = 90° - (A/2 - r) = 90° - A/2 + r
+//   n_甲 小 → r_甲 大 → bc 入射角 甲 大 ✓ E 对
+// 答案 ACE
+
+const A_deg = 120;          // 顶角 A
+const beta_deg = (180 - A_deg)/2;   // ∠abc = β = 30°
+const beta = beta_deg * Math.PI/180;
+
+// 棱镜顶点（归一坐标，bc 长 = 2，半 c 宽 = 1）
+// a 在顶部，b/c 对称
+const a_h = 1 / Math.tan(60*Math.PI/180);  // h = w/tan(60°) = 1/√3 ≈ 0.577
+const a_pt = {x: 0, y: a_h};
+const b_pt = {x: -1, y: 0};
+const c_pt = {x: 1, y: 0};
+
+// 入射光：从 P_入 (ab 中点附近) 水平向右射入
+const P_in = {x: -0.5, y: a_h * 0.5};   // ab 上 t=0.5 处
+
+// 折射率（甲 < 乙 → 甲在乙下方）
+const n_jia = 1.5;   // 甲（红，长波）
+const n_yi  = 1.7;   // 乙（蓝，短波）
+
+// 入射角（光线水平 vs ab 外法线）
+const theta_in = (90 - beta_deg) * Math.PI/180;   // 60°
+// 折射角
+const r_jia = Math.asin(Math.sin(theta_in)/n_jia);
+const r_yi  = Math.asin(Math.sin(theta_in)/n_yi);
+
+// ab 内法线（朝棱镜内 = 右下方向）= (sin β, -cos β)
+const n_ab_in = {x: Math.sin(beta), y: -Math.cos(beta)};
+// ab 切向（沿 b→a）= (cos β, sin β)
+const ab_tan = {x: Math.cos(beta), y: Math.sin(beta)};
+
+function refractDir(r){
+  // 折射方向 = cos r·内法线 + sin r·切向
+  const cr = Math.cos(r), sr = Math.sin(r);
+  return {x: cr*n_ab_in.x + sr*ab_tan.x, y: cr*n_ab_in.y + sr*ab_tan.y};
+}
+
+const dir_jia = refractDir(r_jia);
+const dir_yi  = refractDir(r_yi);
+
+// 求与 bc 边 (y=0) 的交点
+function intersectBC(p, d){
+  const t = -p.y/d.y;
+  return {x: p.x + t*d.x, y: 0, t};
+}
+const bc_jia = intersectBC(P_in, dir_jia);
+const bc_yi  = intersectBC(P_in, dir_yi);
+
+// 反射后方向（关于 bc 法线对称：vy → -vy）
+const dir_jia_ref = {x: dir_jia.x, y: -dir_jia.y};
+const dir_yi_ref  = {x: dir_yi.x,  y: -dir_yi.y};
+
+// 求与 ac 边的交点
+// ac 从 a(0, a_h) 到 c(1, 0)，方程 y = a_h·(1 - x)，即 a_h·x + y = a_h（x ∈ [0, 1]）
+function intersectAC(p, d){
+  // a_h·(p.x + t·d.x) + (p.y + t·d.y) = a_h
+  // t·(a_h·d.x + d.y) = a_h - a_h·p.x - p.y
+  const t = (a_h - a_h*p.x - p.y) / (a_h*d.x + d.y);
+  return {x: p.x + t*d.x, y: p.y + t*d.y, t};
+}
+const ac_jia = intersectAC(bc_jia, dir_jia_ref);
+const ac_yi  = intersectAC(bc_yi,  dir_yi_ref);
+
+// 验证：ac_jia.y 应 < ac_yi.y（甲在乙下方）
+const isJiaLower = ac_jia.y < ac_yi.y;
+
+const T_total = 7;
+function evalState(t){
+  const tNorm = Math.max(0, Math.min(t/T_total, 1));
+  // 入射段（光从画布左到 P_in）和棱镜内两段一起插值
+  // 简化：tNorm 0~0.15 = 入射；0.15~0.55 = 棱镜内 P_in→bc；0.55~1.0 = bc→ac
+
+  let progress;  // 当前在哪段
+  let p_jia, p_yi;
+  if(tNorm < 0.15){
+    // 入射段（甲乙同路径，从远处到 P_in）
+    const f = tNorm/0.15;
+    const start = {x: P_in.x - 1.5, y: P_in.y};
+    p_jia = {x: start.x + f*(P_in.x - start.x), y: start.y};
+    p_yi  = p_jia;
+    progress = 0;
+  } else if(tNorm < 0.55){
+    // 棱镜内：P_in → bc
+    const f = (tNorm - 0.15)/0.40;
+    p_jia = {x: P_in.x + f*(bc_jia.x - P_in.x), y: P_in.y + f*(bc_jia.y - P_in.y)};
+    p_yi  = {x: P_in.x + f*(bc_yi.x  - P_in.x), y: P_in.y + f*(bc_yi.y  - P_in.y)};
+    progress = 1;
+  } else {
+    // 棱镜内：bc → ac
+    const f = (tNorm - 0.55)/0.45;
+    p_jia = {x: bc_jia.x + f*(ac_jia.x - bc_jia.x), y: bc_jia.y + f*(ac_jia.y - bc_jia.y)};
+    p_yi  = {x: bc_yi.x  + f*(ac_yi.x  - bc_yi.x ), y: bc_yi.y  + f*(ac_yi.y  - bc_yi.y )};
+    progress = 2;
+  }
+
+  return {tNorm, progress, p_jia, p_yi, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H_canvas = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H_canvas);
+
+  drawPrism(ctx, 14, 30, W*0.62-20, H_canvas-50, state);
+  drawSidebar(ctx, W*0.62, 30, W*0.38-14, H_canvas-50, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('等腰棱镜（A=120°）· 平行 bc 入射 · bc 反射 · ac 出射 · 甲下乙上', 24, 22);
+
+  if(state.progress >= 2){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 208, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 ACE · n_甲<n_乙 推导', W-208, 30);
+  }
+}
+
+function drawPrism(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const padL = 30, padR = 30, padT = 40, padB = 32;
+  const cw = w - padL - padR, ch = h - padT - padB;
+  // 棱镜物理坐标：x ∈ [-1.6, 1.6], y ∈ [-0.1, 0.7]
+  const xMin = -1.6, xMax = 1.6;
+  const yMin = -0.1, yMax = 0.7;
+  const sx = cw / (xMax - xMin);
+  const sy = ch / (yMax - yMin);
+  const s = Math.min(sx, sy);
+  const x0 = X + padL + (cw - s*(xMax - xMin))/2;
+  const groundY = Y + padT + s*(yMax - yMin);
+  const toC = (xp, yp) => ({x: x0 + (xp - xMin)*s, y: groundY - (yp - yMin)*s});
+
+  // 棱镜本体（半透明蓝色）
+  const aC = toC(a_pt.x, a_pt.y);
+  const bC = toC(b_pt.x, b_pt.y);
+  const cC = toC(c_pt.x, c_pt.y);
+  ctx.fillStyle = 'rgba(173,196,213,0.20)';
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(aC.x, aC.y);
+  ctx.lineTo(bC.x, bC.y);
+  ctx.lineTo(cC.x, cC.y);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // 顶点标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 900 16px "Cambria Math",serif';
+  ctx.fillText('a', aC.x - 6, aC.y - 6);
+  ctx.fillText('b', bC.x - 14, bC.y + 4);
+  ctx.fillText('c', cC.x + 6, cC.y + 4);
+
+  // 顶角 A 标记
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(`A = 120°`, aC.x + 14, aC.y + 12);
+
+  // 入射光（共同部分，水平向右进入 ab）
+  const startC = toC(P_in.x - 1.0, P_in.y);
+  const PinC = toC(P_in.x, P_in.y);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(startC.x, startC.y); ctx.lineTo(PinC.x, PinC.y); ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('入射光（平行 bc）', startC.x + 4, startC.y - 6);
+
+  // ab 法线（虚线，外法线方向）
+  const norm_ext = {x: -Math.sin(beta), y: Math.cos(beta)};
+  const nlen = 0.25;
+  const Pin_n_start = toC(P_in.x - nlen*norm_ext.x, P_in.y - nlen*norm_ext.y);
+  const Pin_n_end = toC(P_in.x + nlen*norm_ext.x, P_in.y + nlen*norm_ext.y);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(Pin_n_start.x, Pin_n_start.y); ctx.lineTo(Pin_n_end.x, Pin_n_end.y); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 完整路径（虚线，全程预绘制）
+  drawRayFull(ctx, toC, '#b4442e', P_in, bc_jia, ac_jia, true);
+  drawRayFull(ctx, toC, '#3f6f8f', P_in, bc_yi,  ac_yi,  true);
+
+  // 已走过路径（实线）— 跟踪当前 progress
+  drawRayWalked(ctx, toC, '#b4442e', P_in, bc_jia, ac_jia, state, 'jia');
+  drawRayWalked(ctx, toC, '#3f6f8f', P_in, bc_yi,  ac_yi,  state, 'yi');
+
+  // 在 bc 反射点 + ac 出射点画标记
+  if(state.progress >= 1){
+    const bcjC = toC(bc_jia.x, bc_jia.y);
+    const bcyC = toC(bc_yi.x,  bc_yi.y);
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(bcjC.x, bcjC.y, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#3f6f8f';
+    ctx.beginPath(); ctx.arc(bcyC.x, bcyC.y, 4, 0, Math.PI*2); ctx.fill();
+  }
+  if(state.progress === 2){
+    const acjC = toC(ac_jia.x, ac_jia.y);
+    const acyC = toC(ac_yi.x,  ac_yi.y);
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(acjC.x, acjC.y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#3f6f8f';
+    ctx.beginPath(); ctx.arc(acyC.x, acyC.y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    // 标
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('甲（下）', acjC.x + 8, acjC.y + 4);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('乙（上）', acyC.x + 8, acyC.y - 4);
+  }
+
+  // 当前光子（甲、乙）
+  const pj = toC(state.p_jia.x, state.p_jia.y);
+  const py = toC(state.p_yi.x,  state.p_yi.y);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(pj.x, pj.y, 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(py.x, py.y, 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+
+  // 折射角 r 数据显示
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px ui-monospace,monospace';
+  ctx.fillText(`n_甲=${n_jia}, r_甲=${(r_jia*180/Math.PI).toFixed(1)}°`, X + 12, Y + 22);
+  ctx.fillText(`n_乙=${n_yi}, r_乙=${(r_yi *180/Math.PI).toFixed(1)}°`, X + 12, Y + 38);
+  ctx.fillText(`入射角 θ=${(theta_in*180/Math.PI).toFixed(0)}°`, X + 12, Y + 54);
+}
+
+function drawRayFull(ctx, toC, color, p0, p1, p2, dashed){
+  ctx.strokeStyle = color + (dashed ? '' : '');
+  if(dashed){
+    ctx.globalAlpha = 0.3;
+    ctx.setLineDash([4, 3]);
+  }
+  ctx.lineWidth = 1.6;
+  const c0 = toC(p0.x, p0.y);
+  const c1 = toC(p1.x, p1.y);
+  const c2 = toC(p2.x, p2.y);
+  ctx.beginPath();
+  ctx.moveTo(c0.x, c0.y);
+  ctx.lineTo(c1.x, c1.y);
+  ctx.lineTo(c2.x, c2.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+}
+
+function drawRayWalked(ctx, toC, color, p0, p1, p2, state, which){
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+  const cur = which === 'jia' ? state.p_jia : state.p_yi;
+  const c0 = toC(p0.x, p0.y);
+  const curC = toC(cur.x, cur.y);
+  ctx.beginPath();
+  if(state.progress === 0){
+    // 入射段：从 start 到当前位置（甲乙重合）
+    return;
+  }
+  // 段 1：P_in → 当前 或 bc
+  if(state.progress >= 1){
+    ctx.moveTo(c0.x, c0.y);
+    if(state.progress === 1){
+      ctx.lineTo(curC.x, curC.y);
+    } else {
+      const c1 = toC(p1.x, p1.y);
+      ctx.lineTo(c1.x, c1.y);
+    }
+  }
+  // 段 2：bc → 当前
+  if(state.progress >= 2){
+    const c1 = toC(p1.x, p1.y);
+    ctx.lineTo(curC.x, curC.y);
+  }
+  ctx.stroke();
+}
+
+function drawSidebar(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fdf9ee';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('5 个判断（答 ACE）', X+12, Y+22);
+
+  const items = [
+    {color:'#16613f', tag:'A 对', txt:'λ_甲>λ_乙：n 小→长波（红光）'},
+    {color:'#b4442e', tag:'B 错', txt:'f_甲<f_乙：n 小→低频（红光）'},
+    {color:'#16613f', tag:'C 对', txt:'v_甲>v_乙：v=c/n，n 小则 v 大'},
+    {color:'#b4442e', tag:'D 错', txt:'n_甲<n_乙：甲在下→折射弱'},
+    {color:'#16613f', tag:'E 对', txt:'bc 入射角 甲>乙：r 大→bc 角大'}
+  ];
+  items.forEach((it, i) => {
+    const yy = Y + 50 + i*52;
+    ctx.fillStyle = '#fffdf9';
+    ctx.strokeStyle = it.color; ctx.lineWidth = 1.4;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X+12, yy, w-24, 44, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = it.color;
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText(it.tag, X+22, yy+18);
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText(it.txt, X+58, yy+18);
+    // 第二行额外说明
+  });
+
+  // 底部公式
+  const formulaY = Y + 50 + 5*52 + 6;
+  if(formulaY + 30 < Y + h - 6){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '800 11px "Cambria Math",serif';
+    ctx.fillText(`r = arcsin(sin θ / n)`, X+12, formulaY+10);
+    ctx.fillText(`v = c / n,  λ_介 = c/(nf)`, X+12, formulaY+26);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 15 题（选修 3-4）· 6 分',
+  title: '等腰棱镜双色折射 · 甲在乙下方',
+  subtitle: '平行 bc 光从 ab 射入 → bc 反射 → ac 出射 → 分两色 → 甲出射点低于乙',
+  deliv: {
+    title: '出射点低 = n 小',
+    sub: '甲：n 小、λ 长、f 低、v 大、bc 入射角大 → ACE'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 15 题（选修 3-4）· 多选',
+    text: `等腰三角形 △abc 为一棱镜的横截面，ab = ac；一平行于 bc 边的细光束从 ab 边射入棱镜，在 bc 边反射后从 ac 边射出，出射光分成了不同颜色的两束，甲光的出射点在乙光的下方，如图所示。不考虑多次反射。下列说法正确的是（&nbsp;&nbsp;&nbsp;&nbsp;）`,
+    subQuestions: [
+      'A. 甲光的波长比乙光的长',
+      'B. 甲光的频率比乙光的高',
+      'C. 在棱镜中的传播速度，甲光比乙光的大',
+      'D. 该棱镜对甲光的折射率大于对乙光的折射率',
+      'E. 在棱镜内 bc 边反射时的入射角，甲光比乙光的大'
+    ],
+    officialAnswer: 'ACE · 甲出射点低 → 甲在棱镜内偏折更小 → n_甲 &lt; n_乙。由 v=c/n、λ_介=c/(nf) 与色散关系（n 随频率升高而增大）：n 小 → v 大（C 对）、λ 长（A 对）、f 低（B 错）、D 错；又 bc 入射角 = 90° − A/2 + r，r 随 n 减小而增大 → bc 入射角随 n 减小而增大（E 对）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① ab 折射 r=arcsin(sin θ/n)', label_short:'①',
+     formula_tex: String.raw`\sin\theta = n\sin r \;\Rightarrow\; r = \arcsin\!\left(\dfrac{\sin\theta}{n}\right) \;\;(\theta = 90^\circ - \beta = A/2 = 60^\circ)`,
+     note:'平行 bc 入射，入射角等于顶角的一半（钝顶时几何）。'},
+    {label:'② bc 反射 → 入射角', label_short:'②',
+     formula_tex: String.raw`\theta_{bc} = 90^\circ - (A/2 - r) = 90^\circ - A/2 + r \;\Rightarrow\; n\downarrow,\; r\uparrow,\; \theta_{bc}\uparrow`,
+     note:'光线在棱镜内偏角越小（n 小），到达 bc 时入射角越大。'},
+    {label:'③ 出射点高低 ↔ n', label_short:'③',
+     formula_tex: String.raw`\text{出射点 y 坐标随 } n \uparrow,\; \text{甲在下} \;\Rightarrow\; n_{\text{甲}} < n_{\text{乙}}`,
+     note:'折射率大的光偏折严重，反射 + 出射后出射点更高。'},
+    {label:'④ 物理推论 ACE', label_short:'④',
+     formula_tex: String.raw`v = c/n,\; \lambda_{介} = c/(nf),\; n(f)\uparrow \;\Rightarrow\; \text{甲：v 大, λ 长, f 低, } \theta_{bc}\,\text{大}`,
+     note:'A、C、E 全对；B、D 错。'}
+  ],
+  stats: [
+    {label:'顶角 A',         fmt:()=>`${A_deg}°`},
+    {label:'入射角 θ',       fmt:()=>(theta_in*180/Math.PI).toFixed(0)+'°'},
+    {label:'n_甲',           fmt:()=>n_jia.toFixed(2)},
+    {label:'r_甲',           fmt:()=>(r_jia*180/Math.PI).toFixed(2)+'°'},
+    {label:'n_乙',           fmt:()=>n_yi.toFixed(2)},
+    {label:'r_乙',           fmt:()=>(r_yi *180/Math.PI).toFixed(2)+'°'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'λ_甲 &gt; λ_乙',                      note:'n 小 → 长波（红光）'},
+    {label_text:'B 错', value_text:'f_甲 &lt; f_乙',                      note:'n 与 f 同向单调'},
+    {label_text:'C 对', value_text:'v_甲 &gt; v_乙',                      note:'v = c/n'},
+    {label_text:'D 错', value_text:'n_甲 &lt; n_乙',                      note:'甲出射点低 → 折射弱'},
+    {label_text:'E 对', value_text:'bc 入射角 甲 &gt; 乙',                note:'θ_bc = 90°−A/2+r'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'甲光（n=1.5，长波）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'乙光（n=1.7，短波）'},
+    {swatch:{bg:'rgba(173,196,213,0.20)',border:'#3f6f8f',type:'rect'}, text:'棱镜（A=120°）'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'ab 法线（虚）'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:true},
+  fileName: '2023全国甲-Q15-棱镜双色折射'
+});
+</script>
+</body>
+</html>

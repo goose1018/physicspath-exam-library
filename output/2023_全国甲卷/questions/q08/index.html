@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 8 题 · 玻璃管磁体下落</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：磁体下落，每经过一匝线圈，磁通先增后减 → 感应电流先正后负（或反之）
+// 上部 5 匝密集，下部 3 匝相邻间距更大（稀疏）
+// 因下落加速 → 速度越来越大 → dΦ/dt 越来越大 → 电流峰值越来越大
+// A 对（速度越来越快），D 对（下部 dΦ/dt 最大值更大）
+// B 错（磁体不会翻转 N、S 极），C 错（电磁阻力随电流变化）
+// 简化模型：忽略电磁反作用力，磁体自由下落（仅展示趋势）
+
+const g = 10;
+const L = 1.0;     // 玻璃管长 1 m
+const t_fall = Math.sqrt(2*L/g);  // 0.447 s
+const T_total = 5;
+const slowFactor = T_total / t_fall;
+
+// 线圈位置（沿 y 从 0 在顶部到 L 在底部）
+const upperCoils = [0.06, 0.13, 0.20, 0.27, 0.34];   // 5 匝密集（间隔 0.07）
+const lowerCoils = [0.50, 0.72, 0.94];                // 3 匝稀疏（间隔 0.22）
+const allCoils = [...upperCoils, ...lowerCoils];
+
+// 电流脉冲半宽（让磁体经过每匝产生一个 sin 波）
+const PULSE_HALF = 0.014; // 物理时间 s
+
+function evalState(t){
+  const tReal = Math.max(0, Math.min(t/slowFactor, t_fall));
+  const y = 0.5 * g * tReal * tReal;     // 磁体下落距离
+  const v = g * tReal;                    // 下落速度
+
+  // 当前电流：累加所有线圈在 t 处的脉冲贡献
+  // 每个线圈在 t_k 时刻磁体经过它（y_k = ½g t_k² → t_k = √(2 y_k / g)）
+  // 脉冲：I_k(t) = I_peak_k · sin(π·(t-t_k)/PULSE_HALF) for |t-t_k| < PULSE_HALF
+  // I_peak_k ∝ v_k = √(2g·y_k)
+  let I = 0;
+  for(let i=0; i<allCoils.length; i++){
+    const y_k = allCoils[i];
+    const t_k = Math.sqrt(2*y_k/g);
+    const v_k = g * t_k;
+    const dt = tReal - t_k;
+    if(Math.abs(dt) < PULSE_HALF){
+      const I_peak = v_k * 1.5; // 比例系数
+      I += I_peak * Math.sin(Math.PI * dt / PULSE_HALF);
+    }
+  }
+
+  return {tReal, y, v, I, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawGlassTube(ctx, 14, 30, W*0.42-20, H-50, state);
+  drawCurrent(ctx, W*0.42, 30, W*0.58-14, H-50, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('磁体在玻璃管内自由下落 · 上 5 匝（密）+ 下 3 匝（疏）· I-t 峰值递增', 24, 22);
+
+  if(state.tReal > 0.05){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 208, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 AD · v↑ + 下部 dΦ/dt 最大', W-216, 30);
+  }
+}
+
+function drawGlassTube(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  // 玻璃管区域
+  const padT = 30, padB = 36;
+  const tubeW = 60;
+  const tubeX = X + w/2 - tubeW/2;
+  const tubeTop = Y + padT;
+  const tubeBot = Y + h - padB;
+  const tubeH = tubeBot - tubeTop;
+  const pxPerM = tubeH / L;
+
+  // 玻璃管本体
+  ctx.fillStyle = 'rgba(195,220,235,0.20)';
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.fillRect(tubeX, tubeTop, tubeW, tubeH);
+  ctx.strokeRect(tubeX, tubeTop, tubeW, tubeH);
+
+  // 5 匝上部线圈（密集）
+  for(let i=0; i<upperCoils.length; i++){
+    const y_phys = upperCoils[i];
+    const py = tubeTop + y_phys * pxPerM;
+    drawCoil(ctx, tubeX, py, tubeW, '#16613f', i+1);
+  }
+  // 3 匝下部线圈（稀疏）
+  for(let i=0; i<lowerCoils.length; i++){
+    const y_phys = lowerCoils[i];
+    const py = tubeTop + y_phys * pxPerM;
+    drawCoil(ctx, tubeX, py, tubeW, '#c2611f', i+6);
+  }
+
+  // 标识：上部 / 下部
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('上部 5 匝（密）', tubeX - 90, tubeTop + 0.2*pxPerM);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('下部 3 匝（疏）', tubeX - 90, tubeTop + 0.7*pxPerM);
+
+  // 磁体（条形）
+  const magnetH = 24;
+  const magnetW = tubeW - 16;
+  const magnetY = tubeTop + state.y * pxPerM - magnetH/2;
+  const magnetX = tubeX + (tubeW - magnetW)/2;
+  // N 极上（红）
+  ctx.fillStyle = '#b4442e';
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(magnetX, magnetY, magnetW, magnetH/2, [3,3,0,0]);ctx.fill();}
+  else ctx.fillRect(magnetX, magnetY, magnetW, magnetH/2);
+  // S 极下（蓝）
+  ctx.fillStyle = '#3f6f8f';
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(magnetX, magnetY + magnetH/2, magnetW, magnetH/2, [0,0,3,3]);ctx.fill();}
+  else ctx.fillRect(magnetX, magnetY + magnetH/2, magnetW, magnetH/2);
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('N', magnetX + magnetW/2 - 4, magnetY + magnetH/4 + 4);
+  ctx.fillText('S', magnetX + magnetW/2 - 4, magnetY + 3*magnetH/4 + 4);
+
+  // 速度箭头（向下）
+  const vArrLen = Math.min(50, state.v * 7);
+  if(vArrLen > 4){
+    drawArrow(ctx, magnetX + magnetW + 6, magnetY + magnetH/2,
+              magnetX + magnetW + 6, magnetY + magnetH/2 + vArrLen, '#7d4f9c', 2.2);
+    ctx.fillStyle = '#7d4f9c';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText(`v=${state.v.toFixed(2)}`, magnetX + magnetW + 12, magnetY + magnetH/2 + vArrLen/2);
+  }
+
+  // 重力箭头（位置固定，提示恒定）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  drawArrow(ctx, X + 16, Y + h/2 - 12, X + 16, Y + h/2 + 18, '#5d6964', 2);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('g', X + 22, Y + h/2 + 8);
+
+  // 实时数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px ui-monospace,monospace';
+  ctx.fillText(`t=${state.tReal.toFixed(3)}s`, X + 12, Y + 22);
+  ctx.fillText(`y=${state.y.toFixed(3)}m`, X + 12, Y + h - 6);
+}
+
+function drawCoil(ctx, tx, py, tw, color, label){
+  // 简化线圈表示：椭圆边
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(tx + tw/2, py, tw/2 + 4, 5, 0, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '700 9px ui-monospace,monospace';
+  ctx.fillText(`#${label}`, tx + tw + 6, py + 3);
+}
+
+function drawCurrent(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fdf9ee';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('I-t 图（电流随时间变化）', X+12, Y+18);
+
+  const padL=46, padR=22, padT=30, padB=36;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = X+padL, y0 = Y+padT+ch/2;  // 0 线在中间
+
+  // 坐标轴（含 0 线）
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, Y+padT); ctx.lineTo(x0, Y+padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('I', x0-15, Y+padT-2);
+  ctx.fillText('t / s', x0+cw-30, y0+18);
+
+  // 计算最大 I_peak（最后一匝的）
+  const I_max_show = lowerCoils[lowerCoils.length-1];
+  const I_max = Math.sqrt(2*g*I_max_show) * 1.5 * 1.05;
+
+  // 刻度（时间）
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let k=0; k<=Math.ceil(t_fall*10); k++){
+    const tt = k * 0.05;
+    if(tt > t_fall + 0.02) break;
+    const px = x0 + (tt/t_fall)*cw;
+    ctx.fillText(tt.toFixed(2), px-9, y0+15);
+    ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, y0+3); ctx.stroke();
+  }
+
+  // 完整 I-t 曲线（淡，预绘制全程）
+  ctx.strokeStyle = 'rgba(40,40,40,0.18)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+  drawITCurve(ctx, x0, y0, cw, ch, I_max, t_fall, 1.0);
+  ctx.setLineDash([]);
+
+  // 已经过的曲线（实线）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  drawITCurve(ctx, x0, y0, cw, ch, I_max, t_fall, state.tReal/t_fall);
+
+  // 标记每匝峰值位置
+  for(let i=0; i<allCoils.length; i++){
+    const y_k = allCoils[i];
+    const t_k = Math.sqrt(2*y_k/g);
+    const v_k = g * t_k;
+    const I_pk = v_k * 1.5;
+    const px = x0 + (t_k/t_fall)*cw;
+    const py = y0 - (I_pk/I_max)*(ch/2);
+    if(t_k <= state.tReal + 0.001){
+      const isUpper = i < 5;
+      ctx.fillStyle = isUpper ? 'rgba(22,97,63,0.5)' : 'rgba(194,97,31,0.6)';
+      ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // 当前点
+  const pxNow = x0 + (state.tReal/t_fall)*cw;
+  const pyNow = y0 - (state.I/I_max)*(ch/2);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(pxNow, pyNow, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 趋势标
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('上部峰值（小）', x0 + 8, Y+padT+ch/2 - 50);
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('下部峰值（大）→ D 对', x0 + cw - 130, Y+padT+ch/2 - 70);
+
+  // 实时数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px ui-monospace,monospace';
+  ctx.fillText(`I=${state.I.toFixed(3)}`, X + w - 110, Y+18);
+}
+
+function drawITCurve(ctx, x0, y0, cw, ch, I_max, t_fall, fracTotal){
+  const tEnd = t_fall * Math.max(0, Math.min(1, fracTotal));
+  if(tEnd < 0.001) return;
+  const N = 480;
+  ctx.beginPath();
+  let started = false;
+  for(let i=0; i<=N; i++){
+    const tt = (i/N) * tEnd;
+    let I = 0;
+    for(let k=0; k<allCoils.length; k++){
+      const y_k = allCoils[k];
+      const t_k = Math.sqrt(2*y_k/g);
+      const v_k = g * t_k;
+      const dt = tt - t_k;
+      if(Math.abs(dt) < PULSE_HALF){
+        I += v_k * 1.5 * Math.sin(Math.PI * dt / PULSE_HALF);
+      }
+    }
+    const px = x0 + (tt/t_fall)*cw;
+    const py = y0 - (I/I_max)*(ch/2);
+    if(!started){ ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  const dx = x2-x1, dy = y2-y1, L_ = Math.sqrt(dx*dx+dy*dy);
+  if(L_ < 2) return;
+  const ax = dx/L_, ay = dy/L_;
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const head = 7;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - head*ax + head*0.6*ay, y2 - head*ay - head*0.6*ax);
+  ctx.lineTo(x2 - head*ax - head*0.6*ay, y2 - head*ay + head*0.6*ax);
+  ctx.closePath(); ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '玻璃管线圈 · 磁体下落电磁感应',
+  subtitle: '强磁体从顶端静止下落 · 上 5 匝密集 · 下 3 匝稀疏 · I-t 峰值递增',
+  deliv: {
+    title: 'v↑ → dΦ/dt↑ → I_peak↑',
+    sub: '答案 AD · 速度递增 + 下部 dΦ/dt 最大值更大'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 8 题 · 6 分（多选）',
+    text: `一有机玻璃管竖直放在水平地面上，管上有漆包线绕成的线圈，线圈的两端与电流传感器相连，线圈在玻璃管上部的 5 匝均匀分布，下部的 3 匝也均匀分布，下部相邻两匝间的距离大于上部相邻两匝间的距离，如图（a）所示。现让一个很小的强磁体在玻璃管内沿轴线从上端口由静止下落，电流传感器测得线圈中电流 I 随时间 t 的变化如图（b）所示。则（&nbsp;&nbsp;&nbsp;&nbsp;）`,
+    subQuestions: [
+      'A. 小磁体在玻璃管内下降速度越来越快',
+      'B. 下落过程中，小磁体的 N 极、S 极上下颠倒了 8 次',
+      'C. 下落过程中，小磁体受到的电磁阻力始终保持不变',
+      'D. 与上部相比，小磁体通过线圈下部的过程中，磁通量变化率的最大值更大'
+    ],
+    officialAnswer: 'AD · 电流峰值越来越大 → 单位时间内通过线圈的磁通量变化率越来越大 → 速度越来越大（A 对）；下部 dΦ/dt 峰值最大（D 对）。B 错（磁体不会自身翻转极性，电流方向变化是穿入/穿出造成的）；C 错（电流随线圈位置变化，电磁阻力对应变化）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'A 对 · 速度递增', label_short:'A',
+     formula_tex: String.raw`y = \tfrac{1}{2}gt^2,\; v = gt \;\Rightarrow\; v\uparrow \;\Rightarrow\; \dfrac{d\Phi}{dt} \uparrow \;\Rightarrow\; I_{peak} \uparrow`,
+     note:'I-t 图中峰值依次增大，说明 dΦ/dt 越来越大，则速度越来越大。'},
+    {label:'D 对 · 下部峰值最大', label_short:'D',
+     formula_tex: String.raw`I_{peak,k} \propto v_k = \sqrt{2g y_k} \;\Rightarrow\; \text{下部 } y_k\text{ 大}\;\Rightarrow\; v_k\text{ 大}\;\Rightarrow\; \left(\dfrac{d\Phi}{dt}\right)_{\max,\text{下}} > \left(\dfrac{d\Phi}{dt}\right)_{\max,\text{上}}`,
+     note:'下部线圈位置靠下，磁体到达时速度更大，最大磁通变化率更大。'},
+    {label:'B 错 · 磁极不翻转', label_short:'B',
+     formula_tex: String.raw`\text{磁体下落不会自旋} \;\Rightarrow\; \text{N、S 极方向不变}`,
+     note:'电流方向交替源于穿入 / 穿出每匝线圈，并非磁体翻转。'},
+    {label:'C 错 · 阻力变化', label_short:'C',
+     formula_tex: String.raw`F_{\text{阻}} \propto B_{\text{线圈}} \propto I \;\Rightarrow\; I\text{ 变}\;\Rightarrow\; F_{\text{阻}}\text{ 变}`,
+     note:'电磁阻力随感应电流变化，并非常数。'}
+  ],
+  stats: [
+    {label:'玻璃管长 L',     fmt:()=>L+' m'},
+    {label:'上部线圈匝数',   fmt:()=>'5 匝（密）'},
+    {label:'下部线圈匝数',   fmt:()=>'3 匝（疏）'},
+    {label:'落地时间',       fmt:()=>t_fall.toFixed(3)+' s'},
+    {label:'当前速度 v',     fmt:s=>s.v.toFixed(2)+' m/s'},
+    {label:'当前电流 I',     fmt:s=>s.I.toFixed(3)}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'速度越来越快',          note:'I_peak 单调递增推出'},
+    {label_text:'B 错', value_text:'磁极不翻转',            note:'电流交替源于穿入/穿出，非翻转'},
+    {label_text:'C 错', value_text:'电磁阻力变化',          note:'阻力 ∝ 线圈电流，I 在变'},
+    {label_text:'D 对', value_text:'下部 dΦ/dt 峰值最大',   note:'v 大 → dΦ/dt 大'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'上部 5 匝（密）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'下部 3 匝（疏）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'磁体 N 极'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁体 S 极 / I-t 曲线'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'速度矢量（向下）'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:true},
+  fileName: '2023全国甲-Q8-玻璃管磁体'
+});
+</script>
+</body>
+</html>

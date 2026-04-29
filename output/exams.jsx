@@ -32,7 +32,6 @@ const PROBLEMS = [
   { id:'2024-sh-29',   year:2024, paper:'sh',   no:'29', module:'电磁学', tplId:'efield',     title:'带电粒子在匀强电场中加速',                       summary:'两平行金属板间距 d=4cm，电压 U=200V，带电粒子从负极板由静止开始加速，求到达正极板时的速度（粒子电荷量给定）。', diff:'中', heat:512, hasAnim:true, paid:true },
 
   // 2023
-  { id:'2023-gk1-25',  year:2023, paper:'gk1',  no:'25', module:'电磁学', tplId:'rod',        title:'导体棒匀速切割磁感线 (变阻形式)',               summary:'光滑平行导轨水平放置，间距 0.6m，磁感应强度 B=0.8T。质量为 m 的导体棒以恒定外力 F 向右运动，求稳态速度。', diff:'难', heat:1340, hasAnim:true, paid:true },
   { id:'2023-xgk1-18', year:2023, paper:'xgk1', no:'18', module:'运动学', tplId:'circular',   title:'圆周运动求向心力',                              summary:'质量 m=1kg 的小球用细绳系在转轴上做匀速圆周运动，半径 r=1.5m，角速度 ω=2 rad/s。求绳的拉力。', diff:'易', heat:1156, hasAnim:true },
   { id:'2023-zj-20',   year:2023, paper:'zj',   no:'20', module:'光学',   tplId:'doubleslit', title:'双缝干涉条纹间距',                              summary:'用单色光做双缝干涉实验，双缝间距 d=0.2mm，缝到屏的距离 D=1m，求相邻亮条纹间距。', diff:'中', heat:524, hasAnim:false, paid:true },
 
@@ -146,10 +145,18 @@ const REAL_PROBLEMS = [
   { id:'2025-gk1-q06', year:2025, paper:'gk1', no:'6',  module:'热学',     tplId:null, title:'理想气体 V-T 图压强比较',           summary:'V/T 斜率 ∝ 1/p，p_c > p_b = p_a。', diff:'中', heat:70, hasAnim:true, htmlPath:'2025_全国卷/questions/q06/index.html' },
   { id:'2025-gk1-q07', year:2025, paper:'gk1', no:'7',  module:'振动波动', tplId:null, title:'队列简谐波 · 波峰波谷距离',         summary:'(2n+1)·λ/2 = 2m, 6m, ...', diff:'中', heat:85, hasAnim:true, htmlPath:'2025_全国卷/questions/q07/index.html' },
   { id:'2025-gk1-q08', year:2025, paper:'gk1', no:'8',  module:'电磁学',   tplId:null, title:'圆环转动磁场 · 感应电动势',          summary:'e=Bωr²[1-cos(2ωt)]，OP 平行虚线时 e 最大。', diff:'难', heat:130, hasAnim:true, htmlPath:'2025_全国卷/questions/q08/index.html', paid:true },
-  { id:'2025-gk1-q09', year:2025, paper:'gk1', no:'9',  module:'实验',     tplId:null, title:'橡皮筋胡克定律',                    summary:'(1) 1.90 cm (2) k≈52 N/m (3) F=1.00 N, m=300 g。', diff:'中', heat:95, hasAnim:true, htmlPath:'2025_全国卷/questions/q09/index.html' },
-  { id:'2025-gk1-q10', year:2025, paper:'gk1', no:'10', module:'实验',     tplId:null, title:'伏安法 + 非线性元件',                summary:'内接 R 大；外接 R 小；非线性 + 减小；R_x=I₂r₁/(I₁-I₂)。', diff:'中', heat:80, hasAnim:true, htmlPath:'2025_全国卷/questions/q10/index.html' },
   { id:'2025-gk1-q11', year:2025, paper:'gk1', no:'11', module:'电磁学',   tplId:null, title:'电容器键盘 · U 与 E 变化',            summary:'(1) Q 守恒 U\'=U/2 (2) U 守恒 E\'=2E。', diff:'中', heat:85, hasAnim:true, htmlPath:'2025_全国卷/questions/q11/index.html' },
   { id:'2025-gk1-q12', year:2025, paper:'gk1', no:'12', module:'力学',     tplId:null, title:'圆弧+板+弹簧 4 问',                  summary:'(1) mgR (2) v₀=2√(2gR), h=3R (3) M=m/9 (4) M\'=m/2。', diff:'难', heat:170, hasAnim:true, htmlPath:'2025_全国卷/questions/q12/index.html', paid:true },
+
+  // ─── 2023 全国甲卷（陆续上线） ───
+  { id:'2023-gk1-q01', year:2023, paper:'gk1', no:'1',  module:'力学',     tplId:null, title:'铅球平抛 · 四量分析',                summary:'平抛仅受重力 → a=g 恒；|v| 增；E_k 增；E 守恒。答案 B。', diff:'易', heat:55, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q01/index.html' },
+  { id:'2023-gk1-q03', year:2023, paper:'gk1', no:'3',  module:'运动学',   tplId:null, title:'小车 x-t 图 · 先加速后减速',         summary:'匀加速→上凹；匀减速→下凹至顶点；停止→水平。答案 D。', diff:'易', heat:60, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q03/index.html' },
+  { id:'2023-gk1-q06', year:2023, paper:'gk1', no:'6',  module:'力学',     tplId:null, title:'F-a 图线 · 斜率与截距判 m、μ',         summary:'F=ma+μmg → 斜率=m, 纵截距=μmg。答案 BC。', diff:'中', heat:80, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q06/index.html' },
+  { id:'2023-gk1-q07', year:2023, paper:'gk1', no:'7',  module:'电磁学',   tplId:null, title:'圆筒带电粒子碰撞 · 几何分析',           summary:'r=R√3 时正三角形内接 → 2 次碰撞 + v\'∥OA。答案 BD。', diff:'难', heat:140, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q07/index.html', paid:true },
+  { id:'2023-gk1-q08', year:2023, paper:'gk1', no:'8',  module:'电磁学',   tplId:null, title:'玻璃管 · 磁体下落电磁感应',             summary:'上 5 匝密 + 下 3 匝疏，I_peak ∝ v_k 递增。答案 AD。', diff:'中', heat:90, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q08/index.html' },
+  { id:'2023-gk1-q11', year:2023, paper:'gk1', no:'11', module:'力学',     tplId:null, title:'弹簧 · 平抛 · 反弹',                     summary:'v₀=√(2E_p/m)；d=4√(E_p·h/(mg))。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q11/index.html' },
+  { id:'2023-gk1-q12', year:2023, paper:'gk1', no:'12', module:'电磁学',   tplId:null, title:'U 型导轨 · 弹性碰撞 + 电磁感应',         summary:'(1) v₀/2  (2) mv₀²  (3) 2mR/(B²L²)。', diff:'难', heat:180, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q12/index.html', paid:true },
+  { id:'2023-gk1-q15', year:2023, paper:'gk1', no:'15', module:'光学',     tplId:null, title:'等腰棱镜 · 双色折射',                    summary:'甲在乙下方 → n_甲<n_乙；ACE 全证。', diff:'中', heat:90, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q15/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -225,10 +232,18 @@ const PROBLEM_META = {
   '2025-gk1-q06': { type:'choice-multi',  answer:'AD' },
   '2025-gk1-q07': { type:'choice-multi',  answer:'BD' },
   '2025-gk1-q08': { type:'choice-multi',  answer:'BC' },
-  '2025-gk1-q09': { type:'experiment',    answer:[{sub:'(1)',val:'1.90 cm'},{sub:'(2)',val:'质量增加量, k≈52 N/m'},{sub:'(3)',val:'F=1.00 N, m=300 g'}] },
-  '2025-gk1-q10': { type:'experiment',    answer:[{sub:'(1)',val:'大于/大于/大于/小于'},{sub:'(2)',val:'非线性, 减小'},{sub:'(3)',val:'R_x = I₂r₁/(I₁-I₂)'}] },
   '2025-gk1-q11': { type:'calc',          answer:[{sub:'(1) U\'/U =',val:'1/2'},{sub:'(2) E\'/E =',val:'2'}] },
   '2025-gk1-q12': { type:'calc',          answer:[{sub:'(1) W =',val:'mgR'},{sub:'(2) v₀ =',val:'2√(2gR)'},{sub:'(2) h_BA =',val:'3R'},{sub:'(3) M =',val:'m/9'},{sub:'(4) M\' =',val:'m/2'}] },
+
+  // 2023 全国甲卷
+  '2023-gk1-q01': { type:'choice-single', answer:'B' },
+  '2023-gk1-q03': { type:'choice-single', answer:'D' },
+  '2023-gk1-q06': { type:'choice-multi',  answer:'BC' },
+  '2023-gk1-q07': { type:'choice-multi',  answer:'BD' },
+  '2023-gk1-q08': { type:'choice-multi',  answer:'AD' },
+  '2023-gk1-q11': { type:'calc',          answer:[{sub:'(1) v₀ =',val:'√(2E_p/m)'},{sub:'(2) d =',val:'4√(E_p·h/(mg))'}] },
+  '2023-gk1-q12': { type:'calc',          answer:[{sub:'(1) v_P =',val:'v₀/2'},{sub:'(2) Q_热 =',val:'m·v₀²'},{sub:'(3) t_Q =',val:'2mR/(B²L²)'}] },
+  '2023-gk1-q15': { type:'choice-multi',  answer:'ACE' },
 };
 
 // 按 year×paper 计数

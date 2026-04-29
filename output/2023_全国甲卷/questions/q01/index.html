@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国甲 · 第 1 题 · 铅球平抛</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 平抛运动：铅球初速度 v0 水平推出，仅受重力
+// A 错：机械能守恒（仅重力做功，KE 增 + PE 减相抵）
+// B 对：a = g 恒定
+// C 错：|v| = √(v0² + (gt)²) 越来越大
+// D 错：动能 = ½m·|v|² 末态最大，初态动能最小
+
+const v0 = 8;             // 水平初速度 m/s
+const g  = 9.8;
+const m  = 4;             // 铅球质量 kg
+const h  = 1.8;           // 推出高度 m
+const t_fall = Math.sqrt(2*h/g);  // 0.606 s
+const x_total = v0 * t_fall;      // 4.85 m
+const T_total = 5;
+const slowFactor = T_total / t_fall;
+
+function evalState(t){
+  const tReal = Math.min(t/slowFactor, t_fall);
+  const x  = v0 * tReal;
+  const y  = 0.5 * g * tReal * tReal;
+  const vx = v0;
+  const vy = g * tReal;
+  const v  = Math.sqrt(vx*vx + vy*vy);
+  const Ek = 0.5 * m * v*v;
+  const Ek0 = 0.5 * m * v0*v0;
+  const Ep = m * g * (h - y);
+  const E  = Ek + Ep;
+  return {phase:1, tReal, x, y, vx, vy, v, Ek, Ek0, Ep, E, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawTrajectory(ctx, 14, 30, W*0.62-20, H-50, state);
+  drawDataPanel(ctx, W*0.62, 30, W*0.38-14, H-50, state);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('铅球水平推出 → 平抛 · 仅受重力（不计空气阻力）', 24, 22);
+
+  if(state.tReal > t_fall*0.35){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 208, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · a = g 不变', W-200, 30);
+  }
+}
+
+function drawTrajectory(ctx, X, Y, w, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,panelH,12);ctx.fill();ctx.stroke();}
+
+  const padL=42, padR=20, padT=24, padB=42;
+  const cw = w-padL-padR, ch = panelH-padT-padB;
+  const x0 = X+padL, ground = Y+padT+ch;
+  const pxPerM_x = cw / (x_total*1.1);
+  const pxPerM_y = ch / (h * 1.05); // h 是全局物理高度 1.8m
+
+  // 地面
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(x0, ground, cw, 6);
+  ctx.fillStyle = '#86868b';
+  for(let xi=x0+8; xi<x0+cw-8; xi+=14){
+    ctx.fillRect(xi, ground+6, 6, 4);
+  }
+
+  // 起点平台
+  const startX = x0;
+  const startY = ground - h * pxPerM_y;
+  ctx.fillStyle = '#9aa19c';
+  ctx.fillRect(startX-22, startY, 24, ground - startY);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(startX-22, startY, 24, ground - startY);
+
+  // 标记起点高度
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(startX-26, startY); ctx.lineTo(startX-26, ground);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('h = 1.8 m', startX-90, (startY+ground)/2 + 4);
+
+  // 完整轨迹（半透明虚线）
+  ctx.strokeStyle = 'rgba(63,111,143,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  for(let i=0; i<=80; i++){
+    const tau = (i/80) * t_fall;
+    const xx = v0*tau, yy = 0.5*g*tau*tau;
+    const px = startX + xx*pxPerM_x;
+    const py = startY + yy*pxPerM_y;
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 已走过轨迹（实线）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  const N = Math.max(2, Math.floor((state.tReal/t_fall)*80));
+  for(let i=0; i<=N; i++){
+    const tau = (i/80) * t_fall;
+    const xx = v0*tau, yy = 0.5*g*tau*tau;
+    const px = startX + xx*pxPerM_x;
+    const py = startY + yy*pxPerM_y;
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  // 当前位置（铅球）
+  const cx = startX + state.x*pxPerM_x;
+  const cy = startY + state.y*pxPerM_y;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1; ctx.stroke();
+  // 高光
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.beginPath(); ctx.arc(cx-3, cy-3, 3, 0, Math.PI*2); ctx.fill();
+
+  // 速度矢量（v_x 蓝、v_y 红、合速度紫）
+  const vScale = 0.18;
+  drawArrow(ctx, cx, cy, cx + state.vx*vScale*5, cy, '#3f6f8f', 2.2);
+  drawArrow(ctx, cx, cy, cx, cy + state.vy*vScale*5, '#b4442e', 2.2);
+  drawArrow(ctx, cx, cy, cx + state.vx*vScale*5, cy + state.vy*vScale*5, '#7d4f9c', 2.6);
+
+  // 重力箭头（始终向下，固定大小）
+  const gArrowY = cy;
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx+18, gArrowY-12); ctx.lineTo(cx+18, gArrowY+18);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx+18, gArrowY+18); ctx.lineTo(cx+14, gArrowY+13);
+  ctx.lineTo(cx+22, gArrowY+13); ctx.closePath();
+  ctx.fillStyle = '#16613f'; ctx.fill();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('g', cx+24, gArrowY+8);
+
+  // 标注矢量
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillStyle = '#3f6f8f'; ctx.fillText('v_x', cx + state.vx*vScale*5 + 4, cy-2);
+  ctx.fillStyle = '#b4442e'; ctx.fillText('v_y', cx-12, cy + state.vy*vScale*5 + 12);
+  ctx.fillStyle = '#7d4f9c'; ctx.fillText('v', cx + state.vx*vScale*5 + 4, cy + state.vy*vScale*5 + 12);
+
+  // x 轴刻度
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let xv=0; xv<=5; xv++){
+    const px = startX + xv*pxPerM_x;
+    if(px > x0+cw) break;
+    ctx.beginPath(); ctx.moveTo(px, ground); ctx.lineTo(px, ground+4); ctx.stroke();
+    ctx.fillText(xv+'m', px-7, ground+18);
+  }
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  const dx = x2-x1, dy = y2-y1, L = Math.sqrt(dx*dx+dy*dy);
+  if(L < 2) return;
+  const ax = dx/L, ay = dy/L;
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  // 箭头
+  const head = 7;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - head*ax + head*0.6*ay, y2 - head*ay - head*0.6*ax);
+  ctx.lineTo(x2 - head*ax - head*0.6*ay, y2 - head*ay + head*0.6*ax);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawDataPanel(ctx, X, Y, w, h, state){
+  ctx.fillStyle = '#fdf9ee';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X,Y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('实时四量监测', X+12, Y+22);
+
+  // 4 行数据
+  const yBase = Y+50;
+  const rows = [
+    {label:'加速度 a', value:`${g.toFixed(1)} m/s² (恒定)`, color:'#16613f', mark:'B 对'},
+    {label:'速度大小 |v|', value:`${state.v.toFixed(2)} m/s`, color:'#7d4f9c', mark:'C 错: 增大'},
+    {label:'动能 Eₖ', value:`${state.Ek.toFixed(2)} J`, color:'#b4442e', mark:'D 错: 末最大'},
+    {label:'机械能 E', value:`${state.E.toFixed(2)} J (恒定)`, color:'#3f6f8f', mark:'A 错: 守恒'}
+  ];
+
+  rows.forEach((r,i)=>{
+    const yy = yBase + i*52;
+    ctx.fillStyle = '#fffdf9';
+    ctx.strokeStyle = r.color; ctx.lineWidth = 1.4;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(X+12, yy, w-24, 44, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = r.color;
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(r.label, X+22, yy+16);
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '900 14px ui-monospace,monospace';
+    ctx.fillText(r.value, X+22, yy+34);
+    ctx.fillStyle = r.color;
+    ctx.font = '700 10px "Noto Sans SC",sans-serif';
+    ctx.fillText(r.mark, X+w-70, yy+34);
+  });
+
+  // 底部 KE+PE 条形
+  const barY = yBase + 4*52 + 6;
+  if(barY + 36 < Y + h - 6){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '800 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('Eₖ + Eₚ = 常数（机械能守恒）', X+12, barY+10);
+    const totalE = state.Ek + state.Ep;
+    const bw = w-24;
+    const ekRatio = totalE > 0 ? state.Ek/totalE : 0;
+    ctx.fillStyle = '#b4442e';
+    ctx.fillRect(X+12, barY+18, bw*ekRatio, 14);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillRect(X+12+bw*ekRatio, barY+18, bw*(1-ekRatio), 14);
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1;
+    ctx.strokeRect(X+12, barY+18, bw, 14);
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('Eₖ', X+18, barY+29);
+    ctx.fillText('Eₚ', X+12+bw-22, barY+29);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '铅球平抛运动 · 四量分析',
+  subtitle: '水平推出铅球，不计空气阻力 → 仅受重力的平抛 → 判 a / |v| / Eₖ / E 各自变化',
+  deliv: {
+    title: '平抛运动四量动态',
+    sub: 'a 恒等于 g · |v| 增大 · Eₖ 增大 · E 守恒 · 答案 B'
+  },
+  originalProblem: {
+    meta: '2023 全国甲卷 · 第 1 题 · 6 分',
+    text: `一同学将铅球水平推出，不计空气阻力和转动的影响，铅球在平抛运动过程中（&nbsp;&nbsp;&nbsp;&nbsp;）`,
+    subQuestions: [
+      'A. 机械能一直增加',
+      'B. 加速度保持不变',
+      'C. 速度大小保持不变',
+      'D. 被推出后瞬间动能最大'
+    ],
+    officialAnswer: 'B · 平抛仅受重力 → 加速度 a = g 恒定。A 错（机械能守恒），C 错（|v|=√(v₀²+(gt)²) 增大），D 错（动能落地时最大，被推出瞬间最小）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'平抛 · 仅受重力', label_short:'平抛',
+     formula_tex: String.raw`\vec a = \vec g \;\;(\text{恒定}) \quad |\vec v| = \sqrt{v_0^2 + (gt)^2} \;(\uparrow) \quad E_k = \tfrac{1}{2}m|\vec v|^2 \;(\uparrow) \quad E = E_k + E_p = \text{const}`,
+     note:'只有重力做功 → 机械能守恒；加速度恒为 g；速度大小与动能均随时间增大。'}
+  ],
+  stats: [
+    {label:'v₀',         fmt:()=>`${v0} m/s`},
+    {label:'h',          fmt:()=>`${h} m`},
+    {label:'g',          fmt:()=>`${g} m/s²`},
+    {label:'落地时间',   fmt:()=>t_fall.toFixed(2)+' s'},
+    {label:'当前 |v|',   fmt:s=>s.v.toFixed(2)+' m/s'},
+    {label:'当前 Eₖ',    fmt:s=>s.Ek.toFixed(2)+' J'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'机械能守恒（不增）', note:'仅重力做功 → E_k+E_p 恒定'},
+    {label_text:'B 对', value_text:'a = g 恒定',       note:'仅受重力 → 加速度恒等于重力加速度'},
+    {label_text:'C 错', value_text:'|v| 越来越大',     note:'|v|=√(v₀²+(gt)²)'},
+    {label_text:'D 错', value_text:'初瞬动能最小',     note:'落地时动能最大；初态 Eₖ 仅为 ½mv₀²'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'circle'}, text:'铅球'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'},   text:'v_x（水平）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'},   text:'v_y（竖直）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'},   text:'|v| 合速度'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'},   text:'g 重力（恒定）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023全国甲-Q1-铅球平抛'
+});
+</script>
+</body>
+</html>
