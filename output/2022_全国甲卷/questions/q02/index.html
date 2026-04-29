@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 2 题 · 高速列车通过隧道最少时间</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：长 l 列车，正常速率 v₀，前方长 L 隧道；任一部分在隧道内速率 ≤ v（v<v₀）
+// 加速度大小：加速 a，减速 2a。求最少时间从减速到回到 v₀。
+//
+// 三阶段：
+// ① 减速 v₀ → v：t₁ = (v₀−v)/(2a)
+// ② 隧道内匀速：车头进 → 车尾出，距离 L+l → t₂ = (L+l)/v
+// ③ 加速 v → v₀：t₃ = (v₀−v)/a
+// 总：t = (v₀−v)/(2a) + (L+l)/v + (v₀−v)/a = 3(v₀−v)/(2a) + (L+l)/v
+// 答案 C
+
+const v0 = 80;       // m/s 正常速率
+const v_lim = 40;    // m/s 隧道内限速
+const a_acc = 4;     // m/s² 加速度（减速 2a=8）
+const l_train = 200; // m 列车长
+const L_tunnel = 600;// m 隧道长
+
+const t1 = (v0 - v_lim) / (2*a_acc);     // = 5s
+const t2 = (L_tunnel + l_train) / v_lim; // = 20s
+const t3 = (v0 - v_lim) / a_acc;         // = 10s
+const t_total_phys = t1 + t2 + t3;       // = 35s
+
+// 减速距离 d1 = ½(v₀+v)·t₁ = ½(80+40)·5 = 300m
+// 加速距离 d3 = ½(v+v₀)·t₃ = ½(40+80)·10 = 600m
+const d1 = 0.5*(v0+v_lim)*t1;  // 300
+const d3 = 0.5*(v_lim+v0)*t3;  // 600
+
+// 列车头初始位置：让 t=0 时车头距隧道入口 d1（车头到达入口时刚好减到 v）
+// 车头位置 x_head(t)（取减速起点为 0 时的位置）
+//   t∈[0, t1]：减速段，x = v₀·t − a_acc·t²
+//   t∈[t1, t1+t2]：匀速段
+//   t∈[t1+t2, t_total]：加速段
+const x_tunnel_in = d1;                     // 隧道入口（车头到达此点时刚到达 v）
+const x_tunnel_out = x_tunnel_in + L_tunnel; // 隧道出口
+// 注意 t2 = (L+l)/v 是车头进入到车尾离开的时间。在 t1+t2 时刻车头位置 = x_tunnel_in + L + l + （车尾出隧道时车头已经超过出口 l 米）
+// 实际：车尾位于 x_head − l。车尾离开隧道出口 → x_head − l = x_tunnel_out → x_head = x_tunnel_out + l
+// 在 t1+t2 时刻 x_head = x_tunnel_in + v_lim·t2 = x_tunnel_in + L+l ✓
+
+const T_total = 7;  // 动画总时长（s 真实时间）
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  const tt = u * t_total_phys;  // 物理时间（0 到 35s）
+  let phase = 0, sub = 0;
+  let v_now = v0, x_head = 0;
+  if(tt <= t1){
+    phase = 1; sub = tt/t1;
+    v_now = v0 - 2*a_acc*tt;
+    x_head = v0*tt - a_acc*tt*tt;
+  } else if(tt <= t1 + t2){
+    phase = 2; sub = (tt-t1)/t2;
+    v_now = v_lim;
+    x_head = d1 + v_lim*(tt - t1);
+  } else {
+    phase = 3; sub = Math.min((tt-t1-t2)/t3, 1);
+    const tp = tt - t1 - t2;
+    v_now = v_lim + a_acc*tp;
+    // phase 3 起点 x = d1 + v_lim·t2 = d1 + L + l = 1100m
+    x_head = d1 + L_tunnel + l_train + v_lim*tp + 0.5*a_acc*tp*tp;
+  }
+  return {u, t, tt, phase, sub, v_now, x_head};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawTrack(ctx, 14, 14, W*0.62-21, H-28, state);
+  drawAnalysis(ctx, W*0.62+7, 14, W*0.38-21, H-28, state);
+}
+
+function drawTrack(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('列车通过隧道（减速→限速匀速→加速）', panelX+12, panelY+18);
+
+  // 坐标系：x 0..2000m
+  const xMin = -100, xMax = 2000;
+  const padX = 24, padYTop = 36, padYBot = 80;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const offX = panelX + padX + (-xMin)*sx;
+  const yTrack = panelY + panelH - padYBot - 30;
+  const px = x => offX + x*sx;
+
+  // 轨道
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px(xMin), yTrack);
+  ctx.lineTo(px(xMax), yTrack);
+  ctx.stroke();
+  // 枕木
+  ctx.strokeStyle = '#bfb09a'; ctx.lineWidth = 1;
+  for(let xi = xMin; xi < xMax; xi += 60){
+    ctx.beginPath();
+    ctx.moveTo(px(xi), yTrack-6); ctx.lineTo(px(xi+30), yTrack+6);
+    ctx.stroke();
+  }
+
+  // 隧道（矩形）
+  const tunnelTop = yTrack - 38;
+  const tunnelBot = yTrack;
+  ctx.fillStyle = 'rgba(125,79,156,0.10)';
+  ctx.fillRect(px(x_tunnel_in), tunnelTop, (x_tunnel_out-x_tunnel_in)*sx, tunnelBot-tunnelTop);
+  ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 2;
+  ctx.strokeRect(px(x_tunnel_in), tunnelTop, (x_tunnel_out-x_tunnel_in)*sx, tunnelBot-tunnelTop);
+  // 隧道标签
+  ctx.fillStyle = '#7d4f9c';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText('隧道 L='+L_tunnel+'m', px(x_tunnel_in)+10, tunnelTop-6);
+
+  // 列车（长 l，画在轨道上方）
+  const trainTop = yTrack - 24;
+  const trainH = 20;
+  const x1 = state.x_head - l_train;   // 车尾
+  const x2 = state.x_head;             // 车头
+  // 颜色随阶段变化
+  let trainColor = '#3f6f8f';
+  if(state.phase === 1) trainColor = '#b4442e';   // 减速 红
+  else if(state.phase === 2) trainColor = '#7d4f9c'; // 限速 紫
+  else if(state.phase === 3) trainColor = '#16613f'; // 加速 绿
+  ctx.fillStyle = trainColor;
+  ctx.fillRect(px(x1), trainTop, (x2-x1)*sx, trainH);
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.2;
+  ctx.strokeRect(px(x1), trainTop, (x2-x1)*sx, trainH);
+  // 车头三角
+  ctx.fillStyle = trainColor;
+  ctx.beginPath();
+  ctx.moveTo(px(x2), trainTop);
+  ctx.lineTo(px(x2)+8, trainTop+trainH/2);
+  ctx.lineTo(px(x2), trainTop+trainH);
+  ctx.closePath();
+  ctx.fill();
+
+  // 当前速度数值
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('v = '+state.v_now.toFixed(1)+' m/s', panelX+14, panelY+panelH-padYBot+18);
+  ctx.fillText('当前 t_物理 = '+state.tt.toFixed(2)+' s', panelX+14, panelY+panelH-padYBot+34);
+  // 阶段标签
+  let phaseText = '阶段 ① 减速 v₀→v';
+  if(state.phase === 2) phaseText = '阶段 ② 隧道内匀速 v';
+  else if(state.phase === 3) phaseText = '阶段 ③ 加速 v→v₀';
+  ctx.fillStyle = trainColor;
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseText, panelX+14, panelY+panelH-padYBot+50);
+
+  // v-t 图（panel 底部）
+  const gx0 = panelX + 14, gy0 = panelY + panelH - 16;
+  const gW = panelW - 28, gH = 16;
+  // 简化柱状图：横轴时间 0..35s，纵轴 v
+  ctx.strokeStyle = '#bfb09a'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(gx0, gy0); ctx.lineTo(gx0+gW, gy0); ctx.stroke();
+  // v-t 折线
+  const t1_x = gx0 + (t1/t_total_phys)*gW;
+  const t2_x = gx0 + ((t1+t2)/t_total_phys)*gW;
+  const tNow_x = gx0 + (state.tt/t_total_phys)*gW;
+  const v0y = gy0 - gH;
+  const vlimy = gy0 - gH*(v_lim/v0);
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(gx0, v0y);
+  ctx.lineTo(t1_x, vlimy);
+  ctx.lineTo(t2_x, vlimy);
+  ctx.lineTo(gx0+gW, v0y);
+  ctx.stroke();
+  // 当前位置标记
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(tNow_x, gy0-gH*(state.v_now/v0), 3, 0, Math.PI*2); ctx.fill();
+
+  // 答案揭晓（u≥0.92）
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('t_min = 3(v₀−v)/(2a) + (L+l)/v', panelX+200, panelY+panelH-padYBot+18);
+  }
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('三阶段时间 + 总和', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• 任一部分在隧道内 → v ≤ v_lim'});
+  if(state.u >= 0.18) lines.push({c:'#5d6964', t:'  约束区间：车头进 → 车尾出'});
+  if(state.u >= 0.30) lines.push({c:'#b4442e', t:'• ① 减速：v₀ → v'});
+  if(state.u >= 0.34) lines.push({c:'#b4442e', t:'  t₁ = (v₀−v)/(2a)'});
+  if(state.u >= 0.50) lines.push({c:'#7d4f9c', t:'• ② 隧道内匀速 v'});
+  if(state.u >= 0.54) lines.push({c:'#7d4f9c', t:'  距离 L+l → t₂ = (L+l)/v'});
+  if(state.u >= 0.70) lines.push({c:'#16613f', t:'• ③ 加速：v → v₀'});
+  if(state.u >= 0.74) lines.push({c:'#16613f', t:'  t₃ = (v₀−v)/a'});
+  if(state.u >= 0.85) lines.push({c:'#5d6964', t:'• 总和 t = t₁+t₂+t₃'});
+  if(state.u >= 0.88) lines.push({c:'#5d6964', t:'  = (v₀−v)/(2a) + (L+l)/v + (v₀−v)/a'});
+  if(state.u >= 0.92) lines.push({c:'#c2611f', t:'  = 3(v₀−v)/(2a) + (L+l)/v'});
+  if(state.u >= 0.94) lines.push({c:'#c2611f', t:'答案 C'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 16;
+  });
+
+  if(state.u >= 0.94){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-50, panelW-24, 38, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C：3(v₀−v)/(2a)+(L+l)/v', panelX+18, panelY+panelH-26);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 6 分',
+  title: '高速列车通过隧道最少时间',
+  subtitle: '减速到 v 进入隧道 → 匀速通过 → 出隧道后加速到 v₀。',
+  deliv: { title: '匀变速运动 + 距离约束', sub: 'C：t = 3(v₀−v)/(2a)+(L+l)/v' },
+  originalProblem: {
+    meta: '2022 全国甲 · 单选 · 第 2 题 · 6 分',
+    image: '',
+    text: `长为 l 的高速列车在平直轨道上正常行驶，速率为 v₀，要通过前方一长为 L 的隧道，当列车的任一部分处于隧道内时，列车速率都不允许超过 v（v &lt; v₀）。已知列车加速和减速时加速度的大小分别为 a 和 2a，则列车从减速开始至回到正常行驶速率 v₀ 所用时间至少为（    ）`,
+    subQuestions: [
+      'A. (v₀−v)/(2a) + (L+l)/v + (v₀−v)/a',
+      'B. (v₀−v)/a + (L+l)/v + (v₀−v)/(2a)',
+      'C. 3(v₀−v)/(2a) + (L+l)/v',
+      'D. 3(v₀−v)/a + (L+l)/v'
+    ],
+    officialAnswer: 'C · 三阶段：① 减速 v₀→v：v=v₀−2a·t₁ → t₁=(v₀−v)/(2a)。② 隧道内匀速 v：约束是"任一部分在隧道内"即车头进入隧道到车尾离开隧道，距离 L+l → t₂=(L+l)/v。③ 加速 v→v₀：v₀=v+a·t₃ → t₃=(v₀−v)/a。总和 t=t₁+t₂+t₃=(v₀−v)/(2a)+(L+l)/v+(v₀−v)/a=3(v₀−v)/(2a)+(L+l)/v。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 减速', label_short:'t₁',
+     formula_tex: String.raw`v_0 - 2a\,t_1 = v \;\Rightarrow\; t_1 = \dfrac{v_0-v}{2a}`,
+     note:'减速到 v 进入隧道。'},
+    {label:'阶段 ② 隧道内匀速', label_short:'t₂',
+     formula_tex: String.raw`\text{距离} = L + l \;\Rightarrow\; t_2 = \dfrac{L+l}{v}`,
+     note:'车头进 → 车尾出。'},
+    {label:'阶段 ③ 加速', label_short:'t₃',
+     formula_tex: String.raw`v + a\,t_3 = v_0 \;\Rightarrow\; t_3 = \dfrac{v_0-v}{a}`,
+     note:'回到正常速率。'},
+    {label:'阶段 ④ 总和', label_short:'t',
+     formula_tex: String.raw`t = \dfrac{3(v_0-v)}{2a} + \dfrac{L+l}{v}`,
+     note:'三段相加。答案 C。'}
+  ],
+  stats: [
+    {label:'v₀',  fmt:()=>v0+' m/s'},
+    {label:'v',   fmt:()=>v_lim+' m/s'},
+    {label:'a',   fmt:()=>a_acc+' m/s²'},
+    {label:'l',   fmt:()=>l_train+' m'},
+    {label:'L',   fmt:()=>L_tunnel+' m'},
+    {label:'t₁',  fmt:s=>(s.u>=0.34? t1.toFixed(1)+' s' : '?')},
+    {label:'t₂',  fmt:s=>(s.u>=0.54? t2.toFixed(1)+' s' : '?')},
+    {label:'t₃',  fmt:s=>(s.u>=0.74? t3.toFixed(1)+' s' : '?')},
+    {label:'t_min', fmt:s=>(s.u>=0.92? t_total_phys.toFixed(1)+' s' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'未化简',           note:'未合并 t₁+t₃'},
+    {label_text:'B 错', value_text:'a/2a 互换',         note:'加减速顺序错'},
+    {label_text:'C 对', value_text:'3(v₀−v)/(2a)+(L+l)/v ✓', note:'最少时间'},
+    {label_text:'D 错', value_text:'分母系数错',         note:'丢 1/2'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'阶段 ① 减速（红）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'阶段 ② 限速匀速（紫）+ 隧道'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'阶段 ③ 加速（绿）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'v-t 折线'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q2-列车隧道最少时间'
+});
+</script>
+</body>
+</html>

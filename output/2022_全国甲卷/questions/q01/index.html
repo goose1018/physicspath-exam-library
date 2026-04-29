@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 1 题 · 圆弧雪道最小半径</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：运动员从 a 静止滑下到圆弧最低点 c，高度差 h
+//   动能定理 a→c：mgh = ½mv² → v² = 2gh
+//   c 点（最低点）：F_N − mg = mv²/r → F_N = mg(1 + 2h/r)
+//   要求 F_N ≤ k·mg → 1 + 2h/r ≤ k → r ≥ 2h/(k−1)
+//   ∴ r_min = 2h/(k−1)
+// 答案 D
+
+const h = 5;        // 高度差（任意单位 m）
+const g_g = 10;
+const k_factor = 2.0;  // 压力 ≤ k·mg
+const v_at_c = Math.sqrt(2*g_g*h);     // = 10 m/s
+const r_min = 2*h / (k_factor - 1);    // = 10 m
+
+const T_total = 8;
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面
+  // 0.10-0.55 运动员从 a 滑到 c（沿圆弧）
+  // 0.55-0.85 力分析阶段
+  // 0.85-1.00 揭晓答案
+  let phase = 0, sub = 0;
+  if(u < 0.10){ phase = 0; sub = 0; }
+  else if(u < 0.55){ phase = 1; sub = (u-0.10)/0.45; }
+  else if(u < 0.85){ phase = 2; sub = (u-0.55)/0.30; }
+  else { phase = 3; sub = 1; }
+
+  // 当前位置和速度（沿圆弧 + 起始斜坡）
+  // 简化：合并为高度 H_cur 单调下降
+  let H_cur = h, vNow = 0;
+  if(phase === 1){
+    H_cur = h * (1 - sub);   // h → 0
+    vNow = Math.sqrt(2*g_g*(h - H_cur));   // 由动能定理
+  } else if(phase >= 2){
+    H_cur = 0; vNow = v_at_c;
+  }
+  return {u, t, phase, sub, H_cur, vNow};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawSlope(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawAnalysis(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawSlope(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('滑雪大跳台 · 圆弧最低点 c 受力', panelX+12, panelY+18);
+
+  // 坐标系：x 0..14m, y 0..7m
+  const xMin = 0, xMax = 14;
+  const yMin = -1, yMax = 7;
+  const padX = 28, padYTop = 32, padYBot = 30;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - padYTop - padYBot) / (yMax - yMin);
+  const s = Math.min(sx, sy);
+  const offX = panelX + padX;
+  const offY = panelY + panelH - padYBot - (-yMin)*s;
+  const px = x => offX + x*s;
+  const py = y => offY - y*s;
+
+  // 雪面：a 在 (1, 5)，斜坡到 b'(4, 1)，圆弧从 b'(4,1) 经 c(7,0) 到 b(10,1)，再上升到 b 落地
+  // 简化：a(1, h=5)，圆弧最低点 c 在 (7, 0)
+  // 圆弧半径 r=2，圆心 (7, 2)
+  const r_arc = 2;     // 视觉用
+  const cx_arc = 7, cy_arc = r_arc;  // 圆心 (7, 2)
+
+  // 起始斜坡 a 到圆弧入口
+  // 圆弧入口角：θ₁ = π/2 + π/4（左上 45°）→ 入口点 (cx-r·cos45°, cy-r·sin45°+r) → 简化用 (5, 1.41)
+  // 出口对称
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.fillStyle = 'rgba(63,111,143,0.10)';
+  ctx.beginPath();
+  // a 起点
+  ctx.moveTo(px(1), py(h));
+  // 直斜坡到圆弧入口 (5, r-r/√2) = (5, 2-1.414) = (5, 0.586)
+  const yEntry = cy_arc - r_arc*Math.sin(Math.PI/4);
+  const xEntry = cx_arc - r_arc*Math.cos(Math.PI/4);
+  ctx.lineTo(px(xEntry), py(yEntry));
+  // 圆弧（canvas y 向下）：3π/4 (左下) → 经 π/2 (正下方=最低点 c) → π/4 (右下)，anticlockwise=true
+  ctx.arc(px(cx_arc), py(cy_arc), r_arc*s, Math.PI*3/4, Math.PI*1/4, true);
+  // 出口
+  const xExit = cx_arc + r_arc*Math.cos(Math.PI/4);
+  ctx.lineTo(px(xExit), py(yEntry));
+  // 直斜坡到 b 终点
+  ctx.lineTo(px(13), py(h-1));
+  // 闭合到底部
+  ctx.lineTo(px(13), py(yMin));
+  ctx.lineTo(px(1), py(yMin));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 圆心标记（不画完整虚线圆 — 避免误导学生以为雪道是完整圆轨道）
+  ctx.fillStyle = '#7d4f9c';
+  ctx.beginPath(); ctx.arc(px(cx_arc), py(cy_arc), 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText('O', px(cx_arc)+5, py(cy_arc)-4);
+
+  // 半径线（c 到 圆心 O）
+  ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(px(cx_arc), py(0));
+  ctx.lineTo(px(cx_arc), py(cy_arc));
+  ctx.stroke();
+  ctx.fillStyle = '#7d4f9c';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('r', px(cx_arc)-12, py(1));
+
+  // a/b/c 标记
+  ctx.fillStyle = '#3a3a3c';
+  ctx.font = 'italic 800 13px Georgia,serif';
+  ctx.fillText('a', px(0.5), py(h)+5);
+  ctx.fillText('b', px(13)-12, py(h-1)-3);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText('c', px(cx_arc)-3, py(0)+18);
+  // a/b/c 点
+  ctx.fillStyle = '#3a3a3c';
+  ctx.beginPath(); ctx.arc(px(1), py(h), 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(px(13), py(h-1), 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px(cx_arc), py(0), 4, 0, Math.PI*2); ctx.fill();
+
+  // h 高度标注
+  ctx.strokeStyle = '#bfb09a'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(px(0.3), py(0)); ctx.lineTo(px(0.3), py(h)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px(0.3), py(0)); ctx.lineTo(px(cx_arc), py(0)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('h', px(0.3)-15, py(h/2));
+
+  // 运动员位置
+  let athX, athY;
+  if(state.phase === 0){ athX = 1; athY = h; }
+  else if(state.phase === 1){
+    // 简化：直线 a → c（不严格沿斜坡+圆弧，但视觉单调）
+    const tF = state.sub;
+    athX = 1 + (cx_arc - 1) * tF;
+    athY = h - h * tF;
+  } else { athX = cx_arc; athY = 0; }
+
+  // 运动员（简单棒人）
+  drawAthlete(ctx, px(athX), py(athY), state.phase >= 2);
+
+  // 在 c 点的力分析（u≥0.55）
+  if(state.phase >= 2){
+    const cxc = px(cx_arc), cyc = py(0);
+    // F_N 向上（紫色）
+    PPath.arrow(ctx, cxc, cyc-12, cxc, cyc-50, '#7d4f9c', 2.0);
+    ctx.fillStyle = '#7d4f9c';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('F_N', cxc+8, cyc-46);
+    // mg 向下（红）
+    PPath.arrow(ctx, cxc, cyc-12, cxc, cyc+30, '#b4442e', 2.0);
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('mg', cxc+8, cyc+22);
+    // 速度 v 水平（蓝）
+    PPath.arrow(ctx, cxc, cyc-12, cxc+50, cyc-12, '#3f6f8f', 2.0);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('v', cxc+55, cyc-8);
+  }
+
+  // 答案文字（u≥0.92 与答案徽章同步）
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('r_min = 2h/(k−1)', panelX+12, panelY+panelH-8);
+  }
+}
+
+function drawAthlete(ctx, x, y, atC){
+  ctx.fillStyle = '#3a3a3c';
+  // 头
+  ctx.beginPath(); ctx.arc(x, y-12, 4, 0, Math.PI*2); ctx.fill();
+  // 身
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y-8); ctx.lineTo(x, y-2);
+  // 腿
+  ctx.lineTo(x-3, y);
+  ctx.moveTo(x, y-2); ctx.lineTo(x+3, y);
+  ctx.stroke();
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('动能定理 + 向心力', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• a→c 动能定理'});
+  if(state.u >= 0.18) lines.push({c:'#5d6964', t:'  mgh = ½mv² → v² = 2gh'});
+  if(state.u >= 0.55) lines.push({c:'#5d6964', t:'• c 点圆周（向心力向上）'});
+  if(state.u >= 0.60) lines.push({c:'#5d6964', t:'  F_N − mg = mv²/r'});
+  if(state.u >= 0.65) lines.push({c:'#5d6964', t:'  → F_N = mg(1 + 2h/r)'});
+  if(state.u >= 0.72) lines.push({c:'#b4442e', t:'• 限制：F_N ≤ k·mg'});
+  if(state.u >= 0.76) lines.push({c:'#b4442e', t:'  1 + 2h/r ≤ k'});
+  if(state.u >= 0.80) lines.push({c:'#5d6964', t:'  解出 r 与 h、k 的关系'});
+  if(state.u >= 0.92) lines.push({c:'#16613f', t:'  → r ≥ 2h/(k−1)'});
+  if(state.u >= 0.92) lines.push({c:'#c2611f', t:'答案 D：r_min = 2h/(k−1)'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 17;
+  });
+
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-50, panelW-24, 38, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 D：r_min = 2h/(k−1)', panelX+22, panelY+panelH-26);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '圆弧雪道最小半径（动能定理+向心力）',
+  subtitle: '动能定理 v²=2gh + 向心力 F_N−mg=mv²/r + 约束 F_N≤k·mg。',
+  deliv: { title: '能量与圆周运动', sub: 'D：r_min = 2h/(k−1)' },
+  originalProblem: {
+    meta: '2022 全国甲 · 单选 · 第 1 题 · 6 分',
+    image: '../../source/images/image2.png',
+    text: `北京2022年冬奥会首钢滑雪大跳台局部示意图如图所示。运动员从 a 处由静止自由滑下，到 b 处起跳，c 点为 a、b 之间的最低点，a、c 两处的高度差为 h。要求运动员经过 c 点时对滑雪板的压力不大于自身所受重力的 k 倍，运动过程中将运动员视为质点并忽略所有阻力，则 c 点处这一段圆弧雪道的半径不应小于（    ）`,
+    subQuestions: [
+      'A. h/(k+1)',
+      'B. h/(k−1)',
+      'C. 2h/(k+1)',
+      'D. 2h/(k−1)'
+    ],
+    officialAnswer: 'D · 动能定理 a→c：mgh=½mv² → v²=2gh。c 点圆周最低点（向心力向上）F_N−mg=mv²/r，代入 → F_N=mg(1+2h/r)。约束 F_N≤k·mg → 1+2h/r≤k → r≥2h/(k−1)。故 r_min=2h/(k−1)。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 动能定理', label_short:'KE',
+     formula_tex: String.raw`mgh = \tfrac{1}{2}mv^2 \;\Rightarrow\; v^2 = 2gh`,
+     note:'a→c 重力做功 = 末动能。'},
+    {label:'阶段 ② 圆周向心力', label_short:'F_c',
+     formula_tex: String.raw`F_N - mg = \dfrac{mv^2}{r} \;\Rightarrow\; F_N = mg\!\left(1+\dfrac{2h}{r}\right)`,
+     note:'c 点最低点合力向上提供向心力。'},
+    {label:'阶段 ③ 约束 + 答案', label_short:'r_min',
+     formula_tex: String.raw`F_N \le k\,mg \;\Rightarrow\; r \ge \dfrac{2h}{k-1}`,
+     note:'最小半径 r_min=2h/(k−1)。'}
+  ],
+  stats: [
+    {label:'h',         fmt:()=>h+' m'},
+    {label:'g',         fmt:()=>g_g+' m/s²'},
+    {label:'k',         fmt:()=>k_factor},
+    {label:'v(c)',      fmt:s=>(s.u>=0.30? v_at_c.toFixed(2)+' m/s' : '?')},
+    {label:'F_N/mg',    fmt:s=>(s.u>=0.65? '1 + 2h/r' : '?')},
+    {label:'r_min',     fmt:s=>(s.u>=0.92? r_min.toFixed(2)+' m' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'h/(k+1)',     note:'分母错号'},
+    {label_text:'B 错', value_text:'h/(k−1)',     note:'缺系数 2'},
+    {label_text:'C 错', value_text:'2h/(k+1)',    note:'分母错号'},
+    {label_text:'D 对', value_text:'2h/(k−1) ✓', note:'r_min'}
+  ],
+  legend: [
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'圆弧 / F_N / 半径 r'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'mg 重力 / c 点'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'v 速度（水平）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q1-滑雪圆弧最小半径'
+});
+</script>
+</body>
+</html>

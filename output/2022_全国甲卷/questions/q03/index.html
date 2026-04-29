@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 3 题 · 三种线框感应电流比较</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：三个线框（正方形、圆、正六边形）用同样细导线做成
+// 正方形边长 = 圆直径 = 2r；圆半径 = 正六边形边长 = r
+//
+// 周长（导线长，决定电阻 R∝L）：
+//   正方形 8r、圆 2πr、六边形 6r
+// 面积（决定 EMF：ε = A·dB/dt）：
+//   正方形 4r²、圆 πr²、六边形 (3√3/2)r²
+//
+// I = ε/R = A·(dB/dt)/R
+//   I₁ : I₂ : I₃ = (4r²/8r) : (πr²/2πr) : ((3√3/2)r²/6r)
+//                = (r/2) : (r/2) : (√3 r/4)
+//                = 2 : 2 : √3
+//
+// 故 I_正方形 = I_圆 > I_六边形 → 答案 C
+
+const r_unit = 1;          // 几何单位
+const L_sq = 8 * r_unit;
+const L_ci = 2 * Math.PI * r_unit;
+const L_he = 6 * r_unit;
+const A_sq = 4 * r_unit * r_unit;
+const A_ci = Math.PI * r_unit * r_unit;
+const A_he = (3*Math.sqrt(3)/2) * r_unit * r_unit;
+// 电流比例（任意 dB/dt 单位）
+const I_sq = A_sq / L_sq;   // r/2
+const I_ci = A_ci / L_ci;   // r/2
+const I_he = A_he / L_he;   // √3 r/4
+// 归一化（让 I_sq=1）
+const I_norm_sq = 1.0;
+const I_norm_ci = I_ci / I_sq;
+const I_norm_he = I_he / I_sq;  // √3/2 ≈ 0.866
+
+const T_total = 8;
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面
+  // 0.10-0.40 周长比较
+  // 0.40-0.60 面积比较
+  // 0.60-0.85 EMF 与 I 比较（用磁场变化触发感应电流动画）
+  // 0.85-1.00 揭晓 1:1:√3/2
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.40) phase = 1;
+  else if(u < 0.60) phase = 2;
+  else if(u < 0.85) phase = 3;
+  else phase = 4;
+
+  // 磁场强度变化（线性增加，模拟 dB/dt 常数）
+  const B_t = u;  // 任意单位
+  return {u, t, phase, B_t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawShapes(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawAnalysis(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawShapes(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('三种线框（同一匀强磁场，dB/dt 相同）', panelX+12, panelY+18);
+
+  // 三个图形横向排列
+  const yc = panelY + panelH * 0.40;
+  const cx1 = panelX + panelW * 0.20;  // 正方形
+  const cx2 = panelX + panelW * 0.50;  // 圆
+  const cx3 = panelX + panelW * 0.80;  // 六边形
+  const scale = Math.min(panelW * 0.10, panelH * 0.18);  // 像素/r
+
+  // 磁场背景（× 网格，浓度随 B_t 变化）
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 9px Georgia,serif';
+  for(let xi = panelX+22; xi < panelX+panelW-12; xi += 18){
+    for(let yi = panelY+34; yi < panelY+panelH-30; yi += 18){
+      ctx.globalAlpha = 0.20 + 0.30*state.B_t;
+      ctx.fillText('×', xi, yi);
+    }
+  }
+  ctx.globalAlpha = 1.0;
+
+  // 正方形（边长 2r）
+  drawShape(ctx, 'sq', cx1, yc, scale*2, '#b4442e', state);
+  // 圆（半径 r → 直径 2r）
+  drawShape(ctx, 'ci', cx2, yc, scale*2, '#3f6f8f', state);
+  // 正六边形（边长 r → 跨距 2r）
+  drawShape(ctx, 'he', cx3, yc, scale*2, '#16613f', state);
+
+  // 标签
+  ctx.fillStyle = '#3a3a3c';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('正方形（边 2r）', cx1, yc + scale*1.3 + 14);
+  ctx.fillText('圆（半径 r）', cx2, yc + scale*1.3 + 14);
+  ctx.fillText('正六边形（边 r）', cx3, yc + scale*1.3 + 14);
+  ctx.textAlign = 'start';
+
+  // 比例条（u≥0.10 揭晓周长 / 0.40 揭晓面积 / 0.60 揭晓电流）
+  const tableY = yc + scale*1.3 + 36;
+  const cellH = 16;
+  const cellW = panelW * 0.20;
+  const cells = [
+    {x: cx1 - cellW/2},
+    {x: cx2 - cellW/2},
+    {x: cx3 - cellW/2}
+  ];
+
+  // 行 1：周长 L
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText('L =', panelX + 8, tableY+12);
+  if(state.u >= 0.18){
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('8r',  cells[0].x + cellW/2 - 8, tableY+12);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('2πr', cells[1].x + cellW/2 - 12, tableY+12);
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('6r',  cells[2].x + cellW/2 - 8, tableY+12);
+  }
+  // 行 2：面积 S
+  ctx.fillStyle = '#5d6964';
+  ctx.fillText('S =', panelX + 8, tableY+30);
+  if(state.u >= 0.45){
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('4r²',       cells[0].x + cellW/2 - 10, tableY+30);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('πr²',       cells[1].x + cellW/2 - 10, tableY+30);
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('(3√3/2)r²', cells[2].x + cellW/2 - 22, tableY+30);
+  }
+  // 行 3：I = S/L · (dB/dt)（u≥0.65）
+  ctx.fillStyle = '#5d6964';
+  ctx.fillText('I ∝', panelX + 8, tableY+48);
+  if(state.u >= 0.65){
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('r/2',     cells[0].x + cellW/2 - 10, tableY+48);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('r/2',     cells[1].x + cellW/2 - 10, tableY+48);
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('√3 r/4',  cells[2].x + cellW/2 - 16, tableY+48);
+  }
+  // 行 4：归一化比（u≥0.85）
+  ctx.fillStyle = '#5d6964';
+  ctx.fillText('比', panelX + 8, tableY+66);
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('2',  cells[0].x + cellW/2 - 6, tableY+66);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('2',  cells[1].x + cellW/2 - 6, tableY+66);
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('√3', cells[2].x + cellW/2 - 8, tableY+66);
+    // 总结（与答案徽章同步揭晓）
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('I_正方形 = I_圆 > I_六边形（2 : 2 : √3）', panelX+12, panelY+panelH-10);
+  }
+}
+
+function drawShape(ctx, kind, cx, cy, size, color, state){
+  // size = 2r（"对应于直径"）
+  const r = size/2;
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  if(kind === 'sq'){
+    ctx.rect(cx - r, cy - r, size, size);
+  } else if(kind === 'ci'){
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+  } else if(kind === 'he'){
+    // 正六边形，边长 r（顶点到中心 r）
+    for(let i = 0; i < 6; i++){
+      const ang = i * Math.PI/3;
+      const xx = cx + r*Math.cos(ang);
+      const yy = cy + r*Math.sin(ang);
+      if(i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+    }
+    ctx.closePath();
+  }
+  ctx.stroke();
+  // 感应电流方向箭头（u≥0.65 揭晓，全部相同方向：磁场增强 → 感应电流逆 B 方向 → 顺时针俯视）
+  if(state.u >= 0.65){
+    const arrowAng = -Math.PI/4;
+    const ax = cx + r * 0.7 * Math.cos(arrowAng);
+    const ay = cy + r * 0.7 * Math.sin(arrowAng);
+    const tang = arrowAng + Math.PI/2;  // 顺时针切向
+    PPath.arrow(ctx, ax-5*Math.cos(tang), ay-5*Math.sin(tang),
+                     ax+5*Math.cos(tang), ay+5*Math.sin(tang), color, 1.4);
+  }
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('I = ε/R 推导', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• 几何：圆半径=六边形边=r，正方形边=2r'});
+  if(state.u >= 0.18) lines.push({c:'#5d6964', t:'• 周长（导线长）→ 电阻 R∝L'});
+  if(state.u >= 0.22) lines.push({c:'#5d6964', t:'  L = 8r : 2πr : 6r'});
+  if(state.u >= 0.45) lines.push({c:'#5d6964', t:'• 面积 → EMF ε = S·(dB/dt)'});
+  if(state.u >= 0.50) lines.push({c:'#5d6964', t:'  S = 4r² : πr² : (3√3/2)r²'});
+  if(state.u >= 0.65) lines.push({c:'#5d6964', t:'• I = ε/R = S/L · (dB/dt)'});
+  if(state.u >= 0.70) lines.push({c:'#5d6964', t:'  S/L = r/2 : r/2 : √3r/4'});
+  if(state.u >= 0.85) lines.push({c:'#16613f', t:'• 比 = 2 : 2 : √3'});
+  if(state.u >= 0.92) lines.push({c:'#16613f', t:'  → I_正方形 = I_圆 > I_六边形'});
+  if(state.u >= 0.92) lines.push({c:'#c2611f', t:'答案 C'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 17;
+  });
+
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-50, panelW-24, 38, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C：I₁ = I₂ > I₃', panelX+22, panelY+panelH-26);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '三种线框感应电流比较',
+  subtitle: '同导线 → R∝L；I=ε/R=S/L·(dB/dt) → 比 = 2:2:√3。',
+  deliv: { title: '电磁感应 + 几何比较', sub: 'C：I₁=I₂>I₃' },
+  originalProblem: {
+    meta: '2022 全国甲 · 单选 · 第 3 题 · 6 分',
+    image: '../../source/images/image20.png',
+    text: `三个用同样的细导线做成的刚性闭合线框，正方形线框的边长与圆线框的直径相等，圆线框的半径与正六边形线框的边长相等，如图所示。把它们放入磁感应强度随时间线性变化的同一匀强磁场中，线框所在平面均与磁场方向垂直，正方形、圆形和正六边形线框中感应电流的大小分别为 I₁、I₂ 和 I₃。则（    ）`,
+    subQuestions: [
+      'A. I₁ &gt; I₂ &gt; I₃',
+      'B. I₁ &gt; I₃ &gt; I₂',
+      'C. I₁ = I₂ &gt; I₃',
+      'D. I₂ &gt; I₁ &gt; I₃'
+    ],
+    officialAnswer: 'C · 设圆半径 r。正方形边长 2r，周长 8r，面积 4r²；圆周长 2πr，面积 πr²；正六边形边长 r，周长 6r，面积 (3√3/2)r²。同种导线 → R∝L → R₁:R₂:R₃ = 8:2π:6 = 4:π:3。EMF ε=S·(dB/dt)，三个 dB/dt 相同 → ε₁:ε₂:ε₃ = 4:π:(3√3/2)。I=ε/R → I₁:I₂:I₃ = (4/4):(π/π):((3√3/2)/3) = 1:1:(√3/2) = 2:2:√3。即 I₁=I₂&gt;I₃。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 几何', label_short:'r',
+     formula_tex: String.raw`\text{正方形 } 2r,\;\text{圆半径 } r,\;\text{六边形边 } r`,
+     note:'三种线框的几何关系。'},
+    {label:'阶段 ② 周长 (R∝L)', label_short:'L',
+     formula_tex: String.raw`L_1:L_2:L_3 = 8r:2\pi r:6r = 4:\pi:3`,
+     note:'同种导线 → 电阻正比周长。'},
+    {label:'阶段 ③ 面积 (ε=S·dB/dt)', label_short:'S',
+     formula_tex: String.raw`S_1:S_2:S_3 = 4r^2:\pi r^2:\tfrac{3\sqrt{3}}{2}r^2`,
+     note:'EMF 正比面积。'},
+    {label:'阶段 ④ 电流比', label_short:'I',
+     formula_tex: String.raw`I_i = \dfrac{S_i}{L_i}\cdot\dfrac{dB}{dt} \;\Rightarrow\; I_1:I_2:I_3 = 2:2:\sqrt{3}`,
+     note:'I_正方形 = I_圆 > I_六边形。'},
+    {label:'阶段 ⑤ 答案', label_short:'C',
+     formula_tex: String.raw`I_1 = I_2 > I_3`,
+     note:'答案 C。'}
+  ],
+  stats: [
+    {label:'r',         fmt:()=>'r（基准）'},
+    {label:'L₁:L₂:L₃',  fmt:s=>(s.u>=0.18? '4 : π : 3' : '?')},
+    {label:'S₁:S₂:S₃',  fmt:s=>(s.u>=0.45? '4 : π : 3√3/2' : '?')},
+    {label:'I₁:I₂:I₃',  fmt:s=>(s.u>=0.92? '2 : 2 : √3' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'I₁&gt;I₂&gt;I₃',  note:'未考虑 R∝L'},
+    {label_text:'B 错', value_text:'I₁&gt;I₃&gt;I₂',  note:'方向错'},
+    {label_text:'C 对', value_text:'I₁=I₂&gt;I₃ ✓',  note:'正确'},
+    {label_text:'D 错', value_text:'I₂&gt;I₁&gt;I₃',  note:'未抵消'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'正方形（红）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'圆（蓝）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'正六边形（绿）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q3-三线框电流比'
+});
+</script>
+</body>
+</html>
