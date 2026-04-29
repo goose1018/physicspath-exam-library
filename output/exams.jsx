@@ -181,11 +181,15 @@ const REAL_PROBLEMS = [
   { id:'2021-gk1-q02', year:2021, paper:'gk1', no:'2',  module:'运动学',  tplId:null, title:'旋转纽扣 1cm 处向心加速度',                       summary:'n=50 r/s → ω=100π rad/s；a=ω²r=100π²≈987 m/s²；量级 ~1000 m/s²。答案 C。', diff:'易', heat:120, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q02/index.html' },
   { id:'2021-gk1-q03', year:2021, paper:'gk1', no:'3',  module:'电磁学',  tplId:null, title:'两折角导线 M/N 处磁场叠加',                       summary:'4 段半轴拼成 2 根等效无限长直导线；安培定则 → M 处反向相消=0，N 处同向叠加=2B。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q03/index.html' },
   { id:'2021-gk1-q04', year:2021, paper:'gk1', no:'4',  module:'近代物理', tplId:null, title:'X→Y 衰变放出电子总数',                            summary:'X(92,146)→Y(82,124)；α(Δ=-2,-2)、β(Δ=+1,-1)；解 nα=8 nβ=6；电子数=nβ=6。答案 A。', diff:'中', heat:115, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q04/index.html' },
+  { id:'2021-gk1-q05', year:2021, paper:'gk1', no:'5',  module:'天体力学', tplId:null, title:'天问一号停泊轨道远火点',                          summary:'GM=gR²；开普勒 a³=GM·T²/(4π²)→a≈3.27×10⁷；2a=r_min+r_max→r_max≈6.16×10⁷；h_max=r_max−R≈5.82×10⁷。答案 C 量级 6×10⁷ m。', diff:'中', heat:128, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q05/index.html' },
+  { id:'2021-gk1-q06', year:2021, paper:'gk1', no:'6',  module:'电磁学',  tplId:null, title:'等势面 abcde 5 点电场判定',                       summary:'φ_a=3 φ_b=5 φ_c=6 φ_d=7 φ_e=5 V；A 错 W=0；B 对 e⁻ a→d W=4eV；C 错 E 向左；D 对 b 处等势线最密 E 最大。答案 BD。', diff:'中', heat:135, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q06/index.html' },
   // ── 2020 新课标 II 卷 ──
   { id:'2020-xkbII-q03', year:2020, paper:'xkbII', no:'3',  module:'力学',    tplId:null, title:'摩托车越野跨坑 · 平抛 E₂/E₁',                      summary:'坑宽 3h, a 比 b 高 0.5h；E₁ 落 c (h, h)：t₁=√(2h/g), v₀₁=√(gh/2), E₁=mgh/4；E₂ 到 b (3h, 0.5h)：t₂=√(h/g), v₀₂=3√(gh), E₂=9mgh/2；比值 18。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2020_新课标II/questions/q03/index.html' },
   { id:'2020-xkbII-q07', year:2020, paper:'xkbII', no:'7',  module:'电磁学',  tplId:null, title:'圆环异种电荷 4 点 · 场强电势比较',               summary:'上半 +Q 下半 -Q；4 点 a/b/c/d 等距 r₀；y 轴对称 → E_a=E_b（向下）+ V_a=V_b；水平翻转+电荷反号反对称 → E_c=E_d（向下）；沿 E 方向 V 降 → V_c>V_d。答案 ABC。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标II/questions/q07/index.html' },
   { id:'2023-xgk1-q07', year:2023, paper:'xgk1', no:'7',  module:'力学',    tplId:null, title:'W-x 图分段拉力 · 动能/功率/动量',                  summary:'½mv²=W−f·x，f=4N；F₁=6 加速 / F₂=3<f 减速；x=4 KE=2J；W_f(0→2)=8J；v_max=2√2 在 x=2m。答案 BC。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_新课标卷/questions/q07/index.html' },
   { id:'2023-xgk1-q08', year:2023, paper:'xgk1', no:'8',  module:'热学',    tplId:null, title:'三段绝热汽缸 + 弹簧 + 加热 f',                       summary:'加热 f → P₁ 推 g、弹簧推 P₂ 推 h；P₁ 平衡 P_f=P_g+F/A，P₂ 平衡 P_h=P_g+F/A → P_f=P_h；h 绝热被做正功 ΔU_h>0。答案 AD。', diff:'中', heat:135, hasAnim:true, htmlPath:'2023_新课标卷/questions/q08/index.html' },
+  { id:'2023-xgk1-q11', year:2023, paper:'xgk1', no:'11', module:'力学',    tplId:null, title:'打水漂 · 最小水平抛速度',                            summary:'平抛 v_y=√(2gh)；落水夹角 tan α=v_y/v₀；α≤θ 临界条件 → v₀≥√(2gh)/tan θ；v₀_min=√(2gh)/tan θ。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_新课标卷/questions/q11/index.html' },
+  { id:'2023-xgk1-q12', year:2023, paper:'xgk1', no:'12', module:'电磁学',  tplId:null, title:'密立根油滴 · 质量比+电荷正负与比',                  summary:'匀速 mg=krv → m∝v^(3/2)；v₀:v₀\'=4:1 → m_a:m_b=8:1；加电 a 减速→负、b 加速→正；q_a:q_b=4:1。', diff:'难', heat:140, hasAnim:true, paid:true, htmlPath:'2023_新课标卷/questions/q12/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -293,11 +297,15 @@ const PROBLEM_META = {
   '2021-gk1-q02': { type:'choice-single', answer:'C' },
   '2021-gk1-q03': { type:'choice-single', answer:'B' },
   '2021-gk1-q04': { type:'choice-single', answer:'A' },
+  '2021-gk1-q05': { type:'choice-single', answer:'C' },
+  '2021-gk1-q06': { type:'choice-multi',  answer:'BD' },
   // 2020 新课标 II 卷
   '2020-xkbII-q03': { type:'choice-single', answer:'B' },
   '2020-xkbII-q07': { type:'choice-multi',  answer:'ABC' },
   '2023-xgk1-q07': { type:'choice-multi',  answer:'BC' },
   '2023-xgk1-q08': { type:'choice-multi',  answer:'AD' },
+  '2023-xgk1-q11': { type:'calc',          answer:[{sub:'v₀_min',val:'√(2gh)/tan θ'}] },
+  '2023-xgk1-q12': { type:'calc',          answer:[{sub:'(1) m_a:m_b',val:'8:1'},{sub:'(2) 极性',val:'a 负 / b 正'},{sub:'(2) |q_a|:|q_b|',val:'4:1'}] },
 };
 
 // 按 year×paper 计数

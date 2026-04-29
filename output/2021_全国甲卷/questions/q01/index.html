@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 1 题 · 光滑长平板下滑时间</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：光滑长平板下端固定在 P，上端架在横杆 Q（横杆位置可调）。
+// 设 PQ 水平距离 L 固定（横杆与 P 的水平距离，由装置几何决定）。
+// 平板长度 = L/cosθ；沿板加速度 = g·sinθ。
+// L/cosθ = (1/2)·g·sinθ·t²  ⇒  t² = 2L/(g·sinθ·cosθ) = 4L/(g·sin2θ)
+// 故 t(θ) = 2·√( L / (g·sin2θ) )
+// sin2θ 在 θ=45° 取最大 1 → t(45°) 最小
+// θ=30° 与 θ=60° 时 sin2θ 都等于 sin60° = √3/2 → t(30°) = t(60°) > t(45°)
+// 30° → 60°：t 先减小后增大 → 答案 D
+
+const L = 1.0;   // PQ 水平距离 m（视觉与数值统一基准）
+const g = 9.8;
+const tOf = (thDeg) => 2*Math.sqrt(L/(g*Math.sin(2*thDeg*Math.PI/180)));
+
+const TH = [30, 45, 60];
+const T_PER = TH.map(tOf);   // 实际下滑时间 s
+const T_MAX = Math.max(...T_PER);   // ≈0.687
+const T_MIN = Math.min(...T_PER);   // ≈0.639
+
+// 时间分配：3 个离散 θ × (准备 0.5s + 下滑动画 1.5s + 停顿 0.4s) + 扫描 1.8s = 9.0s
+const T_TOTAL = 9.0;
+const PHASE_DUR = 2.4;   // 每个离散 θ 段
+const SCAN_START = PHASE_DUR*3;   // 7.2s
+const SCAN_DUR = T_TOTAL - SCAN_START;   // 1.8s
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nothing to reset, pure function */ }
+  lastT = t;
+  let phase = 0;
+  let theta = TH[0];
+  let s_norm = 0;   // 沿板归一化位置 0~1
+  let labelTime = T_PER[0];
+  let scanning = false;
+  if(t < SCAN_START){
+    phase = Math.min(2, Math.floor(t / PHASE_DUR));   // 0 / 1 / 2
+    theta = TH[phase];
+    labelTime = T_PER[phase];
+    const tInPhase = t - phase*PHASE_DUR;
+    // 0~0.5 准备，0.5~2.0 下滑（1.5s 演示），2.0~2.4 停顿
+    if(tInPhase < 0.5){
+      s_norm = 0;
+    } else if(tInPhase < 2.0){
+      const tau = (tInPhase - 0.5) / 1.5;   // 0~1 沿板时间归一化
+      s_norm = tau*tau;   // 匀加速：s ∝ t²
+    } else {
+      s_norm = 1;
+    }
+  } else {
+    scanning = true;
+    phase = 3;
+    const tau = Math.min(1, (t - SCAN_START)/SCAN_DUR);
+    theta = 30 + 30*tau;   // 30° → 60°
+    labelTime = tOf(theta);
+    s_norm = 0;
+  }
+  return {phase, theta, s_norm, labelTime, scanning, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawApparatus(ctx, 14, 14, W*0.46-21, H-28, state);
+  drawCurve   (ctx, W*0.46+7, 14, W*0.54-21, H-28, state);
+}
+
+function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('铁架台 + 光滑长平板（PQ 水平距离 L 固定 = 1.0 m）', panelX+12, panelY+18);
+
+  // 几何：底座右端 P，竖直杆在 P 左侧 L 处。Q = 竖直杆上方高度 L·tanθ。
+  // 用真实长度比例尺：L_px = 视觉 L 的像素长度（由面板宽度决定）
+  const L_px = panelW * 0.34;   // 视觉 L 占 34% 面板宽
+  const baseY = panelY + panelH - 70;   // 底座的 y
+  const P_x = panelX + panelW*0.74;     // 底座右端 P
+  const P_y = baseY;
+  const pole_x = P_x - L_px;            // 竖直杆 x（P 左侧 L）
+  const Q_x = pole_x;
+  const theta = state.theta;
+  const Q_y = baseY - L_px * Math.tan(theta*Math.PI/180);
+
+  // 底座（水平短梁 + 阴影斜线）
+  const baseLeft = pole_x - 30, baseRight = P_x + 18;
+  ctx.fillStyle = '#cfc7b4';
+  ctx.fillRect(baseLeft, baseY, baseRight-baseLeft, 7);
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let xx = baseLeft+4; xx < baseRight-2; xx += 6){
+    ctx.moveTo(xx, baseY+7); ctx.lineTo(xx-4, baseY+13);
+  }
+  ctx.stroke();
+  // P 标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('P', P_x+4, P_y+5);
+
+  // 竖直杆
+  const pole_top = panelY + 30;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(pole_x-3, pole_top, 6, baseY - pole_top);
+
+  // 横杆（水平短杆，穿过竖直杆，高度 = Q_y）
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(pole_x-22, Q_y-3.5, 44, 7);
+
+  // 平板（粗线条，从 P 到 Q）
+  const plankDx = pole_x - P_x;   // 负
+  const plankDy = Q_y - P_y;       // 负
+  const plankLen = Math.hypot(plankDx, plankDy);
+  const ux = plankDx/plankLen, uy = plankDy/plankLen;
+  // 平板外沿（用两条平行线模拟厚度）
+  const nx = -uy, ny = ux;   // 板上方法向
+  const tk = 5;   // 板厚
+  ctx.fillStyle = '#fffaef';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(P_x + nx*tk*0.2, P_y + ny*tk*0.2);
+  ctx.lineTo(Q_x + nx*tk*0.2, Q_y + ny*tk*0.2);
+  ctx.lineTo(Q_x + nx*tk*1.2, Q_y + ny*tk*1.2);
+  ctx.lineTo(P_x + nx*tk*1.2, P_y + ny*tk*1.2);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // Q 标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('Q', Q_x-16, Q_y-4);
+
+  // 角度标 θ（在 P 处，板与底座之间的弧）
+  const arcR = 26;
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  // 底座方向（向左）= 角度 π；板方向角度 = atan2(plankDy, plankDx)
+  const angBase = Math.PI;
+  const angPlank = Math.atan2(plankDy, plankDx);
+  // 弧从板方向到底座方向
+  ctx.arc(P_x, P_y, arcR, angBase, angPlank, true);   // 顺时针（canvas y 向下）
+  ctx.stroke();
+  // θ 文本
+  const angMid = (angBase + angPlank)/2;
+  ctx.fillStyle = '#c2611f';
+  ctx.font = 'italic 800 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('θ = '+theta.toFixed(0)+'°', P_x + Math.cos(angMid)*arcR*1.4 - 22, P_y + Math.sin(angMid)*arcR*1.4 + 4);
+
+  // 物块（从 Q 沿板向 P 滑动 s_norm 比例）
+  if(!state.scanning){
+    const s = state.s_norm;
+    const bx = Q_x + ux*plankLen*s;
+    const by = Q_y + uy*plankLen*s;
+    // 块在板上方法向偏移 tk*0.7 处
+    const blkX = bx + nx*(tk*0.7+5);
+    const blkY = by + ny*(tk*0.7+5);
+    ctx.save();
+    ctx.translate(blkX, blkY);
+    ctx.rotate(Math.atan2(uy, ux));
+    ctx.fillStyle = '#1d1d1f';
+    ctx.fillRect(-9, -7, 18, 14);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(-9, -7, 18, 14);
+    ctx.restore();
+  }
+
+  // 标 PQ 水平距离（底部虚线 + L）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(pole_x, baseY+24); ctx.lineTo(P_x, baseY+24);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  PPath.arrow(ctx, pole_x, baseY+24, P_x, baseY+24, '#94a09b', 1);
+  PPath.arrow(ctx, P_x, baseY+24, pole_x, baseY+24, '#94a09b', 1);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 11.5px "Cambria Math",Georgia,serif';
+  ctx.fillText('L', (pole_x+P_x)/2 - 4, baseY+38);
+
+  // 阶段文本 + 公式
+  const phaseLabel = state.scanning
+    ? '阶段 ④ θ 连续扫描 30° → 60°'
+    : `阶段 ${['①','②','③'][state.phase]} θ = ${theta}°  →  下滑时间 t = ${state.labelTime.toFixed(3)} s`;
+  ctx.fillStyle = state.scanning ? '#3f6f8f' : (theta===45 ? '#16613f' : '#c2611f');
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-22);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(`板长 = L/cosθ = ${(L/Math.cos(theta*Math.PI/180)).toFixed(3)} m  ·  a = g·sinθ = ${(g*Math.sin(theta*Math.PI/180)).toFixed(2)} m/s²`, panelX+12, panelY+panelH-6);
+}
+
+function drawCurve(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('t-θ 曲线  t(θ) = 2·√( L / (g·sin 2θ) )', panelX+12, panelY+18);
+
+  // 坐标轴
+  const padL=46, padR=18, padT=32, padB=190;
+  const cw = panelW - padL - padR, ch = panelH - padT - padB;
+  const x0 = panelX + padL, y0 = panelY + padT;
+  const thMin = 20, thMax = 70;
+  const tMinP = 0.55, tMaxP = 1.10;
+  const X = th => x0 + (th-thMin)/(thMax-thMin)*cw;
+  const Y = tt => y0 + (tt-tMinP)/(tMaxP-tMinP)*ch;
+
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch);
+  ctx.moveTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('t', x0-12, y0+10);
+  ctx.fillText('θ', x0+cw+4, y0+ch+12);
+
+  // x 刻度 30/45/60
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  [30,45,60].forEach(thv => {
+    const px = X(thv);
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px, y0+ch); ctx.lineTo(px, y0+ch+4); ctx.stroke();
+    ctx.fillText(thv+'°', px-9, y0+ch+16);
+  });
+
+  // 曲线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  let first = true;
+  for(let th = thMin+0.2; th <= thMax; th += 0.4){
+    const tv = tOf(th);
+    if(tv < tMinP || tv > tMaxP){ first = true; continue; }
+    const px = X(th), py = Y(tv);
+    if(first){ ctx.moveTo(px, py); first = false; } else { ctx.lineTo(px, py); }
+  }
+  ctx.stroke();
+
+  // 曲线最低点 θ=45°（u>=0.30 守卫，到达阶段② 时再亮，防剧透）
+  const u_phase = state.t / T_TOTAL;
+  const px45 = X(45), py45 = Y(tOf(45));
+  if(u_phase >= 0.30){
+    ctx.fillStyle = '#16613f';
+    ctx.beginPath(); ctx.arc(px45, py45, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('θ=45° t_min='+tOf(45).toFixed(3)+'s', px45-58, py45-8);
+  }
+
+  // 30° 与 60° 同 t 标记（u>=0.55 守卫，与 B 选项 verdict 同步，防"对称→D"剧透）
+  if(u_phase >= 0.55){
+    [30,60].forEach(thv => {
+      const px = X(thv), py = Y(tOf(thv));
+      ctx.fillStyle = '#c2611f';
+      ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('30°/60° t≈'+tOf(30).toFixed(3)+'s', X(30)-12, Y(tOf(30))-8);
+  }
+
+  // 当前 θ 的位置点
+  const thNow = state.theta;
+  const tNow = state.labelTime;
+  const cpx = X(thNow), cpy = Y(tNow);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(cpx, cpy, 6.5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  // 投影虚线
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(cpx, cpy); ctx.lineTo(cpx, y0+ch);
+  ctx.moveTo(cpx, cpy); ctx.lineTo(x0, cpy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 4 选项判定（u 渐进显示）
+  const u = state.t / T_TOTAL;
+  const judgments = [
+    {opt:'A · 逐渐增大',          verdict:'错（30°→45° t 减小）',   correct:false, showAt:0.30},
+    {opt:'B · 逐渐减小',          verdict:'错（45°→60° t 增大）',   correct:false, showAt:0.55},
+    {opt:'C · 先增大后减小',      verdict:'错（U 形朝下，反了）',    correct:false, showAt:0.70},
+    {opt:'D · 先减小后增大',      verdict:'对 ✓（最低点 θ=45°）',     correct:true,  showAt:0.80}
+  ];
+  let yy = y0 + ch + 36;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yy);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yy);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yy+15);
+    }
+    yy += 32;
+  });
+
+  // 答案徽章（u≥0.85）
+  if(u >= 0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 D · 先减小后增大', panelX+panelW-142, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '光滑长平板下滑时间随夹角变化',
+  subtitle: '横杆位置可调使夹角 θ 变化；物块从 Q 静止释放沿板滑至 P。30°→60° 时下滑时间如何变？',
+  deliv: {
+    title: '匀加速 + 几何关系',
+    sub: 't(θ)=2√(L/g·sin2θ) · 45° 最小 · 30°/60° 同值'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 单选 · 第 1 题 · 6 分',
+    image: '../../source/images/image1.png',
+    text: `如图，将光滑长平板的下端置于铁架台水平底座上的挡板 P 处，上部架在横杆上。横杆的位置可在竖直杆上调节，使得平板与底座之间的夹角 θ 可变。将小物块由平板与竖直杆交点 Q 处静止释放，物块沿平板从 Q 点滑至 P 点所用的时间 t 与夹角 θ 的大小有关。若由 30° 逐渐增大至 60°，物块的下滑时间 t 将（  ）`,
+    subQuestions: [
+      'A. 逐渐增大',
+      'B. 逐渐减小',
+      'C. 先增大后减小',
+      'D. 先减小后增大'
+    ],
+    officialAnswer: 'D · 设 PQ 水平距离为 L（横杆与底座 P 在同一竖直平面，水平距离即 L）。平板长度 = L/cosθ，沿板下滑加速度 a = g·sinθ。由 L/cosθ = (1/2)·g·sinθ·t² 得 t² = 4L/(g·sin2θ)，t = 2√(L/(g·sin2θ))。sin2θ 在 θ=45° 取最大值 1，故 t 在 45° 取最小值；θ=30° 与 θ=60° 时 sin2θ = sin60° = √3/2 → t 相等。当 θ 从 30° 增至 60° 经过 45°：t 先减小后增大，故选 D。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① θ = 30° 下滑', label_short:'30°',
+     formula_tex: String.raw`t(30°) = 2\sqrt{\dfrac{L}{g\sin 60°}} \approx 0.687 \text{ s}`,
+     note:'沿板加速度 a=g·sin30°=4.9 m/s²；板长 L/cos30°≈1.155 m；t=2√(L/(g·sin60°))。'},
+    {label:'阶段 ② θ = 45° 下滑', label_short:'45°',
+     formula_tex: String.raw`t(45°) = 2\sqrt{\dfrac{L}{g\sin 90°}} = 2\sqrt{\dfrac{L}{g}} \approx 0.639 \text{ s}`,
+     note:'sin2θ=1 取最大 → 板长 × 加速度的乘积最大 → 下滑时间最小。'},
+    {label:'阶段 ③ θ = 60° 下滑', label_short:'60°',
+     formula_tex: String.raw`t(60°) = 2\sqrt{\dfrac{L}{g\sin 120°}} = t(30°) \approx 0.687 \text{ s}`,
+     note:'sin2θ=sin120°=sin60°=√3/2 → t(60°) = t(30°)，与 30° 对称。'},
+    {label:'阶段 ④ θ 扫描 30°→60°', label_short:'扫描',
+     formula_tex: String.raw`\dfrac{dt}{d\theta} \propto -\dfrac{\cos 2\theta}{\sin^{3/2}2\theta},\quad =0 \;\text{当}\; \theta=45°`,
+     note:'连续扫描 θ ∈[30°,60°]，t-θ 曲线呈 U 形：先减小至 45° 极小，再增大至 60°。'}
+  ],
+  stats: [
+    {label:'PQ 水平距离 L', fmt:()=>L.toFixed(2)+' m'},
+    {label:'g',             fmt:()=>g+' m/s²'},
+    {label:'当前 θ',        fmt:s=>s.theta.toFixed(1)+'°'},
+    {label:'当前板长',      fmt:s=>(L/Math.cos(s.theta*Math.PI/180)).toFixed(3)+' m'},
+    {label:'当前加速度',    fmt:s=>(g*Math.sin(s.theta*Math.PI/180)).toFixed(2)+' m/s²'},
+    {label:'当前 t',        fmt:s=>s.labelTime.toFixed(3)+' s'},
+    {label:'t(30°)',        fmt:()=>tOf(30).toFixed(3)+' s'},
+    {label:'t(45°) 最小',   fmt:()=>tOf(45).toFixed(3)+' s'},
+    {label:'t(60°)',        fmt:()=>tOf(60).toFixed(3)+' s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'不是单调递增', note:'30°→45° t 在减小'},
+    {label_text:'B 错', value_text:'不是单调递减', note:'45°→60° t 在增大'},
+    {label_text:'C 错', value_text:'方向反了',     note:'U 形朝下：先减后增（不是先增后减）'},
+    {label_text:'D 对', value_text:'先减后增 ✓',   note:'45° 是最低点'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'物块（沿板下滑）'},
+    {swatch:{bg:'#fffaef',border:'#1d1d1f',type:'rect'}, text:'光滑长平板'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'夹角 θ'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'t-θ 曲线'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'最低点 θ=45°'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q1-长平板下滑时间'
+});
+</script>
+</body>
+</html>

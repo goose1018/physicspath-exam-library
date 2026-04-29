@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 3 题 · 两折角导线 M/N 磁场</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：两根折成直角的导线，相互绝缘，电流均为 I。
+// 导线 1：E(0,−∞)→O(0,0)→F(−∞,0)，半轴 EO 沿 +y、半轴 OF 沿 −x。
+// 导线 2：P(+∞,0)→I(0,0)→Q(0,+∞)，半轴 IP 沿 −x、半轴 IQ 沿 +y。
+// 关键技巧：4 段半轴叠加为 2 根无限长直导线
+//   半轴 EO + 半轴 IQ = y 轴上完整无限长导线，电流 +y
+//   半轴 OF + 半轴 IP = x 轴上完整无限长导线，电流 −x
+// 每根无限长直导线距 d 处磁场为 B。
+//
+// 用毕奥-萨伐尔（或右手定则）：
+//   y 轴 +y 电流 → +x 侧 B 入纸面 ⊗，−x 侧 B 出纸面 ⊙
+//   x 轴 −x 电流 → +y 侧 B 入纸面 ⊗，−y 侧 B 出纸面 ⊙
+// M(−d,d)：B_y 出 ⊙ + B_x 入 ⊗ → 抵消 = 0
+// N(d,d) ：B_y 入 ⊗ + B_x 入 ⊗ → 同向 = 2B
+// 答案 B（0、2B）
+
+const T_TOTAL = 9.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  if(u < 0.20) phase = 0;       // 原图：两根折角导线
+  else if(u < 0.50) phase = 1;  // 拼接：4 段 → 2 根等效直导线
+  else if(u < 0.80) phase = 2;  // 安培定则：M/N 处磁场方向
+  else phase = 3;                // 总判：M=0, N=2B
+  return {phase, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawDiagram(ctx, 14, 14, W*0.62-21, H-28, state);
+  drawCalc   (ctx, W*0.62+7, 14, W*0.38-21, H-28, state);
+}
+
+function drawDiagram(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('两折角导线（绝缘）按图示放置 · M(−d,d) · N(d,d)', panelX+12, panelY+18);
+
+  // 坐标系：原点在面板中心，d 像素 = 60
+  const cx = panelX + panelW/2;
+  const cy = panelY + panelH*0.46;
+  const D = Math.min(panelW, panelH)*0.16;   // d 的像素长度
+  const X = (xx) => cx + xx*D;
+  const Y = (yy) => cy - yy*D;   // y 翻转：物理 +y 朝上
+
+  // 浅色坐标轴（淡）
+  ctx.strokeStyle = '#dad6c8'; ctx.lineWidth = 1;
+  ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  ctx.moveTo(X(-3.2), Y(0)); ctx.lineTo(X(3.2), Y(0));
+  ctx.moveTo(X(0), Y(-2.5)); ctx.lineTo(X(0), Y(2.5));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const showOriginal = state.phase === 0 || state.phase >= 2;
+  const showEquiv    = state.phase >= 1;
+
+  // ── 原图：两根折角导线 ──
+  // 导线 1：E(0,-∞)→O(0,0)→F(-∞,0)
+  if(showOriginal){
+    ctx.strokeStyle = state.phase === 0 ? '#1d1d1f' : '#b4442e';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(-2.4)); ctx.lineTo(X(0), Y(0));   // EO
+    ctx.lineTo(X(-3.0), Y(0));                            // OF
+    ctx.stroke();
+    // E 标 + 电流 ↑ 箭头
+    PPath.arrow(ctx, X(0), Y(-1.8), X(0), Y(-1.4), state.phase === 0 ? '#1d1d1f' : '#b4442e', 1.8);
+    ctx.fillStyle = state.phase === 0 ? '#1d1d1f' : '#b4442e';
+    ctx.font = 'italic 700 12px Georgia,serif';
+    ctx.fillText('E', X(0)+5, Y(-2.3));
+    // F 标 + 电流 ← 箭头
+    PPath.arrow(ctx, X(-2.4), Y(0), X(-2.7), Y(0), state.phase === 0 ? '#1d1d1f' : '#b4442e', 1.8);
+    ctx.fillText('F', X(-3.0)-12, Y(0)-4);
+    // 电流标 I（导线 1）
+    ctx.fillStyle = state.phase === 0 ? '#1d1d1f' : '#b4442e';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('I', X(0)+8, Y(-1.0));
+    // O 标
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 600 11px Georgia,serif';
+    ctx.fillText('O', X(0)-12, Y(0)+15);
+
+    // 导线 2：P(+∞,0)→I(0,0)→Q(0,+∞)
+    ctx.strokeStyle = state.phase === 0 ? '#1d1d1f' : '#3f6f8f';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(X(3.0), Y(0.06)); ctx.lineTo(X(0.06), Y(0.06));   // PI（轻微 y 偏移以示绝缘）
+    ctx.lineTo(X(0.06), Y(2.4));                                  // IQ
+    ctx.stroke();
+    // P 标 + 电流 ← 箭头（电流 P→I 沿 -x，箭头从 +x 端指向 -x 端）
+    PPath.arrow(ctx, X(2.7), Y(0.06), X(2.4), Y(0.06), state.phase === 0 ? '#1d1d1f' : '#3f6f8f', 1.8);
+    ctx.fillStyle = state.phase === 0 ? '#1d1d1f' : '#3f6f8f';
+    ctx.font = 'italic 700 12px Georgia,serif';
+    ctx.fillText('P', X(3.0)+4, Y(0.06)+4);
+    // Q 标 + 电流 ↑ 箭头
+    PPath.arrow(ctx, X(0.06), Y(1.8), X(0.06), Y(2.1), state.phase === 0 ? '#1d1d1f' : '#3f6f8f', 1.8);
+    ctx.fillText('Q', X(0.06)+5, Y(2.4)-4);
+    // 电流标 I（导线 2）
+    ctx.fillStyle = state.phase === 0 ? '#1d1d1f' : '#3f6f8f';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('I', X(1.5)+2, Y(0.06)-6);
+  }
+
+  // ── 等效后：两根无限长直导线（紫=y 轴，绿=x 轴）──
+  if(showEquiv){
+    // y 轴等效（电流 +y）紫色
+    ctx.strokeStyle = state.phase === 1 ? '#7a4f9c' : '#7a4f9c';
+    ctx.lineWidth = state.phase === 1 ? 4 : 3;
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(-2.4)); ctx.lineTo(X(0), Y(2.4));
+    ctx.stroke();
+    PPath.arrow(ctx, X(0), Y(2.0), X(0), Y(2.3), '#7a4f9c', 2.2);
+    ctx.fillStyle = '#7a4f9c';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('I (+y)', X(0)+8, Y(2.2));
+
+    // x 轴等效（电流 -x）绿色
+    ctx.strokeStyle = '#16613f';
+    ctx.lineWidth = state.phase === 1 ? 4 : 3;
+    ctx.beginPath();
+    ctx.moveTo(X(-3.0), Y(0)); ctx.lineTo(X(3.0), Y(0));
+    ctx.stroke();
+    PPath.arrow(ctx, X(-2.5), Y(0), X(-2.8), Y(0), '#16613f', 2.2);
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('I (−x)', X(-2.7), Y(0)-6);
+  }
+
+  // ── 虚线方块（M/N 位置参考，phase>=1 才显示，避免 phase 0 原图过早提示 M/N 概念）──
+  if(state.phase >= 1){
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    ctx.strokeRect(X(-1), Y(1), X(1)-X(-1), Y(0)-Y(1));
+    ctx.setLineDash([]);
+
+    // d 距离标
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 600 11px "Cambria Math",Georgia,serif';
+    ctx.fillText('d', X(-0.5)-3, Y(1)-4);
+    ctx.fillText('d', X(0.5)-3, Y(1)-4);
+    ctx.fillText('d', X(-1)-12, Y(0.5)+4);
+    ctx.fillText('d', X(1)+4, Y(0.5)+4);
+
+    // O' 标
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 600 11px Georgia,serif';
+    ctx.fillText("O'", X(0)+4, Y(1)+12);
+  }
+
+  // M (-d, d) — 改为黑色高对比，避免与红色导线 1 暖色混淆
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(X(-1), Y(1), 5.5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('M', X(-1)-18, Y(1)-6);
+
+  // N (d, d) — 同样黑色高对比
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(X(1), Y(1), 5.5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('N', X(1)+8, Y(1)-6);
+
+  // ── 安培定则：M、N 处磁场方向（⊗⊙）──
+  if(state.phase >= 2){
+    // M 处：紫色（y 轴 +y 流 → -x 侧 B_y 出 ⊙），绿色（x 轴 -x 流 → +y 侧 B_x 入 ⊗）
+    drawDotCross(ctx, X(-1)-22, Y(1)+18, '⊙', '#7a4f9c', 'B_y');
+    drawDotCross(ctx, X(-1)+10, Y(1)+18, '⊗', '#16613f', 'B_x');
+
+    // N 处：紫色（y 轴 +y 流 → +x 侧 B_y 入 ⊗），绿色（x 轴 -x 流 → +y 侧 B_x 入 ⊗）
+    drawDotCross(ctx, X(1)-22, Y(1)+18, '⊗', '#7a4f9c', 'B_y');
+    drawDotCross(ctx, X(1)+10, Y(1)+18, '⊗', '#16613f', 'B_x');
+    // 数字结论留给右栏 calc + 答案徽章，避免左图重复剧透
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 原图：两根折角导线 EOF（红）+ PIQ（蓝）相互绝缘',
+    '阶段 ② 关键技巧：4 段半轴拼成 2 根等效无限长直导线',
+    '阶段 ③ 安培定则：在 M、N 处分别画两根等效导线的磁场方向',
+    '阶段 ④ 矢量叠加 → M 处反向相消、N 处同向叠加'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawDotCross(ctx, px, py, sym, color, label){
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = color; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = color;
+  if(sym === '⊙'){
+    ctx.beginPath(); ctx.arc(px, py, 2.6, 0, Math.PI*2); ctx.fill();
+  } else {
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(px-5, py-5); ctx.lineTo(px+5, py+5);
+    ctx.moveTo(px-5, py+5); ctx.lineTo(px+5, py-5);
+    ctx.stroke();
+  }
+  ctx.fillStyle = color;
+  ctx.font = '700 9.5px ui-monospace,monospace';
+  ctx.fillText(label, px-12, py+22);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('等效叠加 + 安培定则', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 22;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt: 0.10, text: '导线 1: E→O→F'},
+    {showAt: 0.10, text: '  半轴 EO (+y) + OF (−x)'},
+    {showAt: 0.15, text: '导线 2: P→I→Q'},
+    {showAt: 0.15, text: '  半轴 IP (−x) + IQ (+y)'},
+    {showAt: 0.30, text: '拼接：'},
+    {showAt: 0.32, text: '  EO + IQ = y 轴 (+y)'},
+    {showAt: 0.36, text: '  OF + IP = x 轴 (−x)'},
+    {showAt: 0.50, text: '安培定则（右手）：'},
+    {showAt: 0.55, text: '  y 轴 +y → +x 侧 ⊗'},
+    {showAt: 0.58, text: '         → −x 侧 ⊙'},
+    {showAt: 0.62, text: '  x 轴 −x → +y 侧 ⊗'},
+    {showAt: 0.65, text: '         → −y 侧 ⊙'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · B、0',     verdict:'错（M 不为 B；N 不为 0）',  correct:false, showAt:0.85},
+    {opt:'B · 0、2B',    verdict:'对 ✓',                       correct:true,  showAt:0.92},
+    {opt:'C · 2B、2B',   verdict:'错（M 处反向相消，不是 2B）', correct:false, showAt:0.86},
+    {opt:'D · B、B',     verdict:'错（M=0；N=2B）',            correct:false, showAt:0.88}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+14);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · 0、2B', panelX+panelW-138, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '两折角导线 M、N 处磁场叠加',
+  subtitle: '4 段半轴拼成 2 根等效无限长直导线，再用安培定则求 M、N 处合磁场。',
+  deliv: {
+    title: '半轴叠加 + 安培定则',
+    sub: 'EO+IQ→y 轴；OF+IP→x 轴；M=0、N=2B'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 单选 · 第 3 题 · 6 分',
+    image: '../../source/images/image11.png',
+    text: `两足够长直导线均折成直角，按图示方式放置在同一平面内，EO 与 O'Q 在一条直线上，PI 与 OF 在一条直线上，两导线相互绝缘，通有相等的电流 I，电流方向如图所示。若一根无限长直导线通过电流 I 时，所产生的磁场在距离导线 d 处的磁感应强度大小为 B，则图中与导线距离均为 d 的 M、N 两点处的磁感应强度大小分别为（  ）`,
+    subQuestions: [
+      'A. B、0',
+      'B. 0、2B',
+      'C. 2B、2B',
+      'D. B、B'
+    ],
+    officialAnswer: 'B · 两折角导线的 4 段半轴可拼接为 2 根等效无限长直导线：(i) 半轴 EO（沿 +y）+ 半轴 IQ（沿 +y）= y 轴上完整无限长直导线，电流方向 +y；(ii) 半轴 OF（沿 −x）+ 半轴 IP（沿 −x）= x 轴上完整无限长直导线，电流方向 −x。每根无限长直导线在距 d 处磁场为 B。安培定则：y 轴 +y 电流在 +x 侧 B 入纸面 ⊗、−x 侧 B 出纸面 ⊙；x 轴 −x 电流在 +y 侧 B 入纸面 ⊗、−y 侧 B 出纸面 ⊙。M(−d,d)：B_y 出 ⊙ 与 B_x 入 ⊗ 大小同为 B、方向相反 → 合 0。N(+d,d)：B_y 入 ⊗ 与 B_x 入 ⊗ 同方向 → 合 2B。故 M=0、N=2B，选 B。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 两根折角导线（绝缘）',  label_short:'原图',
+     formula_tex: String.raw`\text{导线1: } E \to O \to F,\quad \text{导线2: } P \to I \to Q`,
+     note:'导线 1 红色（EO 沿 +y、OF 沿 −x）；导线 2 蓝色（IP 沿 −x、IQ 沿 +y）。两根相互绝缘，电流均为 I。'},
+    {label:'阶段 ② 4 段拼成 2 根等效直导线', label_short:'拼接',
+     formula_tex: String.raw`EO + IQ = y\text{ 轴} (+y),\quad OF + IP = x\text{ 轴} (-x)`,
+     note:'两个 +y 半轴拼成完整 y 轴；两个 −x 半轴拼成完整 x 轴。每根无限长直导线距 d 处磁场为 B。'},
+    {label:'阶段 ③ 安培定则判方向',          label_short:'方向',
+     formula_tex: String.raw`y\text{轴}{+y}: +x\text{侧}\;\otimes,\;-x\text{侧}\;\odot;\quad x\text{轴}{-x}: +y\text{侧}\;\otimes,\;-y\text{侧}\;\odot`,
+     note:'右手定则：拇指沿电流方向，四指弯曲方向即磁场方向。'},
+    {label:'阶段 ④ M=0 · N=2B',              label_short:'合磁场',
+     formula_tex: String.raw`B_M = B_y(\odot) + B_x(\otimes) = 0,\quad B_N = B_y(\otimes) + B_x(\otimes) = 2B`,
+     note:'M 处两根磁场反向相消；N 处两根同向叠加 2 倍。'}
+  ],
+  stats: [
+    {label:'M 距 y 轴',  fmt:()=>'d'},
+    {label:'M 距 x 轴',  fmt:()=>'d'},
+    {label:'N 距 y 轴',  fmt:()=>'d'},
+    {label:'N 距 x 轴',  fmt:()=>'d'},
+    {label:'B_M 合',     fmt:s=>(s.u>=0.92 ? '0' : '?')},
+    {label:'B_N 合',     fmt:s=>(s.u>=0.92 ? '2B' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'B、0',     note:'M 处不为 B，N 处不为 0'},
+    {label_text:'B 对', value_text:'0、2B ✓',  note:'M 反向相消、N 同向叠加'},
+    {label_text:'C 错', value_text:'2B、2B',   note:'M 处反向相消不是 2B'},
+    {label_text:'D 错', value_text:'B、B',     note:'M=0、N=2B'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'导线 1（EOF）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'导线 2（PIQ）'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'rect'}, text:'等效 y 轴（+y）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'等效 x 轴（−x）'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'dot'},  text:'M、N 观测点'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q3-折角导线MN磁场'
+});
+</script>
+</body>
+</html>

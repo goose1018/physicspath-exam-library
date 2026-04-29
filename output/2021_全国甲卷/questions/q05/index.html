@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 5 题 · 天问一号停泊轨道远火点</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：天问一号停泊轨道（椭圆），周期 T=1.8×10⁵ s，近火点高度 h_min=2.8×10⁵ m
+// 火星半径 R=3.4×10⁶ m，火星表面 g=3.7 m/s²
+// GM = g·R² ≈ 3.7 × (3.4×10⁶)² ≈ 4.277×10¹³ m³/s²
+// 由开普勒第三定律 a³ = GM·T²/(4π²)
+//   T²       = (1.8×10⁵)² = 3.24×10¹⁰
+//   GM·T²    = 4.277×10¹³ × 3.24×10¹⁰ ≈ 1.386×10²⁴
+//   a³       = 1.386×10²⁴ / (4π²) ≈ 3.510×10²²
+//   a        ≈ ∛(3.510×10²²) ≈ 3.265×10⁷ m
+// 椭圆几何：2a = r_min + r_max
+//   r_min = R + h_min = 3.4×10⁶ + 2.8×10⁵ = 3.68×10⁶ m
+//   r_max = 2a − r_min ≈ 6.530×10⁷ − 3.68×10⁶ ≈ 6.162×10⁷ m
+//   h_max = r_max − R ≈ 6.162×10⁷ − 3.4×10⁶ ≈ 5.822×10⁷ m
+// 量级 ≈ 6×10⁷ m → 答案 C
+
+const R_MARS = 3.4e6;          // 火星半径 m
+const g_MARS = 3.7;             // 火星表面重力 m/s²
+const T_PERIOD = 1.8e5;         // 停泊轨道周期 s
+const h_MIN = 2.8e5;            // 近火点高度 m
+const GM = g_MARS * R_MARS * R_MARS;   // 万有引力参数 m³/s²
+const T2 = T_PERIOD * T_PERIOD;
+const a_cube = GM * T2 / (4*Math.PI*Math.PI);
+const a_semi = Math.cbrt(a_cube);   // 半长轴 m
+const r_min = R_MARS + h_MIN;       // 近火点到中心 m
+const r_max = 2*a_semi - r_min;     // 远火点到中心 m
+const h_max = r_max - R_MARS;       // 远火点高度 m
+// 椭圆偏心率
+const ECC = (r_max - r_min) / (2*a_semi);
+const b_semi = a_semi * Math.sqrt(1 - ECC*ECC);
+
+const T_TOTAL = 10.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  if(u < 0.18) phase = 0;       // 题面：火星 + 探测器近火点
+  else if(u < 0.35) phase = 1;  // 椭圆轨道展示（探测器绕一周）
+  else if(u < 0.65) phase = 2;  // 用 GM=gR² 与开普勒求 a
+  else phase = 3;                // 几何 r_max=2a-r_min → h_max → 4 选项
+  // 探测器位置：phase>=1 沿椭圆运动
+  let theta = 0;
+  if(phase >= 1){
+    const tInP = t - 0.18*T_TOTAL;
+    theta = (tInP / (T_TOTAL*0.20)) * 2*Math.PI;   // 一圈周期对应可视化时间 T_TOTAL*0.20
+  }
+  return {phase, theta, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawOrbit(ctx, 14, 14, W*0.50-21, H-28, state);
+  drawCalc (ctx, W*0.50+7, 14, W*0.50-21, H-28, state);
+}
+
+function drawOrbit(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('火星 + 停泊椭圆轨道（火星位于一个焦点）', panelX+12, panelY+18);
+
+  // 椭圆中心位于 (cx_orbit, cy)，焦点偏移 c = a·ecc，火星在右焦点
+  // 视觉缩放：把 a 映射到 panel 宽度 0.30 倍（留空间给文字）
+  const cy = panelY + panelH*0.46;
+  const cx_orbit = panelX + panelW*0.42;
+  const aPx = Math.min(panelW*0.34, panelH*0.34);
+  const bPx = aPx * b_semi/a_semi;
+  const cPx = aPx * ECC;
+  const cx_mars = cx_orbit + cPx;
+
+  // 星空背景（确定性序列）
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(panelX+4, panelY+30, panelW-8, panelH-90);
+  for(let i=0; i<60; i++){
+    const sx = panelX + 8 + ((i*131)%(panelW-16));
+    const sy = panelY + 32 + ((i*271)%(panelH-94));
+    const br = 0.4 + 0.6*Math.abs(Math.sin(i*1.3));
+    ctx.fillStyle = `rgba(255,255,255,${br*0.5})`;
+    ctx.fillRect(sx, sy, 1.2, 1.2);
+  }
+
+  // 椭圆轨道（phase>=1 才显示）
+  if(state.phase >= 1){
+    ctx.strokeStyle = '#7a4f9c'; ctx.lineWidth = 1.6;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.ellipse(cx_orbit, cy, aPx, bPx, 0, 0, 2*Math.PI);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 火星（稍带表面纹理）
+  const R_marsPx = aPx * R_MARS / a_semi * 1.0;   // 用相同比例尺
+  ctx.fillStyle = '#c8624a';
+  ctx.beginPath(); ctx.arc(cx_mars, cy, R_marsPx, 0, 2*Math.PI); ctx.fill();
+  // 表面纹路
+  ctx.strokeStyle = 'rgba(80,30,20,0.4)'; ctx.lineWidth = 0.6;
+  for(let i=0; i<6; i++){
+    const ang = i*Math.PI/3;
+    ctx.beginPath();
+    ctx.arc(cx_mars + Math.cos(ang)*R_marsPx*0.4, cy + Math.sin(ang)*R_marsPx*0.4, R_marsPx*0.15, 0, 2*Math.PI);
+    ctx.stroke();
+  }
+  // 火星标
+  ctx.fillStyle = '#fff';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('火星', cx_mars-12, cy+R_marsPx+14);
+
+  // 近火点 / 远火点标记（phase>=2）
+  if(state.phase >= 2){
+    // 近火点：椭圆右端（最靠近火星方向）— 在 cx_orbit + aPx 处
+    // 火星在右焦点 cx_mars，近火点在 cx_mars + r_min*scale = cx_orbit + aPx
+    const periX = cx_orbit + aPx;
+    const apoX  = cx_orbit - aPx;
+    ctx.fillStyle = '#16613f';
+    ctx.beginPath(); ctx.arc(periX, cy, 4, 0, 2*Math.PI); ctx.fill();
+    ctx.fillStyle = '#16613f';
+    ctx.font = '800 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('近火点 r_min', periX-30, cy-10);
+    ctx.fillStyle = '#c2611f';
+    ctx.beginPath(); ctx.arc(apoX, cy, 4, 0, 2*Math.PI); ctx.fill();
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '800 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('远火点 r_max', apoX-12, cy-10);
+    // 中心 + 焦点标
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(apoX, cy); ctx.lineTo(periX, cy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#94a09b';
+    ctx.font = '700 9px ui-monospace,monospace';
+    ctx.fillText('2a', cx_orbit-6, cy+18);
+  }
+
+  // 探测器（phase>=1，沿椭圆运动）
+  if(state.phase >= 1){
+    // 椭圆参数化：从近火点起经一周
+    const px = cx_orbit + aPx*Math.cos(state.theta);
+    const py = cy + bPx*Math.sin(state.theta);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(px, py, 4, 0, 2*Math.PI); ctx.fill();
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '800 10px "Noto Sans SC",sans-serif';
+    ctx.fillText('天问一号', px+6, py+3);
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 火星 + 已知 g、R、T、h_min（停泊椭圆轨道）',
+    '阶段 ② 椭圆轨道展示（探测器绕一周）',
+    '阶段 ③ 由 GM=gR² + 开普勒第三定律求半长轴 a',
+    '阶段 ④ 几何 r_max=2a−r_min，求远火点高度 h_max'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('GM=gR² + 开普勒第三定律', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 21;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt: 0.05, text: 'R = 3.4×10⁶ m, g = 3.7 m/s²'},
+    {showAt: 0.05, text: 'T = 1.8×10⁵ s, h_min = 2.8×10⁵ m'},
+    {showAt: 0.40, text: 'GM = g·R² ≈ 4.28×10¹³ m³/s²'},
+    {showAt: 0.45, text: 'T² = 3.24×10¹⁰ s²'},
+    {showAt: 0.50, text: 'a³ = GM·T²/(4π²) ≈ 3.51×10²²'},
+    {showAt: 0.55, text: 'a   ≈ 3.27×10⁷ m'},
+    {showAt: 0.68, text: 'r_min = R + h_min ≈ 3.68×10⁶ m'},
+    {showAt: 0.72, text: 'r_max = 2a − r_min'},
+    {showAt: 0.75, text: '       ≈ 6.16×10⁷ m'},
+    {showAt: 0.86, text: 'h_max = r_max − R ≈ 5.82×10⁷ m'},
+    {showAt: 0.88, text: '量级 ≈ 6×10⁷ m'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('≈ 3.27') || s.text.includes('≈ 6.16') || s.text.includes('≈ 5.82') || s.text.includes('量级');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 11.5px ui-monospace,monospace' : '700 11.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  const judgments = [
+    {opt:'A · 6×10⁵ m',  verdict:'错（小于近火点高度本身）',          correct:false, showAt:0.91},
+    {opt:'B · 6×10⁶ m',  verdict:'错（接近 R 火星半径，过小）',        correct:false, showAt:0.91},
+    {opt:'C · 6×10⁷ m',  verdict:'对 ✓',                              correct:true,  showAt:0.92},
+    {opt:'D · 6×10⁸ m',  verdict:'错（约太阳-火星距离，过大）',        correct:false, showAt:0.91}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+14);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C · 6×10⁷ m', panelX+panelW-138, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '天问一号停泊轨道远火点距火星表面距离',
+  subtitle: '由 GM=gR² 与开普勒第三定律求半长轴 a，再由 2a=r_min+r_max 求远火点。',
+  deliv: {
+    title: '开普勒第三定律 + 几何',
+    sub: 'GM=gR² + a³=GM·T²/(4π²) + 2a=r_min+r_max'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 单选 · 第 5 题 · 6 分',
+    text: `2021 年 2 月，执行我国火星探测任务的"天问一号"探测器在成功实施三次近火制动后，进入运行周期约为 1.8×10⁵ s 的椭圆形停泊轨道，轨道与火星表面的最近距离约为 2.8×10⁵ m。已知火星半径约为 3.4×10⁶ m，火星表面处自由落体的加速度大小约为 3.7 m/s²，则"天问一号"的停泊轨道与火星表面的最远距离约为（  ）`,
+    subQuestions: [
+      'A. 6×10⁵ m',
+      'B. 6×10⁶ m',
+      'C. 6×10⁷ m',
+      'D. 6×10⁸ m'
+    ],
+    officialAnswer: 'C · 火星表面 g = GM/R² → GM = g·R² ≈ 3.7 × (3.4×10⁶)² ≈ 4.28×10¹³ m³/s²。停泊轨道为椭圆，由开普勒第三定律 T² = 4π²·a³/(GM)，故 a³ = GM·T²/(4π²) ≈ (4.28×10¹³)·(1.8×10⁵)²/(4π²) ≈ 3.51×10²²，半长轴 a ≈ 3.27×10⁷ m。近火点到火星中心 r_min = R + h_min = 3.4×10⁶ + 2.8×10⁵ = 3.68×10⁶ m。由椭圆几何 2a = r_min + r_max，故 r_max = 2a − r_min ≈ 6.16×10⁷ m。远火点距火星表面 h_max = r_max − R ≈ 5.82×10⁷ m，量级约 6×10⁷ m，故选 C。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 已知量', label_short:'已知',
+     formula_tex: String.raw`R=3.4\times10^{6}\,\text{m},\;g=3.7\,\text{m/s}^2,\;T=1.8\times10^{5}\,\text{s},\;h_{\min}=2.8\times10^{5}\,\text{m}`,
+     note:'火星表面 g、半径 R 已知；停泊椭圆轨道周期 T 与近火点高度 h_min 已知，求远火点高度 h_max。'},
+    {label:'阶段 ② 椭圆轨道', label_short:'轨道',
+     formula_tex: String.raw`\text{椭圆轨道：火星位于一个焦点；半长轴 } a,\; \text{偏心率 } e`,
+     note:'天问一号绕火星椭圆轨道运动，火星位于椭圆的一个焦点。'},
+    {label:'阶段 ③ 求半长轴 a', label_short:'解 a',
+     formula_tex: String.raw`GM=gR^{2},\quad a^{3}=\dfrac{GM\cdot T^{2}}{4\pi^{2}}`,
+     note:'用 GM=gR² 表达万有引力参数；开普勒第三定律给出半长轴 a。'},
+    {label:'阶段 ④ 几何求 h_max', label_short:'h_max',
+     formula_tex: String.raw`2a=r_{\min}+r_{\max},\;\; h_{\max}=r_{\max}-R`,
+     note:'近火点 r_min = R+h_min；由椭圆几何 r_max = 2a−r_min；远火点高度 h_max = r_max−R。'}
+  ],
+  stats: [
+    {label:'R 火星半径',   fmt:()=>'3.4×10⁶ m'},
+    {label:'g 火星表面',   fmt:()=>'3.7 m/s²'},
+    {label:'T 周期',       fmt:()=>'1.8×10⁵ s'},
+    {label:'h_min 近火点', fmt:()=>'2.8×10⁵ m'},
+    {label:'GM',           fmt:s=>(s.u>=0.40 ? '4.28×10¹³ m³/s²' : '?')},
+    {label:'a 半长轴',     fmt:s=>(s.u>=0.55 ? '3.27×10⁷ m'      : '?')},
+    {label:'r_max',        fmt:s=>(s.u>=0.75 ? '6.16×10⁷ m'      : '?')},
+    {label:'h_max',        fmt:s=>(s.u>=0.92 ? '5.82×10⁷ m'      : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'6×10⁵ m',  note:'数量级太小'},
+    {label_text:'B 错', value_text:'6×10⁶ m',  note:'与 R 同数量级'},
+    {label_text:'C 对', value_text:'6×10⁷ m ✓', note:'h_max ≈ 5.82×10⁷'},
+    {label_text:'D 错', value_text:'6×10⁸ m',  note:'数量级太大'}
+  ],
+  legend: [
+    {swatch:{bg:'#c8624a',border:'#c8624a',type:'dot'},  text:'火星'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'rect'}, text:'椭圆停泊轨道'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'},  text:'天问一号探测器'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'近火点 r_min'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'},  text:'远火点 r_max'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q5-天问一号远火点'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 4 题 · X→Y 衰变放出电子数</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：原子核 X(p=92, n=146) → Y(p=82, n=124)，经 α 衰变与 β 衰变。
+// α 衰变：质量数 -4、质子数 -2 → (Δp, Δn) = (-2, -2)
+// β 衰变（β⁻）：中子→质子+电子 → (Δp, Δn) = (+1, -1)
+// 设 nα 次 α、nβ 次 β：
+//   Δp = -2·nα + 1·nβ = 82 - 92 = -10
+//   Δn = -2·nα - 1·nβ = 124 - 146 = -22
+// 解得 nα = 8、nβ = 6
+// 电子数 = nβ = 6 → 答案 A
+
+const X_PT = {p:92, n:146};
+const Y_PT = {p:82, n:124};
+const dPdN = {dp: Y_PT.p - X_PT.p, dn: Y_PT.n - X_PT.n};   // (-10, -22)
+const N_ALPHA = 8;
+const N_BETA  = 6;
+
+// 简化路径：先 8 次 α，再 6 次 β（任意顺序均可到达 Y，两次合取相同累计）
+const path = [{p:X_PT.p, n:X_PT.n, step:0, kind:'X'}];
+for(let i=0; i<N_ALPHA; i++){
+  const last = path[path.length-1];
+  path.push({p:last.p-2, n:last.n-2, step:path.length, kind:'α'});
+}
+for(let i=0; i<N_BETA; i++){
+  const last = path[path.length-1];
+  path.push({p:last.p+1, n:last.n-1, step:path.length, kind:'β'});
+}
+
+const T_TOTAL = 11.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  if(u < 0.18) phase = 0;       // 题目：X、Y 标注
+  else if(u < 0.40) phase = 1;  // 衰变规则
+  else if(u < 0.55) phase = 2;  // 列方程并解出 nα=8, nβ=6
+  else phase = 3;                // 路径演示
+  // 路径走到第几步（仅 phase==3 行进）
+  let stepIdx = 0;
+  if(phase >= 3){
+    const tInP = (u - 0.55) / 0.45;   // 0~1 占 phase 3 时间
+    stepIdx = Math.min(path.length-1, Math.floor(tInP * (path.length-1) + 0.001));
+  }
+  return {phase, stepIdx, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawPN  (ctx, 14, 14, W*0.50-21, H-28, state);
+  drawCalc(ctx, W*0.50+7, 14, W*0.50-21, H-28, state);
+}
+
+function drawPN(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('质子数 - 中子数图（衰变路径）', panelX+12, panelY+18);
+
+  // 坐标系：质子 80-92, 中子 122-146
+  const padL = 50, padR = 16, padT = 32, padB = 70;
+  const cw = panelW - padL - padR, ch = panelH - padT - padB;
+  const x0 = panelX + padL, y0 = panelY + padT + ch;
+  const pMin = 80, pMax = 93;
+  const nMin = 122, nMax = 147;
+  const X = (p) => x0 + (p - pMin)/(pMax - pMin)*cw;
+  const Y = (n) => y0 - (n - nMin)/(nMax - nMin)*ch;
+
+  // 网格
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for(let p = pMin; p <= pMax; p++){
+    ctx.moveTo(X(p), Y(nMin)); ctx.lineTo(X(p), Y(nMax));
+  }
+  for(let n = nMin; n <= nMax; n++){
+    ctx.moveTo(X(pMin), Y(n)); ctx.lineTo(X(pMax), Y(n));
+  }
+  ctx.stroke();
+
+  // 主网格（每 2 整数）
+  ctx.strokeStyle = '#cbc4b0'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let p = pMin; p <= pMax; p+=2){
+    ctx.moveTo(X(p), Y(nMin)); ctx.lineTo(X(p), Y(nMax));
+  }
+  for(let n = nMin; n <= nMax; n+=2){
+    ctx.moveTo(X(pMin), Y(n)); ctx.lineTo(X(pMax), Y(n));
+  }
+  ctx.stroke();
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(X(pMin), Y(nMin)); ctx.lineTo(X(pMax), Y(nMin));
+  ctx.moveTo(X(pMin), Y(nMin)); ctx.lineTo(X(pMin), Y(nMax));
+  ctx.stroke();
+  PPath.arrow(ctx, X(pMax-0.5), Y(nMin), X(pMax), Y(nMin), '#86868b', 1);
+  PPath.arrow(ctx, X(pMin), Y(nMax-1), X(pMin), Y(nMax), '#86868b', 1);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('质子数', X(pMax)-30, Y(nMin)+18);
+  ctx.fillText('中子数', X(pMin)-32, Y(nMax)+10);
+  ctx.font = '600 10px ui-monospace,monospace';
+  [80, 84, 88, 92].forEach(pp => {
+    ctx.fillText(pp+'', X(pp)-7, Y(nMin)+14);
+  });
+  [122, 126, 130, 134, 138, 142, 146].forEach(nn => {
+    ctx.fillText(nn+'', X(pMin)-22, Y(nn)+4);
+  });
+
+  // X、Y 锚点
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(X(X_PT.p), Y(X_PT.n), 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('X', X(X_PT.p)+9, Y(X_PT.n)+3);
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(X(Y_PT.p), Y(Y_PT.n), 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('Y', X(Y_PT.p)-2, Y(Y_PT.n)+18);
+
+  // 路径（phase>=3 才绘制）
+  if(state.phase >= 3){
+    const idx = state.stepIdx;
+    for(let i=1; i<=idx; i++){
+      const a = path[i-1], b = path[i];
+      const isAlpha = b.kind === 'α';
+      ctx.strokeStyle = isAlpha ? '#3f6f8f' : '#b4442e';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(X(a.p), Y(a.n));
+      ctx.lineTo(X(b.p), Y(b.n));
+      ctx.stroke();
+      // 中间点
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = isAlpha ? '#3f6f8f' : '#b4442e';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(X(b.p), Y(b.n), 3.4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    // 当前步标记
+    if(idx >= 1){
+      const cur = path[idx];
+      ctx.fillStyle = cur.kind === 'α' ? '#3f6f8f' : '#b4442e';
+      ctx.beginPath(); ctx.arc(X(cur.p), Y(cur.n), 5.5, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 已知：X(p=92, n=146) → Y(p=82, n=124)，经 α、β 衰变后得 Y',
+    '阶段 ② 衰变规则：α 步 Δ=(-2,-2)；β 步 Δ=(+1,-1)',
+    '阶段 ③ 由 Δp、Δn 列方程解 nα、nβ',
+    '阶段 ④ 路径演示：α 步（蓝）+ β 步（红）共 14 步走到 Y'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-44);
+
+  // 计数器（phase==3 显示当前累计）
+  if(state.phase === 3){
+    let cAlpha = 0, cBeta = 0;
+    for(let i=1; i<=state.stepIdx; i++){
+      if(path[i].kind === 'α') cAlpha++;
+      else if(path[i].kind === 'β') cBeta++;
+    }
+    // 分母 N_ALPHA / N_BETA 在 u<0.86 显示 "?" 防剧透答案数字
+    const denomA = state.u >= 0.50 ? N_ALPHA : '?';
+    const denomB = state.u >= 0.86 ? N_BETA : '?';
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '900 12.5px ui-monospace,monospace';
+    ctx.fillText('已 α 步：'+cAlpha+' / '+denomA, panelX+12, panelY+panelH-26);
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('已 β 步（电子）：'+cBeta+' / '+denomB, panelX+12, panelY+panelH-10);
+  }
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('守恒方程 + 解 nα、nβ', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 22;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt: 0.05, text: 'X: p₁ = 92, n₁ = 146'},
+    {showAt: 0.05, text: 'Y: p₂ = 82, n₂ = 124'},
+    {showAt: 0.10, text: 'Δp = p₂ − p₁ = −10'},
+    {showAt: 0.10, text: 'Δn = n₂ − n₁ = −22'},
+    {showAt: 0.20, text: 'α 步: Δ = (−2, −2)'},
+    {showAt: 0.22, text: 'β 步: Δ = (+1, −1)  放 1 e'},
+    {showAt: 0.40, text: '−2·nα + nβ = −10  …①'},
+    {showAt: 0.42, text: '−2·nα − nβ = −22  …②'},
+    {showAt: 0.48, text: '①+②: −4·nα = −32'},
+    {showAt: 0.50, text: '          → nα = 8'},
+    {showAt: 0.52, text: '①−②:  2·nβ = 12'},
+    {showAt: 0.54, text: '          → nβ = 6'},
+    {showAt: 0.86, text: '电子数 = nβ = 6'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('nα = 8') || s.text.includes('nβ = 6') || s.text.includes('电子数');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 12px ui-monospace,monospace' : '700 11.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项判定
+  const judgments = [
+    // 错项与答案徽章同步推到 0.91+ 防"先排除错项→A 必然对"反向剧透
+    {opt:'A · 6',   verdict:'对 ✓',                      correct:true,  showAt:0.92},
+    {opt:'B · 8',   verdict:'错（这是 α 数 nα，不是电子数）', correct:false, showAt:0.91},
+    {opt:'C · 10',  verdict:'错（无对应物理量）',          correct:false, showAt:0.91},
+    {opt:'D · 14',  verdict:'错（这是总步数 nα+nβ）',     correct:false, showAt:0.91}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+14);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 A · 6 个电子', panelX+panelW-138, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 4 题 · 6 分',
+  title: 'X → Y 一系列 α、β 衰变放出电子总数',
+  subtitle: '由质子数与中子数变化解线性方程组得 α 步与 β 步次数。',
+  deliv: {
+    title: '守恒方程 + 衰变步进',
+    sub: 'Δp=−10, Δn=−22 → nα=8, nβ=6 → 电子 6 个'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 单选 · 第 4 题 · 6 分',
+    image: '../../source/images/image16.png',
+    text: `如图，一个原子核 X 经图中所示的一系列 α 衰变与 β 衰变后，生成稳定的原子核 Y，在此过程中放射出电子的总个数为（  ）`,
+    subQuestions: [
+      'A. 6',
+      'B. 8',
+      'C. 10',
+      'D. 14'
+    ],
+    officialAnswer: 'A · 由图读出 X(质子数 92, 中子数 146)、Y(质子数 82, 中子数 124)，故 Δp = 82 − 92 = −10，Δn = 124 − 146 = −22。设经过 nα 次 α 衰变与 nβ 次 β 衰变。α 步使 (Δp, Δn) 各 −2、β 步使 Δp +1、Δn −1。质子数守恒：−2·nα + nβ = −10；中子数守恒：−2·nα − nβ = −22。两式相加得 nα = 8；相减得 nβ = 6。每次 β 衰变放出 1 个电子（中子→质子+电子+反中微子），故放出电子数 = nβ = 6，选 A。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 题目：X → Y',                  label_short:'题目',
+     formula_tex: String.raw`X(92,146)\to Y(82,124)`,
+     note:'质子-中子图上 X、Y 标注，路径未画。'},
+    {label:'阶段 ② 衰变规则',                      label_short:'规则',
+     formula_tex: String.raw`\alpha:\;(\Delta p, \Delta n)=(-2,-2);\quad \beta:\;(\Delta p, \Delta n)=(+1,-1)`,
+     note:'α 衰变质量数 −4、质子数 −2 → 中子数 −2；β 衰变中子→质子，质子数 +1、中子数 −1，并放出 1 个电子。'},
+    {label:'阶段 ③ 列方程求解',                    label_short:'求解',
+     formula_tex: String.raw`-2n_\alpha+n_\beta=-10,\;-2n_\alpha-n_\beta=-22 \Rightarrow n_\alpha=8,\;n_\beta=6`,
+     note:'两式相加 −4·nα = −32 → nα = 8；相减 2·nβ = 12 → nβ = 6。'},
+    {label:'阶段 ④ 路径演示与电子计数',            label_short:'计数',
+     formula_tex: String.raw`\#\text{electron}=n_\beta`,
+     note:'每次 β 步放出 1 个电子；α 步不放电子。最终电子数 = nβ。'}
+  ],
+  stats: [
+    {label:'X 质子数',  fmt:()=>X_PT.p+''},
+    {label:'X 中子数',  fmt:()=>X_PT.n+''},
+    {label:'Y 质子数',  fmt:()=>Y_PT.p+''},
+    {label:'Y 中子数',  fmt:()=>Y_PT.n+''},
+    {label:'Δp',         fmt:s=>(s.u>=0.10 ? dPdN.dp+'' : '?')},
+    {label:'Δn',         fmt:s=>(s.u>=0.10 ? dPdN.dn+'' : '?')},
+    {label:'α 次数 nα',  fmt:s=>(s.u>=0.50 ? N_ALPHA+'' : '?')},
+    {label:'β 次数 nβ',  fmt:s=>(s.u>=0.54 ? N_BETA+'' : '?')},
+    {label:'电子数',     fmt:s=>(s.u>=0.92 ? N_BETA+'' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'6 个电子 ✓', note:'电子数 = nβ = 6'},
+    {label_text:'B 错', value_text:'8',         note:'8 是 nα，不是电子数'},
+    {label_text:'C 错', value_text:'10',        note:'10 = |Δp|，是质子数变化'},
+    {label_text:'D 错', value_text:'14',        note:'14 = nα+nβ，是总步数'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'dot'}, text:'X 起点 / Y 终点'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'α 步 (Δp,Δn)=(−2,−2)'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'β 步 (Δp,Δn)=(+1,−1) · 放 1 e'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q4-X到Y衰变电子数'
+});
+</script>
+</body>
+</html>

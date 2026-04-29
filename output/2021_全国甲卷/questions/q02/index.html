@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 2 题 · 旋转纽扣向心加速度</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：旋转纽扣，转速 n = 50 r/s，距中心 r = 1cm 处向心加速度 a = ?
+// ω = 2π·n = 100π ≈ 314.16 rad/s
+// a = ω²·r = (100π)² × 0.01 = 100π² ≈ 986.96 m/s²
+// 量级 ≈ 1000 m/s² → 答案 C
+
+const n_rps = 50;          // 转速 r/s
+const r_cm = 1.0;          // cm
+const omega = 2*Math.PI*n_rps;  // rad/s ≈ 314.16
+const a_centri = omega*omega * (r_cm/100);  // m/s² ≈ 986.96
+
+const T_TOTAL = 7.5;
+const visualOmega = 1.6 * Math.PI;  // 可视化角速度（实际太快无法看，慢化展示）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nothing */ }
+  lastT = t;
+  // 4 阶段：① 0~0.20 装置静止；② 0.20~0.55 启动旋转；③ 0.55~0.80 标 P 点 + v + a 矢量；④ 0.80~1.00 数值代入
+  const u = t / T_TOTAL;
+  let phase = 0;
+  if(u < 0.20) phase = 0;
+  else if(u < 0.55) phase = 1;
+  else if(u < 0.80) phase = 2;
+  else phase = 3;
+  // 角度（仅在 phase>=1 才旋转）
+  let ang = 0;
+  if(u >= 0.20){
+    const tSpin = t - 0.20*T_TOTAL;
+    ang = visualOmega * tSpin;
+  }
+  return {phase, ang, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawButton (ctx, 14, 14, W*0.50-21, H-28, state);
+  drawCalc   (ctx, W*0.50+7, 14, W*0.50-21, H-28, state);
+}
+
+function drawButton(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('旋转纽扣 · 转速 n = 50 r/s · 取距中心 r = 1 cm 一点 P', panelX+12, panelY+18);
+
+  const cx = panelX + panelW/2;
+  const cy = panelY + panelH*0.46;
+  const buttonR = Math.min(panelW, panelH) * 0.20;   // 纽扣半径（视觉）
+  const r1cmPx = buttonR * 0.55;   // r=1cm 在视觉上等比映射到这个像素半径
+
+  // 绳（左右两股拧在一起延伸到外力箭头）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.6;
+  // 左侧绳（多段正弦表示拧）
+  const leftEnd = panelX + 22;
+  const rightEnd = panelX + panelW - 22;
+  for(let side of [-1, +1]){
+    const x0 = (side<0 ? leftEnd : rightEnd);
+    const x1 = cx + side*buttonR;
+    ctx.beginPath();
+    const segs = 60;
+    for(let i=0; i<=segs; i++){
+      const tau = i/segs;
+      const xx = x0 + (x1-x0)*tau;
+      const yy = cy + Math.sin(tau*Math.PI*9 + (side<0 ? 0 : Math.PI))*4;
+      if(i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+    }
+    ctx.stroke();
+    // 第二股（错相）
+    ctx.beginPath();
+    for(let i=0; i<=segs; i++){
+      const tau = i/segs;
+      const xx = x0 + (x1-x0)*tau;
+      const yy = cy + Math.sin(tau*Math.PI*9 + (side<0 ? 0 : Math.PI) + Math.PI)*4;
+      if(i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+    }
+    ctx.stroke();
+  }
+
+  // 外力箭头（左右）
+  PPath.arrow(ctx, panelX + 50, cy, leftEnd-2, cy, '#1d1d1f', 2);
+  PPath.arrow(ctx, panelX+panelW-50, cy, rightEnd+2, cy, '#1d1d1f', 2);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('外力', leftEnd-30, cy-8);
+  ctx.fillText('外力', rightEnd+10, cy-8);
+
+  // 纽扣（椭圆 + 2 个孔，旋转 ang 角）
+  ctx.save();
+  ctx.translate(cx, cy);
+  // 旋转可视化用一个圆 + 2 个孔
+  ctx.fillStyle = '#fffaef';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, buttonR*0.55, buttonR, 0, 0, Math.PI*2);
+  ctx.fill(); ctx.stroke();
+  // 旋转标识：让孔随角度走
+  const holeOffset = buttonR*0.32;
+  const ax = Math.cos(state.ang)*holeOffset, ay = Math.sin(state.ang)*holeOffset;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(ax, ay, 2.6, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-ax, -ay, 2.6, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // 旋转方向箭头（弧形，仅 phase>=1）
+  if(state.phase >= 1){
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(cx, cy - buttonR - 12, 16, Math.PI*0.85, Math.PI*0.15, true);
+    ctx.stroke();
+    // 箭头
+    const tipAng = Math.PI*0.15;
+    const tipX = cx + 16*Math.cos(tipAng), tipY = cy - buttonR - 12 + 16*Math.sin(tipAng);
+    PPath.arrow(ctx, tipX-6, tipY-6, tipX, tipY, '#3f6f8f', 1.8);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('ω', cx-6, cy-buttonR-30);
+  }
+
+  // P 点（距中心 1cm 处，phase>=2）
+  if(state.phase >= 2){
+    const px = cx + r1cmPx*Math.cos(state.ang);
+    const py = cy + r1cmPx*Math.sin(state.ang);
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#b4442e';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('P', px+8, py-6);
+    // r 标注（半径线）
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy); ctx.lineTo(px, py);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 700 11px "Cambria Math",Georgia,serif';
+    ctx.fillText('r = 1 cm', (cx+px)/2 + 6, (cy+py)/2 - 4);
+
+    // 速度矢量（切向）
+    const vMag = 26;
+    const vx = -Math.sin(state.ang)*vMag;
+    const vy = Math.cos(state.ang)*vMag;
+    PPath.arrow(ctx, px, py, px+vx, py+vy, '#16613f', 2.2);
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 800 12px "Cambria Math",Georgia,serif';
+    ctx.fillText('v', px+vx*0.6+5, py+vy*0.6+5);
+
+    // 向心加速度（指向中心）
+    const aMag = 32;
+    const ux = (cx-px), uy = (cy-py);
+    const uLen = Math.hypot(ux, uy);
+    PPath.arrow(ctx, px, py, px+ux/uLen*aMag, py+uy/uLen*aMag, '#c2611f', 2.4);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('a', px+ux/uLen*aMag*0.55-12, py+uy/uLen*aMag*0.55-3);
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 装置静止：纽扣穿绳，绳两端外力',
+    '阶段 ② 拉绳后纽扣绕中心旋转，转速 n = 50 r/s',
+    '阶段 ③ 距中心 r = 1 cm 取一点 P：标 v（切向）与 a（向心）方向',
+    '阶段 ④ 代入 a = ω²r = (2πn)²·r 求量级'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-22);
+  ctx.fillStyle = '#86868b';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText('（实际转速 50 r/s 太快肉眼难辨；可视化按演示速度慢放）', panelX+12, panelY+panelH-6);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('量级估算 a = ω²·r = (2πn)²·r', panelX+12, panelY+18);
+
+  // 步骤渐进显示
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 26;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 13px ui-monospace,monospace';
+
+  const steps = [
+    {showAt: 0.10, text: 'n = 50 r/s'},
+    {showAt: 0.25, text: 'ω = 2πn = 100π ≈ 314.16 rad/s'},
+    {showAt: 0.45, text: 'r = 1 cm = 0.01 m'},
+    {showAt: 0.62, text: 'a = ω²·r = (100π)² × 0.01'},
+    {showAt: 0.72, text: '   = 10000π² × 0.01 = 100π²'},
+    {showAt: 0.80, text: '   ≈ 986.96 m/s²'},
+    {showAt: 0.85, text: '   量级 ≈ 1000 m/s²'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项 + 判定（u 渐进显示，统一推到 ≥ 0.85，与 a 数值出现同步，防反向剧透量级）
+  const judgments = [
+    {opt:'A · 10 m/s²',     verdict:'错（差 100 倍）',   correct:false, showAt:0.86},
+    {opt:'B · 100 m/s²',    verdict:'错（差 10 倍）',     correct:false, showAt:0.88},
+    {opt:'C · 1000 m/s²',   verdict:'对 ✓',               correct:true,  showAt:0.92},
+    {opt:'D · 10000 m/s²',  verdict:'错（大 10 倍）',     correct:false, showAt:0.90}
+  ];
+  yy = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yy);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yy);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yy+15);
+    }
+    yy += 32;
+  });
+
+  // 答案徽章（u≥0.92）
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C · 约 1000 m/s²', panelX+panelW-142, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 6 分',
+  title: '旋转纽扣 1 cm 处的向心加速度',
+  subtitle: '转速 50 r/s，距中心 1 cm 一点的向心加速度量级估算。',
+  deliv: {
+    title: '匀速圆周 · 量级估算',
+    sub: 'a = ω²r = (2πn)²·r ≈ 100π² ≈ 1000 m/s²'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 单选 · 第 2 题 · 6 分',
+    image: '../../source/images/image6.png',
+    text: `"旋转纽扣"是一种传统游戏。如图，先将纽扣绕几圈，使穿过纽扣的两股细绳拧在一起，然后用力反复拉绳的两端，纽扣正转和反转会交替出现。拉动多次后，纽扣绕其中心的转速可达 50 r/s，此时纽扣上距离中心 1 cm 处的点向心加速度大小约为（  ）`,
+    subQuestions: [
+      'A. 10 m/s²',
+      'B. 100 m/s²',
+      'C. 1000 m/s²',
+      'D. 10000 m/s²'
+    ],
+    officialAnswer: 'C · 转速 n = 50 r/s 对应角速度 ω = 2πn = 100π rad/s ≈ 314 rad/s。距中心 r = 1 cm = 0.01 m 处向心加速度 a = ω²·r = (100π)² × 0.01 = 100π² ≈ 987 m/s²，量级约 1000 m/s²，故选 C。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置静止',      label_short:'静止',
+     formula_tex: String.raw`\text{纽扣穿绳，两端外力，未旋转}`,
+     note:'两股细绳拧在一起穿过纽扣两个孔；准备拉绳。'},
+    {label:'阶段 ② 拉绳带动纽扣旋转', label_short:'旋转',
+     formula_tex: String.raw`\omega = 2\pi n = 2\pi \times 50 = 100\pi \;\text{rad/s}`,
+     note:'转速 n=50 r/s 对应角速度 ω=100π≈314 rad/s。'},
+    {label:'阶段 ③ 标 v 与 a 方向',  label_short:'矢量',
+     formula_tex: String.raw`\vec{v}\;\bot\; \vec{r}\;(\text{切向}),\quad \vec{a}\;\parallel\; -\vec{r}\;(\text{指向中心})`,
+     note:'P 点速度切向；向心加速度指向圆心。'},
+    {label:'阶段 ④ 代入数值',       label_short:'估算',
+     formula_tex: String.raw`a = \omega^{2} r = (100\pi)^{2}\times 0.01 = 100\pi^{2} \approx 987 \;\text{m/s}^{2}`,
+     note:'量级约 1000 m/s²。'}
+  ],
+  stats: [
+    {label:'转速 n',         fmt:()=>n_rps+' r/s'},
+    {label:'角速度 ω',       fmt:s=>(s.u>=0.25 ? omega.toFixed(2)+' rad/s' : '?')},
+    {label:'半径 r',         fmt:()=>r_cm+' cm'},
+    {label:'向心加速度 a',   fmt:s=>(s.u>=0.85 ? a_centri.toFixed(2)+' m/s²' : '?')},
+    {label:'量级',           fmt:s=>(s.u>=0.85 ? '~10³ m/s²' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'10 m/s²',     note:'与实际差 100 倍'},
+    {label_text:'B 错', value_text:'100 m/s²',    note:'与实际差 10 倍'},
+    {label_text:'C 对', value_text:'1000 m/s² ✓', note:'量级 ≈ 100π² ≈ 987'},
+    {label_text:'D 错', value_text:'10000 m/s²',  note:'大 10 倍'}
+  ],
+  legend: [
+    {swatch:{bg:'#fffaef',border:'#1d1d1f',type:'rect'}, text:'纽扣 + 绳'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'角速度 ω 方向'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'P 点（距中心 1 cm）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'切向速度 v'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'向心加速度 a'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q2-旋转纽扣向心加速度'
+});
+</script>
+</body>
+</html>

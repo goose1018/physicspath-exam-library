@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 6 题 · 等势面 abcde 5 点</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：5 点在等势面上：a(φ=3V)、b(φ=5V)、c(φ=6V)、d(φ=7V)、e(φ=5V)
+// 7 条等势面：2V/3V/4V/5V/6V/7V/8V，从左到右递增
+//
+// A · q_+ 从 b → e：φ_b=φ_e=5V，电场力做功 W = q(φ_b−φ_e) = 0 ≠ 正功 → 错
+// B · 电子从 a → d：W_ad = q(φ_a−φ_d) = (−e)(3−7) = +4eV → 对
+// C · b 点 E 方向：沿电场线（电势降低方向），5V 等势面 b 处右侧 6V > 5V 左侧 4V
+//     → E 从高电势指向低电势 = 向左（不是向右）→ 错
+// D · a/b/c/d 中 b 点 E 大小最大：等势线越密 E 越大；中间区域等势线最密 → 对
+// 答案 BD
+
+const T_TOTAL = 11.0;
+
+// 5 点位置（视觉 x ∈ [-1, 1]，y 向上）
+const POINTS = [
+  {label:'a', phi:3, x:-0.50, y:0,   color:'#3f6f8f'},
+  {label:'b', phi:5, x: 0.00, y:0,   color:'#7a4f9c'},
+  {label:'c', phi:6, x: 0.20, y:0,   color:'#16613f'},
+  {label:'d', phi:7, x: 0.55, y:0,   color:'#c2611f'},
+  {label:'e', phi:5, x: 0.00, y:0.50,color:'#b4442e'}
+];
+
+// 等势线 (V) 与对应 x 位置（中线 x=0 是 5V）
+const EQUIPOTENTIAL = [
+  {V:2, x:-0.85},
+  {V:3, x:-0.50},
+  {V:4, x:-0.22},
+  {V:5, x: 0.00},
+  {V:6, x: 0.20},
+  {V:7, x: 0.55},
+  {V:8, x: 0.85}
+];
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  if(u < 0.18) phase = 0;       // 等势面 + 5 点
+  else if(u < 0.45) phase = 1;  // 选项 A: b→e 同势 W=0
+  else if(u < 0.65) phase = 2;  // 选项 B: a→d 电子 W=4eV
+  else if(u < 0.80) phase = 3;  // 选项 C: b 处 E 方向（向左）+ 电场线
+  else phase = 4;                // 选项 D: 中间等势线最密 → b 场强最大
+  return {phase, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawField(ctx, 14, 14, W*0.56-21, H-28, state);
+  drawCalc (ctx, W*0.56+7, 14, W*0.44-21, H-28, state);
+}
+
+function drawField(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('等势面（7 条，2V~8V）+ 5 点 abcde', panelX+12, panelY+18);
+
+  // 坐标系
+  const cx = panelX + panelW/2;
+  const cy = panelY + panelH*0.45;
+  const sx = panelW*0.36;
+  const sy = panelH*0.30;
+  const X = (xx) => cx + xx*sx;
+  const Y = (yy) => cy - yy*sy;
+
+  // ── 等势线 ──（曲线：中间紧、两端宽，呈"枣核"形）
+  EQUIPOTENTIAL.forEach((eq, i) => {
+    const isCenter = eq.V === 5;
+    ctx.strokeStyle = isCenter ? '#5d6964' : '#86868b';
+    ctx.lineWidth = isCenter ? 1.6 : 1.2;
+    ctx.beginPath();
+    // 等势线参数化：x = eq.x · (1 − k·y²) + bowOut（"枣核"宽度由 |eq.x| 决定）
+    const yMin = -1.1, yMax = 1.1;
+    const segs = 50;
+    for(let j=0; j<=segs; j++){
+      const yy = yMin + (yMax-yMin)*j/segs;
+      // 弯曲程度：等势线越远离中心 5V，弯曲越大；中心 5V 是直线
+      const bow = Math.abs(eq.x) * 0.18 * (1 - yy*yy);
+      const dx = eq.x > 0 ? -bow : (eq.x < 0 ? +bow : 0);
+      const px = X(eq.x + dx);
+      const py = Y(yy);
+      if(j===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    // V 标注（底部）
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '700 10.5px "Cambria Math",Georgia,serif';
+    ctx.fillText(eq.V+'V', X(eq.x)-7, Y(-1.15));
+  });
+
+  // ── 电场线（phase>=3 才显示）──
+  // 电场线垂直于等势线，方向：从高电势 → 低电势（这里从右向左，因为右侧电势更高）
+  // 颜色用中性灰避免与 d 点橙色冲突
+  if(state.phase >= 3){
+    const yLevels = [-0.7, -0.35, 0, 0.35, 0.7];
+    const fieldColor = '#5d6964';
+    yLevels.forEach(yL => {
+      ctx.strokeStyle = fieldColor; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      const segs = 40;
+      const x0 = 0.95, x1 = -0.95;
+      for(let j=0; j<=segs; j++){
+        const tau = j/segs;
+        const xx = x0 + (x1-x0)*tau;
+        const yy = yL * (1 - 0.3*Math.abs(xx)*Math.abs(xx));
+        if(j===0) ctx.moveTo(X(xx), Y(yy)); else ctx.lineTo(X(xx), Y(yy));
+      }
+      ctx.stroke();
+      // 箭头（从右指向左 = 电场方向 = E 向左）— 中段加一个增强方向感
+      const midX = X(0.05), midY = Y(yL*(1-0.3*0.0025));
+      const midHeadX = X(0.10), midHeadY = Y(yL*(1-0.3*0.01));
+      PPath.arrow(ctx, midHeadX, midHeadY, midX, midY, fieldColor, 1.4);
+      const tipX = X(-0.6), tipY = Y(yL*(1-0.3*0.36));
+      const headX = X(-0.55), headY = Y(yL*(1-0.3*0.30));
+      PPath.arrow(ctx, headX, headY, tipX, tipY, fieldColor, 1.6);
+    });
+  }
+
+  // ── 5 点 ──
+  POINTS.forEach(pt => {
+    ctx.fillStyle = pt.color;
+    ctx.beginPath(); ctx.arc(X(pt.x), Y(pt.y), 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.fillStyle = pt.color;
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText(pt.label, X(pt.x)+8, Y(pt.y)+4);
+  });
+
+  // ── 选项分阶段高亮 ──
+  if(state.phase === 1){
+    // A: b→e 红色虚线
+    ctx.strokeStyle = '#7a4f9c'; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    ctx.moveTo(X(POINTS[1].x), Y(POINTS[1].y));   // b
+    ctx.lineTo(X(POINTS[4].x), Y(POINTS[4].y));   // e
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#7a4f9c';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('A: b → e（同 5V）', X(POINTS[4].x)+12, Y(POINTS[4].y)-4);
+  }
+  if(state.phase === 2){
+    // B: a→d 绿色虚线
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+    ctx.beginPath();
+    ctx.moveTo(X(POINTS[0].x), Y(POINTS[0].y));   // a
+    ctx.lineTo(X(POINTS[3].x), Y(POINTS[3].y));   // d
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('B: 电子 a(3V) → d(7V)', X(POINTS[0].x)-22, Y(POINTS[0].y)+24);
+  }
+  if(state.phase === 3){
+    // C: b 处 E 方向箭头（向左）
+    ctx.strokeStyle = '#7a4f9c'; ctx.lineWidth = 2.4;
+    PPath.arrow(ctx, X(POINTS[1].x), Y(POINTS[1].y)-22, X(POINTS[1].x)-30, Y(POINTS[1].y)-22, '#7a4f9c', 2.4);
+    ctx.fillStyle = '#7a4f9c';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('C: E 方向（向左，非向右）', X(POINTS[1].x)-58, Y(POINTS[1].y)-30);
+  }
+  if(state.phase === 4){
+    // D: 比较 a/b/c/d 处等势线密度（圈半径缩小到 18 防误圈 c 点）
+    ctx.fillStyle = '#7a4f9c';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('D: 比较 a/b/c/d 处等势线密度', X(0)-90, Y(POINTS[1].y)+28);
+    ctx.strokeStyle = 'rgba(122,79,156,0.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(POINTS[1].x), Y(POINTS[1].y), 18, 0, Math.PI*2); ctx.stroke();
+  }
+
+  // 阶段说明（仅描述现象，结论由右栏 verdict 揭示）
+  const phaseTexts = [
+    '阶段 ① 等势面 + 5 点：a(3V), b(5V), c(6V), d(7V), e(5V)',
+    '阶段 ② 选项 A：考察 b→e 之间电场力做功（注意两点电势）',
+    '阶段 ③ 选项 B：电子 a→d，电场力做功 W=q·Δφ',
+    '阶段 ④ 选项 C：判断 b 点 E 方向（沿电场线电势降低方向）',
+    '阶段 ⑤ 选项 D：比较 a/b/c/d 处 E 大小（看等势线密度）'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('5 点电势 + 选项判定', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 22;
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px ui-monospace,monospace';
+
+  // ✓ 标只在 verdict 区域出现，避免双通道剧透
+  const steps = [
+    {showAt: 0.05, text: 'φ_a=3V  φ_b=5V  φ_c=6V'},
+    {showAt: 0.05, text: 'φ_d=7V  φ_e=5V'},
+    {showAt: 0.05, text: 'W = q · (φ_initial − φ_final)'},
+    {showAt: 0.20, text: 'A: q>0 b→e: W=q(5−5)=0'},
+    {showAt: 0.50, text: 'B: e⁻ a→d:'},
+    {showAt: 0.55, text: '   W=(−e)(3−7)=+4eV'},
+    {showAt: 0.70, text: 'C: 沿 E 方向 φ↓'},
+    {showAt: 0.74, text: '   b 右 6V，b 左 4V'},
+    {showAt: 0.77, text: '   ⇒ E 向左（不向右）'},
+    {showAt: 0.85, text: 'D: E 大小 ∝ 等势线密度'},
+    {showAt: 0.88, text: '   中间最密 → b 最大'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('✓');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 11.5px ui-monospace,monospace' : '700 11.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · b→e 正功',  verdict:'错（W=0）',         correct:false, showAt:0.40},
+    {opt:'B · a→d=4eV',   verdict:'对 ✓',              correct:true,  showAt:0.62},
+    {opt:'C · E 向右',    verdict:'错（向左）',        correct:false, showAt:0.78},
+    {opt:'D · b 最大',    verdict:'对 ✓',              correct:true,  showAt:0.92}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+14);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-138, panelY+panelH-44, 126, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BD', panelX+panelW-86, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '等势面 a/b/c/d/e 5 点的电场判定',
+  subtitle: '电场中的 5 个点位于不同等势面上，判断 4 个选项关于功、场强大小、方向的正误。',
+  deliv: {
+    title: '电势能 + 等势线密度 + E 方向',
+    sub: 'W=q·Δφ；E 沿电势降低方向；E ∝ 1/等势线间距'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 多选 · 第 6 题 · 6 分',
+    image: '../../source/images/image33.png',
+    text: `某电场的等势面如图所示，图中 a、b、c、d、e 为电场中的 5 个点，则（    ）`,
+    subQuestions: [
+      'A. 一正电荷从 b 点运动到 e 点，电场力做正功',
+      'B. 一电子从 a 点运动到 d 点，电场力做功为 4 eV',
+      'C. b 点电场强度垂直于该点所在等势面，方向向右',
+      'D. a、b、c、d 四个点中，b 点的电场强度大小最大'
+    ],
+    officialAnswer: 'BD · 由图读出 φ_a=3V、φ_b=5V、φ_c=6V、φ_d=7V、φ_e=5V。\n\nA 错：φ_b=φ_e=5V，电场力做功 W=q(φ_b−φ_e)=0，不是正功。\n\nB 对：电子 a→d，W=q(φ_a−φ_d)=(−e)(3−7)=+4eV。\n\nC 错：电场强度垂直于等势面正确；但沿电场线方向电势逐渐降低。b 点右侧等势面 6V 高于左侧 4V，故 E 由高电势指向低电势（即由右指向左），与"方向向右"矛盾。\n\nD 对：电场线与等势面处处垂直，等势面越密集场强越大。从图中可见，4V 与 5V、5V 与 6V 等势面在中间区域间距最小，故 a、b、c、d 中 b 点等势面最密集 → b 点电场强度最大。\n\n综上，B、D 正确。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 等势面 + 5 点',     label_short:'图',
+     formula_tex: String.raw`\varphi_a=3,\;\varphi_b=5,\;\varphi_c=6,\;\varphi_d=7,\;\varphi_e=5\;\text{(V)}`,
+     note:'5 点位于不同等势面上；e 与 b 同在 5V 等势面（不同位置）。'},
+    {label:'阶段 ② 选项 A · b→e 同势', label_short:'A',
+     formula_tex: String.raw`W_{b\to e}=q(\varphi_b-\varphi_e)=q(5-5)=0`,
+     note:'同等势面，电场力做功为零；非正功，A 错。'},
+    {label:'阶段 ③ 选项 B · 电子 a→d', label_short:'B',
+     formula_tex: String.raw`W_{a\to d}=(-e)(\varphi_a-\varphi_d)=(-e)(3-7)=+4\,\text{eV}`,
+     note:'电子电荷 −e；a 到 d 电势升高 4V，电场力做正功 4eV，B 对。'},
+    {label:'阶段 ④ 选项 C · E 方向',   label_short:'C',
+     formula_tex: String.raw`\vec E\bot\text{等势面},\;\vec E\;\text{由高电势指向低电势}`,
+     note:'b 处右侧 6V > 左侧 4V，故 E 由右指向左（不是向右），C 错。'},
+    {label:'阶段 ⑤ 选项 D · 场强大小', label_short:'D',
+     formula_tex: String.raw`E=-\dfrac{d\varphi}{dn}\;\Rightarrow\; E\propto\dfrac{1}{\text{等势面间距}}`,
+     note:'图中 a/b/c/d 处等势面密度由小→大→小→中等；b 处中间最密 → 场强最大，D 对。'}
+  ],
+  stats: [
+    {label:'φ_a', fmt:()=>'3 V'},
+    {label:'φ_b', fmt:()=>'5 V'},
+    {label:'φ_c', fmt:()=>'6 V'},
+    {label:'φ_d', fmt:()=>'7 V'},
+    {label:'φ_e', fmt:()=>'5 V'},
+    {label:'W_be', fmt:s=>(s.u>=0.40 ? '0' : '?')},
+    {label:'W_ad', fmt:s=>(s.u>=0.62 ? '+4 eV' : '?')},
+    {label:'b 处 E', fmt:s=>(s.u>=0.78 ? '向左 · 最大' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'W_be = 0',     note:'同等势面 W=0 非正功'},
+    {label_text:'B 对', value_text:'W_ad = +4eV ✓', note:'电子 q=−e, Δφ=−4V'},
+    {label_text:'C 错', value_text:'E 向左',        note:'右侧电势更高 → E 由右指左'},
+    {label_text:'D 对', value_text:'b 最密最大 ✓',   note:'E ∝ 等势线密度'}
+  ],
+  legend: [
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'等势面'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'电场线（沿电势降低方向）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'},  text:'a (3V)'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'dot'},  text:'b (5V)'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'c (6V)'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'},  text:'d (7V)'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'e (5V)'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q6-等势面5点'
+});
+</script>
+</body>
+</html>
