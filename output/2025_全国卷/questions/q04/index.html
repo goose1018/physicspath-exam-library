@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 4 题 · 匀强电场点电荷</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 匀强电场，正电荷仅受电场力（恒定）
+// A 错：v₀ 与 F 反向时先减速再加速，电势先升后降
+// B 错：v₀ 与 F 同向时电势单调降
+// C 对：v₀ 与 F 共线（同向或反向）→ 直线运动 → 轨迹与电场线平行
+// D 错：v₀ ⊥ F → 类平抛 → 曲线，不是直线
+// 答案 C
+
+const T_total = 8;
+const stageDur = 2;     // 4 阶段各 2s
+
+// 电场方向 E 向 +x
+const E_dir = {x:1, y:0};
+
+function evalState(t){
+  const stage = Math.floor((t/stageDur) % 4);     // 0/1/2/3 对应 A/B/C/D
+  const u = (t - stage*stageDur)/stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 主图区
+  drawField(ctx, 14, 14, W*0.6-21, H-28, state);
+  // 选项判定
+  drawJudge(ctx, W*0.6+7, 14, W*0.4-21, H-28, state);
+}
+
+function drawField(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('匀强电场（E 沿 +x 方向）+ 正电荷运动轨迹', x+12, y+18);
+
+  // 电场线（横向平行虚线）
+  ctx.strokeStyle = 'rgba(63,111,143,0.4)'; ctx.lineWidth = 1;
+  ctx.setLineDash([6,3]);
+  for(let yi=y+50; yi<y+h-30; yi+=24){
+    ctx.beginPath(); ctx.moveTo(x+30, yi); ctx.lineTo(x+w-30, yi); ctx.stroke();
+    // 箭头
+    PPath.arrow(ctx, x+w*0.5-10, yi, x+w*0.5+10, yi, 'rgba(63,111,143,0.4)', 1);
+  }
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('E', x+w-50, y+50);
+
+  // 电荷起点
+  const cx = x + w*0.3, cy = y + h*0.5;
+  // 4 个阶段不同的运动
+  const stage = state.stage;
+  const u = state.u;
+  let chargeX = cx, chargeY = cy;
+  let velX = 0, velY = 0;
+  let scenarioName = '', verdict = '';
+
+  // 加速度 a 沿 E 方向（电场对正电荷做功，沿 +x）
+  const a = 1.0;
+  // 用 t 是 stage 内归一化时间 [0, 1]，转化为物理时间 tp = u * 2.0
+  const tp = u * 2.0;
+
+  if(stage === 0){
+    // A 错：v₀ 与 E 反向（负 x）→ 先减速再加速
+    scenarioName = 'A 选项：v₀ 与 E 反向 → 先减速再加速 → 电势先升后降';
+    verdict = '错（电势不一定一直降低）';
+    const v0 = -1.5;
+    velX = v0 + a*tp;
+    chargeX = cx + v0*tp + 0.5*a*tp*tp * 80;     // 放大显示
+    // 标记最低点
+  } else if(stage === 1){
+    // B 错：v₀ 与 E 同向 → 直线加速 → 电势单调降
+    scenarioName = 'B 选项：v₀ 与 E 同向 → 单调加速 → 电势单调降';
+    verdict = '错（电势不一定一直升高）';
+    const v0 = 0.5;
+    velX = v0 + a*tp;
+    chargeX = cx + (v0*tp + 0.5*a*tp*tp) * 80;
+  } else if(stage === 2){
+    // C 对：v₀ 沿电场线 → 直线运动
+    scenarioName = 'C 选项：v₀ 沿电场线方向（共线）→ 直线运动';
+    verdict = '对 ✓';
+    const v0 = 0.3;
+    velX = v0 + a*tp;
+    chargeX = cx + (v0*tp + 0.5*a*tp*tp) * 80;
+  } else {
+    // D 错：v₀ ⊥ E → 类平抛
+    scenarioName = 'D 选项：v₀ 与 E 垂直 → 类平抛 → 曲线';
+    verdict = '错（轨迹是曲线，不是直线）';
+    const v0y = -1.0;     // 向 -y（视觉上方）
+    velX = a*tp;
+    velY = v0y;
+    chargeX = cx + (0.5*a*tp*tp)*80;
+    chargeY = cy + v0y*tp*40;
+  }
+
+  // 画轨迹（淡）
+  ctx.strokeStyle = stage === 2 ? 'rgba(22,97,63,0.4)' : 'rgba(180,68,46,0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let s=0; s<=tp; s+=0.05){
+    let xx, yy;
+    if(stage === 0){
+      const v0 = -1.5;
+      xx = cx + (v0*s + 0.5*a*s*s)*80;
+      yy = cy;
+    } else if(stage === 1){
+      const v0 = 0.5;
+      xx = cx + (v0*s + 0.5*a*s*s)*80;
+      yy = cy;
+    } else if(stage === 2){
+      const v0 = 0.3;
+      xx = cx + (v0*s + 0.5*a*s*s)*80;
+      yy = cy;
+    } else {
+      const v0y = -1.0;
+      xx = cx + (0.5*a*s*s)*80;
+      yy = cy + v0y*s*40;
+    }
+    if(s===0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  }
+  ctx.stroke();
+
+  // 起点
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('起点', cx-10, cy-10);
+
+  // 电荷当前位置
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(chargeX, chargeY, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('+', chargeX, chargeY+4);
+  ctx.textAlign = 'left';
+
+  // 速度向量
+  if(Math.abs(velX) > 0.1 || Math.abs(velY) > 0.1){
+    PPath.arrow(ctx, chargeX, chargeY, chargeX + velX*30, chargeY + velY*30, '#16613f', 2);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText('v', chargeX + velX*30 + 4, chargeY + velY*30 - 4);
+  }
+
+  // 电场力 F (恒定向 +x)
+  PPath.arrow(ctx, chargeX, chargeY+18, chargeX+30, chargeY+18, '#b4442e', 2);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('F=qE', chargeX+34, chargeY+22);
+
+  // 阶段说明
+  ctx.fillStyle = stage === 2 ? '#16613f' : '#b4442e';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(scenarioName, x+12, y+h-30);
+  ctx.fillStyle = stage === 2 ? '#16613f' : '#b4442e';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText(verdict, x+12, y+h-12);
+}
+
+function drawJudge(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('4 选项判定（轮播演示）', x+12, y+18);
+
+  const judgments = [
+    {opt:'A 选项',desc:'电势一定不断降低', verdict:'错（v₀ 反向时电势先升）'},
+    {opt:'B 选项',desc:'电势一定不断升高', verdict:'错（同向时电势降）'},
+    {opt:'C 选项',desc:'轨迹与电场线平行', verdict:'对 ✓ (v₀ 共线 → 直线)'},
+    {opt:'D 选项',desc:'轨迹与电场线垂直', verdict:'错（v⊥E → 类平抛曲线）'}
+  ];
+
+  let yy = y + 50;
+  judgments.forEach((j, i) => {
+    const correct = (i === 2);
+    const active = (state.stage === i);
+    if(active){
+      ctx.fillStyle = '#fdf3e6';
+      ctx.fillRect(x+8, yy-16, w-16, 60);
+    }
+    const color = correct ? '#16613f' : '#b4442e';
+    ctx.fillStyle = active ? color : '#94a09b';
+    ctx.font = `${active?900:700} 13px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+18, yy);
+    ctx.fillStyle = active ? '#1d1d1f' : '#94a09b';
+    ctx.font = '700 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.desc, x+18, yy+18);
+    ctx.fillStyle = active ? color : '#94a09b';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+18, yy+34);
+    yy += 70;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-44, w-24, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 C · 共线 → 直线', x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 4 题 · 6 分',
+  title: '匀强电场 · 正电荷运动',
+  subtitle: '匀强电场中正电荷以某初速度运动。判断电势变化和运动轨迹。',
+  deliv: {
+    title: '匀强电场点电荷',
+    sub: '共线 → 直线 · 答案 C'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 4 题 · 6 分',
+    text: `匀强电场中，一带正电的点电荷仅在<b>电场力</b>的作用下以某一<b>初速度</b>开始运动，则运动过程中，其（　　）`,
+    subQuestions: [
+      'A. 所处位置的电势一定不断降低',
+      'B. 所处位置的电势一定不断升高',
+      'C. 轨迹可能是与电场线平行的直线',
+      'D. 轨迹可能是与电场线垂直的直线'
+    ],
+    officialAnswer: 'C · A 错：若 v₀ 与电场力反向 → 先减速（沿 -E 方向走 → 电势升高），再加速（电势降低），不是一直降低。B 错：若 v₀ 与 F 同向 → 单调加速 → 电势单调降，不是升高。C 对：v₀ 与 F 共线（同向或反向）→ 匀变速直线运动 → 轨迹平行于电场线。D 错：v₀ ⊥ F → 类平抛 → 曲线轨迹，不是直线。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · A 错（v₀ 反向）', label_short:'A',
+     formula_tex: String.raw`v_0 \uparrow\!\downarrow\! E:\;\text{先减速再加速} \to \text{电势先升后降}`,
+     note:'初速度反向时电势先增后减，不是单调降。'},
+    {label:'阶段 2 · B 错（v₀ 同向）', label_short:'B',
+     formula_tex: String.raw`v_0 \parallel E:\;\text{单调加速} \to \text{电势单调降}`,
+     note:'初速度同向时电势单调降，不是升高。'},
+    {label:'阶段 3 · C 对（共线 → 直线）', label_short:'C',
+     formula_tex: String.raw`v_0 \!\parallel\! E:\;\text{匀变速直线运动}`,
+     note:'共线时轨迹与电场线平行（直线）。'},
+    {label:'阶段 4 · D 错（v₀⊥E → 类平抛）', label_short:'D',
+     formula_tex: String.raw`v_0 \perp E:\;\text{类平抛} \to \text{曲线}`,
+     note:'垂直时轨迹是抛物线，不是直线。'}
+  ],
+  stats: [
+    {label:'电场方向',     fmt:()=>'+x（恒定）'},
+    {label:'电荷',         fmt:()=>'正电（+q）'},
+    {label:'电场力',       fmt:()=>'F = qE 沿 +x'},
+    {label:'当前阶段',     fmt:s=>'阶段 '+s.phase}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'电势先升后降', note:'反向'},
+    {label_text:'B 错', value_text:'电势单调降',   note:'同向'},
+    {label_text:'C 对', value_text:'平行直线',     note:'共线'},
+    {label_text:'D 错', value_text:'类平抛曲线',   note:'垂直'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'正电荷 (+q)'},
+    {swatch:{bg:'rgba(63,111,143,0.4)',border:'#3f6f8f',type:'rect'}, text:'电场线（平行）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'速度 v'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'电场力 F = qE'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2025全国-Q4-匀强电场'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 8 题 · 圆环转动磁场</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 圆环以 P 为轴顺时针匀速转动，OP=r（圆环半径）
+// 磁场在 P 上方虚线区域（×入纸面）
+// 圆环切割磁感线的有效长度 l = 2r·cos(90°-ωt)（OP 与虚线夹角）
+// e = -dΦ/dt → 化简 e = Bωr²[1-cos(2ωt)]
+// ωt=90° 或 270°：OP 平行虚线 → e=2Bωr² 最大 ✓ B 对
+// ωt=180°：OP 垂直虚线（环全在磁场内）→ e=0 ✗ D 错
+// 周期：e 在一个 ωt=2π 周期内完成一次"先逆时针流→顺时针流"的变化 ✓ C 对
+// A 错：进入磁场逆时针，离开磁场顺时针，不是始终逆时针
+
+const T_total = 6;
+const omega = 2*Math.PI / T_total;
+
+// 几何参数
+const R_ring = 1.0;     // 圆环半径（归一化）
+
+function evalState(t){
+  const wt = omega * t;     // OP 与初始位置（向上）的角度（顺时针为正）
+  const angle_OP = -Math.PI/2 + wt;     // OP 角度（标准坐标，从 +x 逆时针）
+
+  // 虚线沿 +x 方向（水平）
+  // OP 与虚线夹角：α = |angle_OP - 0|（取 [0, 2π)）
+  // 圆环切割有效长度 l = 2r·cos(90°-ωt) = 2r·sin(ωt)，但这是物理推导
+  // 实际：当 OP 与虚线夹角 = 90°（OP 竖直）时 → l 最大
+  // 当 OP 与虚线平行（水平）时 → l 最小（=0 但题解说 e 最大... 复杂）
+
+  // 简化分析：按官方答案
+  // e = Bωr²[1-cos(2ωt)]，最大值 2Bωr² 在 ωt=π/2,3π/2（OP 平行虚线）
+  const e_emf = 1 - Math.cos(2*wt);     // 0 to 2
+
+  // 4 个关键时刻（基于 angle_OP = -π/2+ωt：ωt=0 时 O 在 P 视觉下方）
+  let phase_label = '';
+  const wt_norm = ((wt % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+  if(Math.abs(wt_norm) < 0.3 || Math.abs(wt_norm - 2*Math.PI) < 0.3){
+    phase_label = 'ωt=0 · OP 竖直 (O 在 P 下方) · 环全在虚线下方 · e=0';
+  } else if(Math.abs(wt_norm - Math.PI/2) < 0.3){
+    phase_label = 'ωt=π/2 · OP 平行虚线 · e 最大 (B 对)';
+  } else if(Math.abs(wt_norm - Math.PI) < 0.3){
+    phase_label = 'ωt=π · OP 竖直 (O 在 P 上方) · 环全在磁场内 · e=0 (D 错)';
+  } else if(Math.abs(wt_norm - 3*Math.PI/2) < 0.3){
+    phase_label = 'ωt=3π/2 · OP 平行虚线 · e 最大 (B 对)';
+  }
+
+  return {phase:1, wt, angle_OP, e_emf, phase_label, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawRotation(ctx, 14, 14, W*0.6-21, H-28, state);
+  drawEMF(ctx, W*0.6+7, 14, W*0.4-21, H-28, state);
+}
+
+function drawRotation(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('圆环以 P 为轴顺时针转动 · 虚线上方有磁场 ×（入纸面）', x+12, y+18);
+
+  const cx = x + w/2;
+  const Px = cx;
+  const Py = y + h*0.55;     // P 点
+  const Rpx = Math.min(w*0.25, h*0.30);
+
+  // 虚线（磁场边界）— 水平线穿过 P
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath();
+  ctx.moveTo(x+30, Py); ctx.lineTo(x+w-30, Py);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 磁场 ×（虚线上方）
+  ctx.fillStyle = 'rgba(63,111,143,0.5)';
+  ctx.font = '700 12px "Cambria Math",serif';
+  for(let xi=x+50; xi<x+w-30; xi+=40){
+    for(let yi=y+40; yi<Py-10; yi+=24){
+      ctx.fillText('×', xi, yi);
+    }
+  }
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('B 区（× 入纸）', x+30, y+38);
+
+  // 圆心 O 位置（O 绕 P 顺时针转，OP = R_ring，初始 O 在 P 正上方）
+  // angle_OP 是 OP 在标准坐标的角度
+  const Ox = Px + Rpx*Math.cos(state.angle_OP);
+  const Oy = Py - Rpx*Math.sin(state.angle_OP);     // canvas y 反向
+
+  // 圆环（实线）
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(Ox, Oy, Rpx, 0, Math.PI*2); ctx.stroke();
+
+  // 圆心 O
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Ox, Oy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('O', Ox+8, Oy+5);
+
+  // P 点（轴）
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(Px, Py, 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('P', Px+8, Py+18);
+
+  // OP 半径线
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(Px, Py); ctx.lineTo(Ox, Oy); ctx.stroke();
+
+  // O 的运动轨迹（淡）
+  ctx.strokeStyle = 'rgba(194,97,31,0.25)'; ctx.lineWidth = 1;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.arc(Px, Py, Rpx, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 旋转方向箭头（顺时针小弧）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(Px, Py, Rpx*0.4, Math.PI*0.7, Math.PI*1.3);
+  ctx.stroke();
+  // 箭头
+  const arr_x = Px + Rpx*0.4*Math.cos(Math.PI*1.3);
+  const arr_y = Py + Rpx*0.4*Math.sin(Math.PI*1.3);
+  PPath.arrow(ctx, arr_x-5, arr_y-5, arr_x, arr_y, '#5d6964', 1.2);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('ω', Px-30, Py-6);
+
+  // 阶段说明
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(state.phase_label, x+12, y+h-12);
+}
+
+function drawEMF(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('e-t 图：e = Bωr²[1-cos(2ωt)]', x+12, y+18);
+
+  const padL=44, padR=20, padT=32, padB=180;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('e', x0-12, y+padT-2);
+  ctx.fillText('ωt', x0+cw+4, y0+12);
+
+  // ωt 刻度（0, π/2, π, 3π/2, 2π）
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  ['0', 'π/2', 'π', '3π/2', '2π'].forEach((lbl, k) => {
+    const px = x0 + (k/4)*cw;
+    ctx.beginPath(); ctx.strokeStyle='#94a09b'; ctx.lineWidth=1;
+    ctx.moveTo(px, y0-3); ctx.lineTo(px, y0+3); ctx.stroke();
+    ctx.fillText(lbl, px-6, y0+15);
+  });
+
+  // 曲线 e = 1-cos(2ωt) 范围 [0, 2]
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let s=0; s<=2*Math.PI; s+=0.05){
+    const e_val = 1 - Math.cos(2*s);
+    const px = x0 + (s/(2*Math.PI))*cw;
+    const py = y0 - (e_val/2)*ch*0.85;
+    if(s===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 当前点
+  const wt_norm = ((state.wt % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+  const px_now = x0 + (wt_norm/(2*Math.PI))*cw;
+  const py_now = y0 - (state.e_emf/2)*ch*0.85;
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px_now, py_now, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 标记最大值
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(x0, y0-ch*0.85); ctx.lineTo(x0+cw, y0-ch*0.85); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('e_max=2Bωr²', x0+cw-80, y0-ch*0.85-4);
+
+  // 4 选项判定
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('4 选项判定：', x+12, y0+padB-128);
+
+  const judgments = [
+    {opt:'A · 始终绕 O 逆时针', verdict:'错（进出磁场时方向相反）', correct:false},
+    {opt:'B · OP 平行虚线时 e 最大', verdict:'对 ✓ (ωt=π/2,3π/2)', correct:true},
+    {opt:'C · e 周期 = 转动周期', verdict:'对 ✓', correct:true},
+    {opt:'D · OP ⊥ 虚线时 e 最大', verdict:'错（此时 e=0）', correct:false}
+  ];
+  let yy = y0+padB-110;
+  judgments.forEach(j => {
+    ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+    ctx.font = `${j.correct?900:700} 11px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+12, yy);
+    ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+    ctx.font = '700 10px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+12, yy+12);
+    yy += 24;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-44, w-24, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 BC · 平行最大 + 同周期', x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '圆环转动磁场 · 感应电动势',
+  subtitle: '金属圆环以 P 点为轴顺时针转动。判断感应电流变化规律。',
+  deliv: {
+    title: '圆环转动 e-t 分析',
+    sub: 'e=Bωr²[1-cos(2ωt)] · 答案 BC'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 8 题 · 6 分',
+    image: '../../source/images/image30.png',
+    text: `如图，过 P 点的虚线<b>上方</b>存在方向<b>垂直于纸面</b>的匀强磁场。一金属圆环在纸面内以 <b>P 点为轴</b>沿<b>顺时针</b>方向匀速转动，O 为圆环的圆心，OP 为圆环的半径。则（　　）`,
+    subQuestions: [
+      'A. 圆环中感应电流始终绕 O 逆时针流动',
+      'B. OP 与虚线平行时圆环中感应电流最大',
+      'C. 圆环中感应电流变化的周期与环转动周期相同',
+      'D. 圆环在磁场内且 OP 与虚线垂直时环中感应电流最大'
+    ],
+    officialAnswer: 'BC · 圆环切割有效长度 l = 2r·cos(90°-ωt)。化简电动势 e = Bωr²[1-cos(2ωt)]。A 错：进入磁场（环上半在 B 中）感应电流逆时针，出磁场时顺时针。B 对：ωt=π/2 或 3π/2（OP 平行虚线）时 cos(2ωt)=-1，e 最大 = 2Bωr²。C 对：e 的周期与环转动周期相同。D 错：ωt=π（OP 垂直虚线，环全在磁场内）时 cos(2ωt)=1，e=0（不是最大）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'感应电动势 · 周期变化', label_short:'EMF',
+     formula_tex: String.raw`e = B\omega r^2 [1 - \cos(2\omega t)],\;\; e_{\max} = 2B\omega r^2 \text{ at }\omega t=\frac{\pi}{2},\frac{3\pi}{2}`,
+     note:'OP 与虚线平行（ωt=π/2 或 3π/2）时电动势最大；OP 垂直（ωt=π）时为零。'}
+  ],
+  stats: [
+    {label:'ωt',          fmt:s=>(s.wt/Math.PI).toFixed(2)+' π'},
+    {label:'e_emf',       fmt:s=>s.e_emf.toFixed(2)+' Bωr²'},
+    {label:'最大值',       fmt:()=>'2 Bωr²'},
+    {label:'最小值',       fmt:()=>'0'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'方向交替', note:'进/出磁场不同'},
+    {label_text:'B 对', value_text:'平行最大', note:'ωt=π/2'},
+    {label_text:'C 对', value_text:'同周期',   note:''},
+    {label_text:'D 错', value_text:'垂直为零', note:'ωt=π'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'金属圆环'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'P 转轴'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'dot'}, text:'O 圆心'},
+    {swatch:{bg:'rgba(63,111,143,0.5)',border:'#3f6f8f',type:'rect'}, text:'磁场 B（× 入纸面）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2025全国-Q8-圆环转动'
+});
+</script>
+</body>
+</html>

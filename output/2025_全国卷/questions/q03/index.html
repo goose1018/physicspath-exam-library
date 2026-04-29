@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 题 · 撑杆跳高</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 助跑速度 v=10 m/s，理论上动能全转化为势能（最高点速度=0）
+// ½mv² = mgh → h = v²/(2g) = 100/20 = 5 m
+// 答案 B
+
+const v0 = 10, g = 10;
+const h_max = v0*v0/(2*g);     // 5 m
+
+const T_total = 5;
+
+function evalState(t){
+  // 演示一次：助跑（0~1.5s 在地面）→ 起跳上升（1.5~3.5s）→ 越过横杆（3.5~5s）
+  const u = (t / T_total) % 1;
+  let phase, x, y, v;
+  if(u < 0.3){
+    // 助跑
+    phase = 1;
+    x = u/0.3;     // 0..1
+    y = 0;
+    v = v0;
+  } else if(u < 0.7){
+    // 上升 + 下降抛物线
+    phase = 2;
+    const k = (u-0.3)/0.4;     // 0..1
+    // 简化：高度 h = h_max·(1-(2k-1)²)（抛物线，k=0.5 时最高）
+    y = h_max * (1 - (2*k-1)*(2*k-1));
+    x = 1 + k*0.3;     // 微调到右
+    v = v0 * (1-Math.abs(2*k-1));     // 0 at top
+  } else {
+    // 落地
+    phase = 3;
+    x = 1.3 + (u-0.7)*0.5/0.3;
+    y = 0;
+    v = 0;
+  }
+  return {phase, u, x, y, v, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 地面
+  const yGround = H*0.78;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(20, yGround, W-40, 6);
+  ctx.fillStyle = '#a8a290';
+  ctx.fillRect(20, yGround+6, W-40, 8);
+
+  // 像素 / 米
+  const pxPerM = (H-200) / 6;     // 6 m 总高度
+
+  // 横杆位置
+  const barX = W*0.55;
+  const barY = yGround - h_max*pxPerM;
+  // 横杆支柱
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(barX-30, barY, 4, yGround-barY);
+  ctx.fillRect(barX+30, barY, 4, yGround-barY);
+  // 横杆
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(barX-30, barY); ctx.lineTo(barX+30, barY); ctx.stroke();
+  // 横杆高度标注
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('h=5 m (理论极限)', barX-50, barY-10);
+
+  // 高度尺
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(barX-50, yGround); ctx.lineTo(barX-50, barY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  for(let h=0; h<=5; h+=1){
+    const yh = yGround - h*pxPerM;
+    ctx.beginPath(); ctx.moveTo(barX-55, yh); ctx.lineTo(barX-50, yh); ctx.stroke();
+    ctx.fillText(h+' m', barX-72, yh+3);
+  }
+
+  // 运动员位置
+  const athleteRange_x = barX - 200;
+  const athleteX = athleteRange_x + state.x * 250;
+  const athleteY = yGround - state.y*pxPerM;
+
+  // 运动员（简单 stick figure）
+  drawAthlete(ctx, athleteX, athleteY, state);
+
+  // 速度向量（绿色）
+  if(state.v > 0.1){
+    const vScale = 8;
+    if(state.phase === 1){
+      PPath.arrow(ctx, athleteX, athleteY-30, athleteX+state.v*vScale, athleteY-30, '#16613f', 2);
+    } else if(state.phase === 2){
+      // 上升时速度向上，下降向下
+      const vy = state.y > 0 && (state.u-0.3)/0.4 < 0.5 ? -state.v : state.v;
+      PPath.arrow(ctx, athleteX, athleteY-30, athleteX, athleteY-30+vy*vScale, '#16613f', 2);
+    }
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText(`v=${state.v.toFixed(1)}`, athleteX+10, athleteY-40);
+  }
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('撑杆跳高 · 助跑速度 v₀=10 m/s · 求理论最大重心提升高度', 24, 22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-130, 380, 110, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量守恒（最高点速度为零）', 32, H-108);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('½·m·v₀² = m·g·h_max', 32, H-86);
+  ctx.fillText('h_max = v₀²/(2g) = 100/(2·10)', 32, H-66);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('h_max = 5 m  ✓ 答案 B', 32, H-42);
+
+  // 阶段标
+  const phaseTxt = state.phase === 1 ? '阶段 1：助跑（动能 = ½mv²）' :
+                   state.phase === 2 ? '阶段 2：起跳上升（动能 → 势能）' :
+                   '阶段 3：越杆落地';
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTxt, 24, 44);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, H-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · h = 5 m', W-188, H-22);
+
+  // 实时数据
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(`y=${state.y.toFixed(2)} m, v=${state.v.toFixed(2)} m/s`, 420, H-100);
+}
+
+function drawAthlete(ctx, cx, cy, state){
+  // 头
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(cx, cy-32, 6, 0, Math.PI*2); ctx.fill();
+  // 身体
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy-26); ctx.lineTo(cx, cy-6);
+  // 腿
+  if(state.phase === 1){
+    // 助跑
+    const legSwing = Math.sin(state.u/0.3*Math.PI*4)*4;
+    ctx.moveTo(cx, cy-6); ctx.lineTo(cx-5, cy);
+    ctx.moveTo(cx, cy-6); ctx.lineTo(cx+5+legSwing, cy);
+  } else {
+    // 跳起 / 落地
+    ctx.moveTo(cx, cy-6); ctx.lineTo(cx-5, cy-2);
+    ctx.moveTo(cx, cy-6); ctx.lineTo(cx+5, cy-2);
+  }
+  // 臂
+  if(state.phase === 1){
+    ctx.moveTo(cx, cy-22); ctx.lineTo(cx-5, cy-12);
+    ctx.moveTo(cx, cy-22); ctx.lineTo(cx+5, cy-12);
+  } else if(state.phase === 2){
+    // 高举杆
+    ctx.moveTo(cx, cy-22); ctx.lineTo(cx-3, cy-30);
+    ctx.moveTo(cx, cy-22); ctx.lineTo(cx+3, cy-30);
+  }
+  ctx.stroke();
+
+  // 撑杆（仅阶段 1/2）
+  if(state.phase < 3){
+    ctx.strokeStyle = '#86868b'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx-5, cy-12); ctx.lineTo(cx+15, cy-32);
+    ctx.stroke();
+  }
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '撑杆跳高 · 能量守恒',
+  subtitle: '助跑速度 v₀=10 m/s。理论上重心提升的最大高度 = ?',
+  deliv: {
+    title: '撑杆跳能量分析',
+    sub: 'h = v₀²/(2g) = 5 m · 答案 B'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 3 题 · 6 分',
+    image: '../../source/images/image7.png',
+    text: `如图，撑杆跳高运动中，运动员经过助跑、撑杆起跳，最终越过横杆。若运动员起跳前助跑速度为 <b>10 m/s</b>，则理论上运动员助跑获得的动能可使其重心提升的最大高度为（重力加速度取 10 m/s²）（　　）`,
+    subQuestions: ['A. 4 m', 'B. 5 m', 'C. 6 m', 'D. 7 m'],
+    officialAnswer: 'B · 理论上最高点速度为零，由机械能守恒 ½mv₀² = mgh → h = v₀²/(2g) = 100/20 = 5 m。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 助跑（动能）', label_short:'助跑',
+     formula_tex: String.raw`E_k = \tfrac{1}{2}mv_0^2 = \tfrac{1}{2}m\!\cdot\!100`,
+     note:'助跑获得的动能 = ½mv₀² = 50m（J）。'},
+    {label:'阶段 2 · 起跳上升', label_short:'上升',
+     formula_tex: String.raw`E_k \to E_p:\;\tfrac{1}{2}mv_0^2 = mgh`,
+     note:'最高点速度为零（理论极限），动能全部转化为势能。'},
+    {label:'阶段 3 · 越杆落地', label_short:'落地',
+     formula_tex: String.raw`h_{\max} = \dfrac{v_0^2}{2g} = 5\;\text{m}`,
+     note:'代入数据 h_max = 100/20 = 5 m。'}
+  ],
+  stats: [
+    {label:'v₀',     fmt:()=>v0+' m/s'},
+    {label:'g',      fmt:()=>g+' m/s²'},
+    {label:'h_max',  fmt:()=>h_max+' m'},
+    {label:'当前 y', fmt:s=>s.y.toFixed(2)+' m'},
+    {label:'当前 v', fmt:s=>s.v.toFixed(2)+' m/s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'4 m', note:''},
+    {label_text:'B 对', value_text:'5 m', note:'v₀²/(2g)'},
+    {label_text:'C 错', value_text:'6 m', note:''},
+    {label_text:'D 错', value_text:'7 m', note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'运动员（重心）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'横杆 (5 m)'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'速度 v'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2025全国-Q3-撑杆跳'
+});
+</script>
+</body>
+</html>

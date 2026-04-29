@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 6 题 · 理想气体 V-T 图</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// V-T 图：a 在 (T_a, V_a)，b 在 (T_b, V_b)，c 在 (T_c, V_c)
+// 由原图：a/b 在同一过原点直线上（V/T = nR/p = 常数 → 等压）→ p_a = p_b
+// a/c 在同一水平线上（V_a = V_c）但 c 在更高 T → V_c/T_c < V_a/T_a → 1/p_c < 1/p_a → p_c > p_a
+// 结论：p_c > p_b = p_a → 答案 AD（A: p_a=p_b; D: p_c>p_b 或类似）
+
+const T_total = 6;
+
+// 三个状态点（归一化）
+const states = {
+  a: {T: 1.0, V: 1.0, label:'a', color:'#16613f'},
+  b: {T: 2.0, V: 2.0, label:'b', color:'#3f6f8f'},     // 与 a 同斜率 (V/T=1)
+  c: {T: 2.5, V: 1.0, label:'c', color:'#c2611f'}      // 与 a 等 V，但 T 更高（V/T=0.4 → p 更大）
+};
+
+function evalState(t){
+  const stage = Math.floor((t / 2) % 3);     // 0/1/2 → highlight a/b/c
+  const u = (t - stage*2)/2;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawVTGraph(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawAnalysis(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawVTGraph(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('V-T 图（pV = nRT → V/T = nR/p，斜率 ∝ 1/p）', x+12, y+18);
+
+  const padL=50, padR=30, padT=40, padB=40;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  // 箭头
+  ctx.beginPath();
+  ctx.moveTo(x0, y+padT); ctx.lineTo(x0-4, y+padT+8); ctx.lineTo(x0+4, y+padT+8); ctx.closePath();
+  ctx.fillStyle = '#1d1d1f'; ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x0+cw, y0); ctx.lineTo(x0+cw-8, y0-4); ctx.lineTo(x0+cw-8, y0+4); ctx.closePath();
+  ctx.fill();
+  // 标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 14px Georgia,serif';
+  ctx.fillText('V', x0-15, y+padT+5);
+  ctx.fillText('T', x0+cw+5, y0+5);
+  ctx.fillText('O', x0-12, y0+15);
+
+  // 坐标转换（T_max=3, V_max=2.5）
+  const T_max = 3, V_max = 2.5;
+  const TtoPx = T => x0 + (T/T_max)*cw;
+  const VtoPx = V => y0 - (V/V_max)*ch;
+
+  // 过原点直线（a-b）— 蓝色虚线（等压线）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  // 直线方程 V = (V_a/T_a)·T = T → V=T，到 V=V_max 处
+  const slope_ab = states.a.V / states.a.T;     // = 1
+  // 找延伸到 V_max 时的 T = V_max / slope = 2.5
+  ctx.lineTo(TtoPx(V_max/slope_ab), VtoPx(V_max));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 过 a 的水平虚线 (a-c, 等 V)
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath();
+  ctx.moveTo(TtoPx(0.3), VtoPx(states.a.V)); ctx.lineTo(TtoPx(states.c.T+0.3), VtoPx(states.a.V));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 标记 c 的过原点直线（不画完整，仅 highlight 当 stage=2 时）
+  if(state.stage === 2){
+    const slope_c = states.c.V / states.c.T;     // = 0.4
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(TtoPx(V_max/slope_c), VtoPx(V_max));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 注释：斜率小 → p 大
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10px "Noto Sans SC",sans-serif';
+    ctx.fillText('斜率小 → p_c 大', TtoPx(V_max/slope_c)-80, VtoPx(V_max)+4);
+  }
+
+  // 三个点
+  ['a', 'b', 'c'].forEach((key, i) => {
+    const s = states[key];
+    const px = TtoPx(s.T), py = VtoPx(s.V);
+    const active = (state.stage === i);
+    ctx.fillStyle = s.color;
+    ctx.beginPath(); ctx.arc(px, py, active?10:7, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = s.color;
+    ctx.font = `${active?900:700} ${active?14:13}px "Cambria Math",serif`;
+    ctx.fillText(s.label, px-4, py-14);
+  });
+
+  // 状态标签框（当前 stage）
+  const cur = states[['a','b','c'][state.stage]];
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = cur.color; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-46, 220, 34, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = cur.color;
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(`高亮：状态 ${cur.label}（T=${cur.T}, V=${cur.V}）`, x+22, y+h-30);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText(`斜率 V/T = ${(cur.V/cur.T).toFixed(2)} → 1/p`, x+22, y+h-14);
+}
+
+function drawAnalysis(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('斜率比较 → 压强比较', x+12, y+18);
+
+  let yy = y + 50;
+
+  // 推导
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('① 状态方程', x+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('pV = nRT → V/T = nR/p', x+12, yy); yy += 16;
+  ctx.fillText('过原点直线斜率 = nR/p', x+12, yy); yy += 24;
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('② 三状态斜率', x+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('a: V_a/T_a = 1.0', x+12, yy); yy += 14;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('b: V_b/T_b = 1.0  (与 a 同直线)', x+12, yy); yy += 14;
+  ctx.fillStyle = '#c2611f';
+  ctx.fillText('c: V_c/T_c = 0.4  (斜率小)', x+12, yy); yy += 24;
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('③ 压强比较（1/p ∝ 斜率）', x+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('斜率相等 → p_a = p_b', x+12, yy); yy += 14;
+  ctx.fillText('c 斜率小 → 1/p_c 小 → p_c 大', x+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('p_c > p_b = p_a', x+12, yy); yy += 24;
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · p_a = p_b',  verdict:'对 ✓'},
+    {opt:'B · p_b = p_c',  verdict:'错（p_b < p_c）'},
+    {opt:'C · p_a > p_c',  verdict:'错（p_a < p_c）'},
+    {opt:'D · p_c > p_b',  verdict:'对 ✓'}
+  ];
+  judgments.forEach((j, i) => {
+    const correct = (i === 0 || i === 3);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+12, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+150, yy);
+    yy += 22;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-44, w-24, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 AD · p_c > p_b = p_a', x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '理想气体 V-T 图压强比较',
+  subtitle: '一定量理想气体先后处于 a、b、c 三个状态。比较三状态压强大小。',
+  deliv: {
+    title: 'V-T 图斜率分析',
+    sub: 'p_c > p_b = p_a · 答案 AD'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 6 题 · 6 分',
+    image: '../../source/images/image19.png',
+    text: `如图，一定量的理想气体先后处于图上三个状态，三个状态下气体的压强分别为 <b>p_a</b>、<b>p_b</b>、<b>p_c</b>。a、b 两点在同一过原点的直线上，a、c 两点在同一水平线上（V_a = V_c）。则（　　）`,
+    subQuestions: [
+      'A. p_a = p_b',
+      'B. p_b = p_c',
+      'C. p_a &gt; p_c',
+      'D. p_c &gt; p_b'
+    ],
+    officialAnswer: 'AD · 由 pV=nRT → V/T = nR/p，过原点直线的斜率 = nR/p（即斜率 ∝ 1/p）。a、b 在同一过原点直线 → 斜率相等 → p_a=p_b。a、c 等 V 但 T_c > T_a → c 点斜率 V_c/T_c < V_a/T_a → 1/p_c < 1/p_a → p_c > p_a。所以 p_c > p_b = p_a → A 对、D 对、B 错（不等）、C 错（小于）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 1 · 高亮 a 状态', label_short:'a',
+     formula_tex: String.raw`a:\;V_a/T_a = 1.0 = nR/p_a`,
+     note:'a 与 b 在同一过原点直线 → 斜率相等。'},
+    {label:'阶段 2 · 高亮 b 状态', label_short:'b',
+     formula_tex: String.raw`b:\;V_b/T_b = 1.0 = nR/p_b \;\Rightarrow\; p_a = p_b`,
+     note:'b 在 a 同一直线 → 同压强。'},
+    {label:'阶段 3 · 高亮 c 状态', label_short:'c',
+     formula_tex: String.raw`c:\;V_c/T_c = 0.4 < 1.0 \;\Rightarrow\; p_c > p_a`,
+     note:'c 斜率小（c 在 a 水平线右下方某直线上），压强大。'}
+  ],
+  stats: [
+    {label:'a 状态',     fmt:()=>'(T=1.0, V=1.0)'},
+    {label:'b 状态',     fmt:()=>'(T=2.0, V=2.0)'},
+    {label:'c 状态',     fmt:()=>'(T=2.5, V=1.0)'},
+    {label:'V_a/T_a',    fmt:()=>'1.0'},
+    {label:'V_b/T_b',    fmt:()=>'1.0'},
+    {label:'V_c/T_c',    fmt:()=>'0.4'},
+    {label:'结论',       fmt:()=>'p_c > p_b = p_a'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'p_a = p_b',  note:'同直线'},
+    {label_text:'B 错', value_text:'p_b ≠ p_c',  note:'斜率不等'},
+    {label_text:'C 错', value_text:'p_a &lt; p_c',  note:'斜率反'},
+    {label_text:'D 对', value_text:'p_c &gt; p_b',  note:'斜率小'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'a 状态'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'b 状态'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'c 状态'},
+    {swatch:{bg:'rgba(63,111,143,0.5)',border:'#3f6f8f',type:'rect'}, text:'等压线（过原点）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2025全国-Q6-VT图'
+});
+</script>
+</body>
+</html>

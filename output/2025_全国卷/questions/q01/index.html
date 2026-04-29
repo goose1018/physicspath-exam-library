@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 1 题 · CR450 减速</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// v₀=120 m/s, v=0, x=14400 m
+// v² - v₀² = -2ax → a = v₀²/(2x) = 14400/28800 = 0.5 m/s²
+// 答案 B
+
+const v0 = 120, x_total = 14400;
+const a = v0*v0/(2*x_total);     // 0.5 m/s²
+const t_total_real = v0/a;        // 240 s
+const T_total = 5;
+const slowFactor = T_total / t_total_real;
+
+function evalState(t){
+  const tReal = Math.min(t/slowFactor, t_total_real);
+  const v = Math.max(0, v0 - a*tReal);
+  const x = v0*tReal - 0.5*a*tReal*tReal;
+  return {phase:1, tReal, v, x, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上半：动车 + 轨道
+  drawTrain(ctx, 14, 30, W-28, H*0.45-30, state);
+  // 下半：v-t 图
+  drawVT(ctx, 14, H*0.5+10, W-28, H*0.5-20, state);
+
+  // 顶部
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(`CR450 动车组：v₀=${v0} m/s 匀减速 14.4 km 停止 → 求 a`, 24, 22);
+
+  // 答案徽章
+  if(state.tReal > t_total_real*0.4){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 12, 208, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · a = 0.5 m/s²', W-208, 30);
+  }
+}
+
+function drawTrain(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const yRail = y + h*0.65;
+  // 轨道
+  ctx.fillStyle = '#5d6068';
+  ctx.fillRect(x+30, yRail, w-60, 6);
+  // 路基
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(x+30, yRail+8, w-60, 14);
+  // 轨枕
+  ctx.fillStyle = '#86868b';
+  for(let xi=x+40; xi<x+w-30; xi+=22){
+    ctx.fillRect(xi, yRail+9, 6, 12);
+  }
+
+  // 像素 / 米
+  const pxPerM = (w-160) / x_total;
+  const trainX0 = x + 60;
+  const trainX = trainX0 + state.x * pxPerM;
+
+  // 动车（流线型车身）
+  ctx.fillStyle = '#3f6f8f';
+  if(ctx.roundRect){
+    ctx.beginPath();
+    ctx.roundRect(trainX-50, yRail-22, 50, 22, 6);
+    ctx.fill();
+  } else {
+    ctx.fillRect(trainX-50, yRail-22, 50, 22);
+  }
+  // 车头三角
+  ctx.beginPath();
+  ctx.moveTo(trainX, yRail-22);
+  ctx.lineTo(trainX+18, yRail-12);
+  ctx.lineTo(trainX, yRail);
+  ctx.closePath();
+  ctx.fill();
+  // 窗户
+  ctx.fillStyle = '#fdfaf2';
+  ctx.fillRect(trainX-45, yRail-18, 8, 8);
+  ctx.fillRect(trainX-32, yRail-18, 8, 8);
+  ctx.fillRect(trainX-19, yRail-18, 8, 8);
+  // 轮子
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(trainX-40, yRail+2, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(trainX-15, yRail+2, 4, 0, Math.PI*2); ctx.fill();
+  // CR450 标
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 9px "Cambria Math",serif';
+  ctx.fillText('CR450', trainX-46, yRail-6);
+
+  // 起点 / 终点标
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(trainX0, yRail-30); ctx.lineTo(trainX0, yRail+25); ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('起 v₀=120m/s', trainX0-50, yRail-34);
+
+  const endX = trainX0 + x_total*pxPerM;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(endX, yRail-30); ctx.lineTo(endX, yRail+25); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText('终 v=0', endX-25, yRail-34);
+
+  // 距离尺
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(trainX0, yRail+38); ctx.lineTo(endX, yRail+38); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(trainX0, yRail+34); ctx.lineTo(trainX0, yRail+42);
+  ctx.moveTo(endX, yRail+34); ctx.lineTo(endX, yRail+42); ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('x = 14.4 km', (trainX0+endX)/2-30, yRail+56);
+
+  // 实时数据
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px ui-monospace,monospace';
+  ctx.fillText(`v = ${state.v.toFixed(2)} m/s`, x+12, y+22);
+  ctx.font = '700 12px ui-monospace,monospace';
+  ctx.fillText(`x = ${(state.x/1000).toFixed(2)} km   t = ${state.tReal.toFixed(1)} s`, x+12, y+40);
+}
+
+function drawVT(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('v-t 图（s = 三角面积 = ½·v₀·t = 14400 m → 由 v² = v₀²-2ax 反推 a）', x+12, y+18);
+
+  const padL=46, padR=20, padT=30, padB=30;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('v / m·s⁻¹', x0-32, y+padT-2);
+  ctx.fillText('t / s', x0+cw+4, y0+12);
+
+  // 刻度
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  for(let k=0; k<=240; k+=60){
+    const px = x0 + (k/240)*cw;
+    ctx.fillText(k.toString(), px-5, y0+15);
+  }
+  for(let k=0; k<=120; k+=30){
+    const py = y0 - (k/120)*ch;
+    ctx.fillText(k.toString(), x0-22, py+3);
+  }
+
+  // 阴影面积（橙色三角）
+  ctx.fillStyle = 'rgba(194, 97, 31, 0.18)';
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x0, y0 - ch);
+  ctx.lineTo(x0 + cw, y0);
+  ctx.closePath(); ctx.fill();
+
+  // 直线 v = 120 - 0.5t
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0 - ch);
+  ctx.lineTo(x0 + cw, y0);
+  ctx.stroke();
+
+  // 当前点
+  ctx.fillStyle = '#b4442e';
+  const pxNow = x0 + (state.tReal/240)*cw;
+  const pyNow = y0 - (state.v/120)*ch;
+  ctx.beginPath(); ctx.arc(pxNow, pyNow, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 标
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('面积 = ½·120·240 = 14400 m', x0+cw*0.3, y0 - ch*0.45);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: 'CR450 动车组减速',
+  subtitle: 'CR450 以 v₀=120 m/s 匀减速 14.4 km 停止。求加速度。',
+  deliv: {
+    title: 'CR450 减速分析',
+    sub: 'a = v₀²/(2x) = 0.5 m/s² · 答案 B'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 1 题 · 6 分',
+    text: `我国自主研发的 CR450 动车组试验时的速度可达 450 km/h。若以 <b>120 m/s</b> 的初速度在平直轨道上行驶的 CR450 动车组，匀减速运行 <b>14.4 km</b> 后停止，则减速运动中其加速度的大小为（　　）`,
+    subQuestions: ['A. 0.1 m/s²', 'B. 0.5 m/s²', 'C. 1.0 m/s²', 'D. 1.5 m/s²'],
+    officialAnswer: 'B · 由 v² - v₀² = -2ax，末速度 v = 0：a = v₀²/(2x) = 120²/(2×14400) = 14400/28800 = 0.5 m/s²。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'匀减速 · v₀ → 0', label_short:'减速',
+     formula_tex: String.raw`v^2 - v_0^2 = -2ax \;\Rightarrow\; a = \dfrac{v_0^2}{2x} = \dfrac{120^2}{2\times 14400} = 0.5\;\text{m/s}^2`,
+     note:'末速度为零的匀减速：用速度位移公式直接求加速度。'}
+  ],
+  stats: [
+    {label:'v₀',         fmt:()=>'120 m/s'},
+    {label:'x',          fmt:()=>'14400 m'},
+    {label:'a',          fmt:()=>'0.5 m/s²'},
+    {label:'t_total',    fmt:()=>'240 s'},
+    {label:'当前 v',     fmt:s=>s.v.toFixed(2)+' m/s'},
+    {label:'当前 x',     fmt:s=>(s.x/1000).toFixed(2)+' km'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'0.1 m/s²', note:''},
+    {label_text:'B 对', value_text:'0.5 m/s²', note:'v₀²/(2x)'},
+    {label_text:'C 错', value_text:'1.0 m/s²', note:''},
+    {label_text:'D 错', value_text:'1.5 m/s²', note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'CR450 动车'},
+    {swatch:{bg:'rgba(194,97,31,0.18)',border:'#c2611f',type:'rect'}, text:'v-t 三角面积 = 距离'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2025全国-Q1-CR450减速'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 2 题 · 天都一号椭圆轨道</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 椭圆轨道：开普勒第二定律 → 近月点速度大、远月点速度小
+// 引力 F = GMm/r² → r 减小 F 增大
+// 答案 C：离月球越近，速度越大
+
+const T_total = 8;     // 一个公转周期演示
+
+// 椭圆参数（半长轴 a，离心率 e；月球在焦点）
+const a_orbit = 1.0;     // 归一化
+const e = 0.5;           // 离心率
+const b_orbit = a_orbit * Math.sqrt(1-e*e);
+const c_focus = a_orbit * e;
+
+function evalState(t){
+  // 用平近点角 M = 2πt/T 解开普勒方程得到偏近点角 E
+  const M = (t / T_total) * 2 * Math.PI;
+  // 简化牛顿迭代
+  let E = M;
+  for(let k=0; k<6; k++){
+    E = M + e*Math.sin(E);
+  }
+  // 真近点角 ν
+  const cosNu = (Math.cos(E) - e) / (1 - e*Math.cos(E));
+  const sinNu = (Math.sqrt(1-e*e) * Math.sin(E)) / (1 - e*Math.cos(E));
+  // 距月球距离 r
+  const r = a_orbit * (1 - e*Math.cos(E));
+  // v 大小（vis-viva 简化）：v² ∝ 2/r - 1/a
+  const v_sq = 2/r - 1/a_orbit;
+  const v = Math.sqrt(v_sq);
+  // F ∝ 1/r²
+  const F = 1/(r*r);
+  return {phase:1, M, E, cosNu, sinNu, r, v, F, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 星空背景（确定性）
+  for(let i=0; i<60; i++){
+    const x = (Math.sin(i*7.3)*0.5+0.5)*W;
+    const y = (Math.cos(i*5.1)*0.5+0.5)*H;
+    ctx.fillStyle = `rgba(150,160,175,${0.3+(Math.sin(i*2.7)*0.5+0.5)*0.4})`;
+    const r = 0.5 + (Math.sin(i*1.7)*0.5+0.5)*1.2;
+    ctx.beginPath(); ctx.arc(x,y, r, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 左：椭圆轨道
+  drawOrbit(ctx, 14, 14, W*0.6-21, H-28, state);
+  // 右：v、F 数据条
+  drawData(ctx, W*0.6+7, 14, W*0.4-21, H-28, state);
+}
+
+function drawOrbit(ctx, x, y, w, h, state){
+  ctx.fillStyle = 'rgba(20,22,30,0.06)';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('天都一号 · 环月椭圆轨道（开普勒第二定律）', x+12, y+18);
+
+  // 椭圆中心
+  const cx = x + w/2, cy = y + h*0.55;
+  const scale = Math.min(w*0.35, h*0.32);
+  // 月球在右焦点 (c_focus, 0)
+  const moonX = cx + c_focus*scale;
+  const moonY = cy;
+
+  // 椭圆
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, a_orbit*scale, b_orbit*scale, 0, 0, Math.PI*2);
+  ctx.stroke();
+
+  // 月球
+  const moonR = 18;
+  ctx.fillStyle = '#86868b';
+  ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#5d6068'; ctx.lineWidth = 1; ctx.stroke();
+  // 月球凹坑
+  ctx.fillStyle = '#5d6068';
+  ctx.beginPath(); ctx.arc(moonX-5, moonY-3, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(moonX+4, moonY+5, 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('月球', moonX-12, moonY+34);
+
+  // 卫星位置（椭圆参数化：x = a·cos(E) - c, y = b·sin(E)，相对月球焦点）
+  // 即相对椭圆中心：x = a·cos(E), y = b·sin(E)
+  const satX = cx + a_orbit*Math.cos(state.E)*scale;
+  const satY = cy - b_orbit*Math.sin(state.E)*scale;
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(satX, satY, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('天都一号', satX+8, satY-6);
+
+  // 速度向量（切线方向）
+  const v_scale = state.v * 28;
+  // 速度切线方向：dx/dE = -a·sin(E), dy/dE = b·cos(E)（数学坐标 y up）
+  const dx_dE = -a_orbit*Math.sin(state.E);
+  const dy_dE = b_orbit*Math.cos(state.E);
+  const tan_len = Math.hypot(dx_dE, dy_dE);
+  const vx_unit = dx_dE / tan_len;
+  const vy_unit = dy_dE / tan_len;
+  PPath.arrow(ctx, satX, satY, satX + vx_unit*v_scale, satY - vy_unit*v_scale, '#16613f', 2);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('v', satX + vx_unit*v_scale + 4, satY - vy_unit*v_scale - 4);
+
+  // 引力向量（指向月球）
+  const dx_F = moonX - satX, dy_F = moonY - satY;
+  const F_len = Math.hypot(dx_F, dy_F);
+  const F_scale = state.F * 18;
+  PPath.arrow(ctx, satX, satY, satX + dx_F/F_len*F_scale, satY + dy_F/F_len*F_scale, '#b4442e', 1.8);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('F', satX + dx_F/F_len*F_scale*0.5, satY + dy_F/F_len*F_scale*0.5);
+
+  // 近月/远月点标
+  // 近月点 = (a-c, 0) 相对月球焦点 = a-c+focus_x = a 距离 = a-c
+  // 在椭圆图上：近月点是 satX 离月球最近 → 椭圆右端 (cx+a·scale)，月球在右焦点
+  const peri_x = cx + a_orbit*scale;     // 近月点
+  const apo_x = cx - a_orbit*scale;      // 远月点
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(peri_x, cy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(apo_x, cy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 9px "Noto Sans SC",sans-serif';
+  ctx.fillText('近月点 (v 大, F 大)', peri_x+8, cy+4);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText('远月点 (v 小, F 小)', apo_x-90, cy+4);
+
+  // r 距离虚线
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(moonX, moonY); ctx.lineTo(satX, satY); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawData(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('实时物理量', x+12, y+18);
+
+  let yy = y + 44;
+
+  // 距离 r
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText(`r 距月球 = ${state.r.toFixed(2)}`, x+12, yy);
+  // 进度条
+  const r_min = 1 - e, r_max = 1 + e;
+  const r_pct = (state.r - r_min) / (r_max - r_min);
+  ctx.fillStyle = '#f4f1ea';
+  ctx.fillRect(x+12, yy+6, w-24, 8);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(x+12, yy+6, (w-24)*r_pct, 8);
+  yy += 36;
+
+  // 速度 v
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillText(`v 速度 = ${state.v.toFixed(2)}`, x+12, yy);
+  const v_min = Math.sqrt(2/r_max - 1), v_max = Math.sqrt(2/r_min - 1);
+  const v_pct = (state.v - v_min) / (v_max - v_min);
+  ctx.fillStyle = '#f4f1ea';
+  ctx.fillRect(x+12, yy+6, w-24, 8);
+  ctx.fillStyle = '#16613f';
+  ctx.fillRect(x+12, yy+6, (w-24)*v_pct, 8);
+  yy += 36;
+
+  // 引力 F
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillText(`F 引力 = ${state.F.toFixed(2)}`, x+12, yy);
+  const F_min = 1/(r_max*r_max), F_max = 1/(r_min*r_min);
+  const F_pct = (state.F - F_min) / (F_max - F_min);
+  ctx.fillStyle = '#f4f1ea';
+  ctx.fillRect(x+12, yy+6, w-24, 8);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(x+12, yy+6, (w-24)*F_pct, 8);
+  yy += 50;
+
+  // 4 选项判定
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('4 选项判定：', x+12, yy);
+  yy += 22;
+
+  const judgments = [
+    {opt:'A · F 保持不变', verdict:'错（r 变 → F 变）'},
+    {opt:'B · v 保持不变', verdict:'错（开普勒第二定律）'},
+    {opt:'C · 近月时 v 大', verdict:'对 ✓'},
+    {opt:'D · 近月时 F 小', verdict:'错（F=GMm/r²，r 减 F 增）'}
+  ];
+  judgments.forEach((j, i) => {
+    const correct = (i === 2);
+    ctx.fillStyle = correct ? '#16613f' : '#5d6964';
+    ctx.font = `${correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+12, yy);
+    ctx.fillStyle = correct ? '#16613f' : '#b4442e';
+    ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+12, yy+12);
+    yy += 28;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-44, w-24, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 C · 近月点速度大', x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 6 分',
+  title: '天都一号 · 环月椭圆轨道',
+  subtitle: '天都一号在环月椭圆轨道运行。判断引力、速度的变化规律。',
+  deliv: {
+    title: '环月椭圆轨道',
+    sub: '近月 v 大 F 大；远月 v 小 F 小 · 答案 C'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 2 题 · 6 分',
+    text: `"天都一号"通导技术试验卫星测距试验的成功，标志着我国在深空轨道精密测量领域取得了技术新突破。"天都一号"在<b>环月椭圆轨道</b>上运行时，（　　）`,
+    subQuestions: [
+      'A. 受月球的引力大小保持不变',
+      'B. 相对月球的速度大小保持不变',
+      'C. 离月球越近，其相对月球的速度越大',
+      'D. 离月球越近，其所受月球的引力越小'
+    ],
+    officialAnswer: 'C · A 错：r 变 → F=GMm/r² 变。B 错：开普勒第二定律 → 近月点速度大、远月点速度小。C 对：r 减 → 由能量+角动量守恒得 v 增。D 错：r 减 → F=GMm/r² 增。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'椭圆轨道运动', label_short:'椭圆',
+     formula_tex: String.raw`F = \dfrac{GMm}{r^2},\quad v_{\text{近}} > v_{\text{远}}`,
+     note:'开普勒第二定律 + 万有引力。r 减小 → F 增大、v 增大。'}
+  ],
+  stats: [
+    {label:'轨道', fmt:()=>'椭圆 (e=0.5)'},
+    {label:'r 距离',  fmt:s=>s.r.toFixed(2)+' (a 单位)'},
+    {label:'v 速度',  fmt:s=>s.v.toFixed(2)},
+    {label:'F 引力',  fmt:s=>s.F.toFixed(2)},
+    {label:'近月 r_min', fmt:()=>(1-e).toFixed(2)},
+    {label:'远月 r_max', fmt:()=>(1+e).toFixed(2)}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'F 变化',  note:'r 变'},
+    {label_text:'B 错', value_text:'v 变化',  note:'开二'},
+    {label_text:'C 对', value_text:'近月 v 大', note:'angular mom'},
+    {label_text:'D 错', value_text:'近月 F 大', note:'1/r²'}
+  ],
+  legend: [
+    {swatch:{bg:'#86868b',border:'#5d6068',type:'dot'}, text:'月球（焦点）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'天都一号'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'速度 v（切向）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'引力 F（指向月球）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2025全国-Q2-天都一号'
+});
+</script>
+</body>
+</html>

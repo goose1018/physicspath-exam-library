@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 7 题 · 队列简谐波</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 波长 λ=4m，第一位同学波谷（蹲到底），求另一同学站直（波峰）的距离
+// 波峰与波谷距离 = (n+1/2)λ = (2n+1)·λ/2，n=0,1,2,...
+// = λ/2, 3λ/2, 5λ/2, 7λ/2, ... = 2, 6, 10, 14 m
+// 答案 BD：2m, 6m
+
+const lambda = 4;
+const T_total = 6;
+const omega = 2*Math.PI / T_total;
+
+// 12 位同学，间距 1m
+const numStudents = 12;
+const dx = 1;     // m
+
+function evalState(t){
+  const phase_wave = omega * t;
+  return {phase:1, phase_wave, t};
+}
+
+function getY(x_m, phase){
+  // 波形：第一位同学（x=0）t=0 时蹲到底（波谷）
+  // y(x, t) = A·cos(2π/λ·x - ω·t + π) — 让 x=0, t=0 时 y=-A（波谷）
+  // 简化 y = -A·cos(2π·x/λ - ω·t) — x=0,t=0 时 y=-A ✓
+  const A = 1;
+  return -A * Math.cos(2*Math.PI*x_m/lambda - phase);
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawQueue(ctx, 14, 30, W-28, H*0.55-30, state);
+  drawAnalysis(ctx, 14, H*0.55+10, W-28, H*0.45-20, state);
+
+  // 顶部
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('一组同学排队（间距 1m）依次"下蹲-起立"形成简谐波（λ=4m）', 24, 22);
+}
+
+function drawQueue(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  // 地面
+  const yGround = y + h*0.85;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(x+30, yGround, w-60, 5);
+
+  const xStart = x + 50;
+  const pxPerM = (w - 100) / (numStudents-1);
+
+  // 波形（连续曲线）
+  ctx.strokeStyle = 'rgba(63,111,143,0.4)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  for(let xi=0; xi<=numStudents-1; xi+=0.1){
+    const yWave = getY(xi, state.phase_wave);
+    // 波幅 30 像素，波峰 yGround-h_max - extra(H), 波谷 yGround-h_min
+    const yPx = yGround - 25 - yWave*15;     // 中线在 yGround-25 上方
+    if(xi===0) ctx.moveTo(xStart + xi*pxPerM, yPx);
+    else ctx.lineTo(xStart + xi*pxPerM, yPx);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 同学
+  for(let i=0; i<numStudents; i++){
+    const xi_m = i*dx;
+    const yWave = getY(xi_m, state.phase_wave);     // -1 到 +1
+    const cx = xStart + i*pxPerM;
+    // y_wave = -1 → 波谷 → 蹲下 → 头顶低
+    // y_wave = +1 → 波峰 → 站直 → 头顶高
+    const standHeight = 50 + yWave*18;     // 站立时 ~68，蹲时 ~32
+    const headY = yGround - standHeight;
+
+    // 身体（线条人）
+    ctx.strokeStyle = i === 0 ? '#b4442e' : '#3f6f8f';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, yGround);
+    ctx.lineTo(cx, headY+8);
+    ctx.stroke();
+    // 头
+    ctx.fillStyle = i === 0 ? '#b4442e' : '#3f6f8f';
+    ctx.beginPath(); ctx.arc(cx, headY+4, 5, 0, Math.PI*2); ctx.fill();
+
+    // 第一位同学标记
+    if(i === 0){
+      ctx.fillStyle = '#b4442e';
+      ctx.font = '900 10px "Noto Sans SC",sans-serif';
+      ctx.fillText('第 1 位', cx-15, yGround+15);
+    }
+    // 索引
+    ctx.fillStyle = '#94a09b';
+    ctx.font = '600 9px ui-monospace,monospace';
+    ctx.fillText((i*dx)+'m', cx-8, yGround+22);
+  }
+
+  // 高亮第一位同学（波谷）
+  const x_min = 0;
+  // 高亮当前波峰位置（站直）
+  // 找最接近的整数 m 处波峰：getY(x, t) = 1 时 cos(2πx/λ - ωt) = -1 → 2πx/λ - ωt = π+2nπ
+  // → x = λ/2 + ωt·λ/(2π) + nλ
+  // = 2 + (ωt/(2π))·λ + n·λ = 2 + (t/T_total)·λ + n·λ
+  // 简化：用 (n+1/2)·λ = 2, 6, 10 m
+
+  // 显示距离 r = nλ + λ/2
+  const peaks_m = [2, 6, 10];     // λ/2, 3λ/2, 5λ/2
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  peaks_m.forEach(p => {
+    if(p < numStudents){
+      const cx = xStart + p*pxPerM;
+      ctx.beginPath(); ctx.moveTo(cx, y+40); ctx.lineTo(cx, yGround-5); ctx.stroke();
+    }
+  });
+  ctx.setLineDash([]);
+}
+
+function drawAnalysis(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('波峰 - 波谷距离分析', x+12, y+18);
+
+  let yy = y + 44;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('波长 λ = 4 m', x+12, yy); yy += 18;
+  ctx.fillText('波峰 vs 波谷 → 相位差 π → 距离 = (n+½)λ', x+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('d = (2n+1)·λ/2 = 2, 6, 10, 14 ... m  (n=0,1,2,...)', x+12, yy); yy += 28;
+
+  // 4 选项判定
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('4 选项判定：', x+12, yy); yy += 22;
+
+  const judgments = [
+    {opt:'A · 1 m',  verdict:'错（不是 (2n+1)·2）', correct:false},
+    {opt:'B · 2 m',  verdict:'对 ✓ (n=0, λ/2=2)', correct:true},
+    {opt:'C · 5 m',  verdict:'错（5 ≠ (2n+1)·2）', correct:false},
+    {opt:'D · 6 m',  verdict:'对 ✓ (n=1, 3λ/2=6)', correct:true}
+  ];
+  judgments.forEach((j) => {
+    ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+    ctx.font = `${j.correct?900:700} 12px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, x+12, yy);
+    ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+    ctx.font = '700 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(j.verdict, x+90, yy);
+    yy += 22;
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-220, y+h-44, 208, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 BD · d = 2m 或 6m', x+w-208, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '队列简谐波 · 波峰波谷距离',
+  subtitle: '同学排队（间距 1m）周期性下蹲-起立，形成 λ=4m 的简谐波。波峰与波谷距离？',
+  deliv: {
+    title: '波峰-波谷距离',
+    sub: 'd = (2n+1)·λ/2 = 2m 或 6m · 答案 BD'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 7 题 · 6 分',
+    image: '../../source/images/image28.png',
+    text: `一组身高相近的学生沿一直线<b>等间隔</b>排成一排，从左边第一位同学开始，依次周期性地"下蹲、起立"，整个队列呈现类似简谐波的波浪效果，如图所示。假定某次游戏中，形成的波形的波长为 <b>4m</b>，左边第一位同学蹲至最低点时，队列中另一同学恰好站直，则这两位同学间的距离可能是（　　）`,
+    subQuestions: [
+      'A. 1 m',
+      'B. 2 m',
+      'C. 5 m',
+      'D. 6 m'
+    ],
+    officialAnswer: 'BD · 第一位同学波谷（蹲到底），另一位同学波峰（站直），相位差 π。距离 d = (n + ½)·λ = (2n+1)·λ/2，n=0,1,2,...，得 d = 2, 6, 10, 14, ... m。选项中 B (2m, n=0) 和 D (6m, n=1) 满足。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'波峰-波谷距离', label_short:'核心',
+     formula_tex: String.raw`d = (2n+1)\dfrac{\lambda}{2} = 2,\;6,\;10,\;14,\;\ldots\;\text{m}`,
+     note:'波峰与波谷相位差 π，距离 = 半波长的奇数倍。'}
+  ],
+  stats: [
+    {label:'λ',          fmt:()=>'4 m'},
+    {label:'间距',       fmt:()=>'1 m'},
+    {label:'波峰-波谷',  fmt:()=>'(2n+1)·λ/2'},
+    {label:'可能 d',     fmt:()=>'2, 6, 10 m'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'1 m', note:'非奇数·λ/2'},
+    {label_text:'B 对', value_text:'2 m', note:'n=0'},
+    {label_text:'C 错', value_text:'5 m', note:'非奇数·λ/2'},
+    {label_text:'D 对', value_text:'6 m', note:'n=1, 3λ/2'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'第 1 位同学（波谷·蹲到底）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'其他同学'},
+    {swatch:{bg:'rgba(63,111,143,0.4)',border:'#3f6f8f',type:'rect'}, text:'波形（包络）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2025全国-Q7-队列波'
+});
+</script>
+</body>
+</html>

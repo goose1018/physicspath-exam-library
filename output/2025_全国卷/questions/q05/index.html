@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 题 · 正方形磁场电子轨道</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 正方形 abcd，电子从 a 入射 v₀ 垂直 ab，3 种 B 让电子从 ab 中点/b/c 射出
+// 几何分析（设边长 l=1，a=(0,0), b=(1,0), c=(1,1), d=(0,1)）：
+// (1) 出 ab 中点：圆心 (1/4, 0)，R=l/4，弦 = l/2 是直径 → θ=π，t1 = πR/v = πl/(4v)
+// (2) 出 b 点：圆心 (1/2, 0)，R=l/2，弦 = l 是直径 → θ=π，t2 = πl/(2v)
+// (3) 出 c 点：圆心 (1, 0)，R=l，θ=π/2，t3 = πl/(2v)
+// 答案 A：t1 < t2 = t3
+
+const T_total = 9;
+const stageDur = 3;     // 3 阶段轮播
+
+// 几何参数（归一化，l=1）
+const cases = [
+  {label:'① 出 ab 中点',  R: 0.25, center:[0.25, 0], end:[0.5, 0],   theta: Math.PI,   t_val: 'πl/(4v)', color:'#16613f'},
+  {label:'② 出 b 点',     R: 0.5,  center:[0.5, 0],  end:[1, 0],     theta: Math.PI,   t_val: 'πl/(2v)', color:'#3f6f8f'},
+  {label:'③ 出 c 点',     R: 1.0,  center:[1.0, 0],  end:[1, 1],     theta: Math.PI/2, t_val: 'πl/(2v)', color:'#c2611f'}
+];
+
+function evalState(t){
+  const stage = Math.floor((t / stageDur) % 3);
+  const u = (t - stage*stageDur) / stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawSquare(ctx, 14, 14, W*0.62-21, H-28, state);
+  drawCompare(ctx, W*0.62+7, 14, W*0.38-21, H-28, state);
+}
+
+function drawSquare(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  const c = cases[state.stage];
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('正方形 abcd 内匀强磁场（垂直纸面）· 电子从 a 入射，v₀ 垂直 ab', x+12, y+18);
+
+  // 计算正方形边长（像素）
+  const sqSize = Math.min(w-80, h-100);
+  const sqX0 = x + (w - sqSize)/2;
+  const sqY0 = y + h*0.55 + sqSize/2;     // 正方形 a 在底，d 在顶（视觉上 d 在上）
+  // 坐标系：物理 a=(0,0) 位于 sqX0, sqY0；物理 +x → canvas +x；物理 +y → canvas -y
+  const wToPx = X => sqX0 + X*sqSize;
+  const yToPx = Y => sqY0 - Y*sqSize;
+
+  // 正方形 abcd（a 左下，b 右下，c 右上，d 左上）
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.5;
+  ctx.strokeRect(wToPx(0), yToPx(1), sqSize, sqSize);
+  // 顶点标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('a', wToPx(0)-14, yToPx(0)+5);
+  ctx.fillText('b', wToPx(1)+5, yToPx(0)+5);
+  ctx.fillText('c', wToPx(1)+5, yToPx(1)-5);
+  ctx.fillText('d', wToPx(0)-14, yToPx(1)-5);
+
+  // 磁场方向 ⊗（向纸内）— 在正方形内布置
+  ctx.fillStyle = 'rgba(63,111,143,0.5)';
+  ctx.font = '700 12px "Cambria Math",serif';
+  for(let i=0; i<5; i++){
+    for(let j=0; j<5; j++){
+      ctx.fillText('×', wToPx(0.1+i*0.2), yToPx(0.1+j*0.2));
+    }
+  }
+
+  // a 点入射箭头
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('v₀', wToPx(0)-8, yToPx(0.15));
+  PPath.arrow(ctx, wToPx(0)-3, yToPx(-0.12), wToPx(0)-3, yToPx(0.05), '#16613f', 2);
+
+  // 当前 case 圆轨道
+  const cxC = wToPx(c.center[0]);
+  const cyC = yToPx(c.center[1]);
+  const Rpx = c.R * sqSize;
+
+  // 完整圆（淡）
+  ctx.strokeStyle = c.color + '40';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.arc(cxC, cyC, Rpx, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  // 圆心
+  ctx.fillStyle = c.color;
+  ctx.beginPath(); ctx.arc(cxC, cyC, 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = c.color;
+  ctx.font = '600 9px "Cambria Math",serif';
+  ctx.fillText('O'+(state.stage+1), cxC+5, cyC-5);
+
+  // 走过的弧（实线）
+  // 起点 a (0,0)，圆心 (R, 0)（物理坐标）
+  // a 相对圆心：(-R, 0)，对应数学角度 π（标准：从 +x 轴逆时针）
+  // canvas 角度（y 翻转）：标准角度 π → canvas 角度 -π = π（对称）
+  // 顺时针走过弧（电子向 +x 偏转 → 圆心右下 → 顺时针在物理坐标 = 顺时针在 canvas）
+  // 起点 canvas 角：a 在圆心左 → angle = π
+  const startAng_canvas = Math.PI;
+  const arcAng = state.u * c.theta;
+  // 顺时针：canvas 中 angle 增加（因 y 反向）
+  const endAng_canvas = startAng_canvas - arcAng;     // 物理逆时针 = canvas 顺时针，但电子偏转方向...
+
+  // 实际上电子从 a 出发垂直 ab（向上 = 物理 +y = canvas -y）做圆周 → 圆心在 a 的右侧（+x 方向）
+  // 顺时针走（在物理坐标系 y 上看）= 标准 angle 减小 = canvas 中 angle 增加（因 y 翻转）
+  // canvas 中 a 的角度：相对 cyC（圆心 canvas y）的 a 是 (cxA-cxC, cyA-cyC) = (-Rpx, 0) → angle=π
+  // 顺时针走（canvas 中）angle 增加：π → 3π/2（对应物理下方，即正方形外）
+  // 但电子在正方形上半行进 → canvas 上方 = canvas y 小 = angle = π → π/2 → 0
+  // 即 canvas 中 angle 减小（逆时针）
+  ctx.strokeStyle = c.color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cxC, cyC, Rpx, startAng_canvas, startAng_canvas - arcAng, true);
+  ctx.stroke();
+
+  // 当前电子位置
+  const ang_now = startAng_canvas - arcAng;
+  const ex = cxC + Rpx*Math.cos(ang_now);
+  const ey = cyC + Rpx*Math.sin(ang_now);
+  ctx.fillStyle = c.color;
+  ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 9px "Cambria Math",serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('e⁻', ex, ey+3);
+  ctx.textAlign = 'left';
+
+  // 出射点高亮
+  const exitX = wToPx(c.end[0]);
+  const exitY = yToPx(c.end[1]);
+  ctx.strokeStyle = c.color;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.arc(exitX, exitY, 12, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 阶段标
+  ctx.fillStyle = c.color;
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(c.label + ` · R=${c.R.toFixed(2)}l, θ=${(c.theta*180/Math.PI).toFixed(0)}°, t=${c.t_val}`, x+12, y+h-12);
+}
+
+function drawCompare(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('3 个时间比较', x+12, y+18);
+
+  let yy = y + 50;
+  cases.forEach((c, i) => {
+    const active = (state.stage === i);
+    if(active){
+      ctx.fillStyle = '#fdf3e6';
+      ctx.fillRect(x+8, yy-18, w-16, 56);
+    }
+    ctx.fillStyle = c.color;
+    ctx.font = `${active?900:700} 12px "Noto Sans SC",sans-serif`;
+    ctx.fillText(c.label, x+18, yy);
+    ctx.fillStyle = active ? '#1d1d1f' : '#94a09b';
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText(`R = ${c.R.toFixed(2)}·l`, x+18, yy+18);
+    ctx.fillText(`弧角 θ = ${(c.theta*180/Math.PI).toFixed(0)}°`, x+18, yy+34);
+    yy += 70;
+  });
+
+  // 公式比较
+  yy += 10;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('时间公式：t = θR/v', x+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('t₁ = π·(l/4)/v = πl/(4v)', x+12, yy); yy += 16;
+  ctx.fillText('t₂ = π·(l/2)/v = πl/(2v)', x+12, yy); yy += 16;
+  ctx.fillText('t₃ = (π/2)·l/v = πl/(2v)', x+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('t₁ < t₂ = t₃', x+12, yy);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-44, w-24, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 A · t₁ < t₂ = t₃', x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '正方形磁场 · 电子轨道',
+  subtitle: '电子从 a 入射（v₀ ⊥ ab）。3 种 B 大小让电子分别从 ab 中点 / b / c 射出。',
+  deliv: {
+    title: '正方形磁场轨道',
+    sub: 't₁ < t₂ = t₃ · 答案 A'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 5 题 · 6 分',
+    image: '../../source/images/image11.png',
+    text: `如图，正方形 abcd 内有方向垂直于纸面的匀强磁场，电子在纸面内从顶点 <b>a</b> 以速度 <b>v₀</b> 射入磁场，速度方向垂直于 <b>ab</b>。磁感应强度的大小不同时，电子可分别从 ab 边的<b>中点</b>、<b>b 点</b>和 <b>c 点</b>射出，在磁场中运动的时间分别为 <b>t₁</b>、<b>t₂</b> 和 <b>t₃</b>，则（　　）`,
+    subQuestions: [
+      'A. t₁ &lt; t₂ = t₃',
+      'B. t₁ &lt; t₂ &lt; t₃',
+      'C. t₁ = t₂ &gt; t₃',
+      'D. t₁ &gt; t₂ &gt; t₃'
+    ],
+    officialAnswer: 'A · 设边长 l。出 ab 中点：弦 l/2 是直径 → R₁=l/4，θ₁=π，t₁=πl/(4v)。出 b 点：弦 l 是直径 → R₂=l/2，θ₂=π，t₂=πl/(2v)。出 c 点：弦 l√2，几何 sin(θ/2)=√2/2 → θ=π/2，R₃=l，t₃=πl/(2v)。所以 t₁ &lt; t₂ = t₃。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'① 出 ab 中点 · 半圆 · R=l/4', label_short:'①',
+     formula_tex: String.raw`R_1 = \tfrac{l}{4},\;\theta_1 = \pi,\;t_1 = \tfrac{\pi l}{4v}`,
+     note:'弦 l/2 = 直径 → R = l/4，半圆 θ = π。'},
+    {label:'② 出 b 点 · 半圆 · R=l/2', label_short:'②',
+     formula_tex: String.raw`R_2 = \tfrac{l}{2},\;\theta_2 = \pi,\;t_2 = \tfrac{\pi l}{2v}`,
+     note:'弦 l = 直径 → R = l/2，半圆 θ = π。'},
+    {label:'③ 出 c 点 · 1/4 圆 · R=l', label_short:'③',
+     formula_tex: String.raw`R_3 = l,\;\theta_3 = \tfrac{\pi}{2},\;t_3 = \tfrac{\pi l}{2v}`,
+     note:'弦 l√2，sin(θ/2)=√2/2 → θ=π/2，R=l。t₃=t₂。'}
+  ],
+  stats: [
+    {label:'① t₁',  fmt:()=>'πl/(4v)'},
+    {label:'② t₂',  fmt:()=>'πl/(2v)'},
+    {label:'③ t₃',  fmt:()=>'πl/(2v)'},
+    {label:'结论',  fmt:()=>'t₁ < t₂ = t₃'},
+    {label:'当前',  fmt:s=>cases[s.stage].label}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'t₁ &lt; t₂ = t₃', note:''},
+    {label_text:'B 错', value_text:'t₂ &ne; t₃',     note:''},
+    {label_text:'C 错', value_text:'t₁ &ne; t₂',     note:''},
+    {label_text:'D 错', value_text:'方向反',          note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'① ab 中点（半圆 R=l/4）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'② b 点（半圆 R=l/2）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'③ c 点（1/4 圆 R=l）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2025全国-Q5-正方形磁场'
+});
+</script>
+</body>
+</html>
