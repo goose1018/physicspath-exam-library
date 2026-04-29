@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 12 题 · 圆管+圆盘+小球弹性碰撞</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：竖直圆管 20l，圆盘 M 距上端 l，小球 m 从上端释放（自由下落 l）
+// 弹性碰撞：m=M/3 → 第一次碰后 v_球'=v_盘'=v0/2 (球反弹，盘向下)
+// 圆盘摩擦 = 重力 → 匀速下滑
+// 4 次碰撞位置（距上端）：1l, 3l, 7l, 13l；管底 20l → 第 4 次后剩 7l<8l 退出
+//
+// 答案：(1) v0/2=(1/2)√(2gl)；(2) l；(3) 4
+
+const l_unit = 0.5;          // l 的物理长度（无量纲）
+const tube_len = 20 * l_unit;
+const g_acc = 10;
+const v0 = Math.sqrt(2 * g_acc * l_unit);     // 第一次碰前球速度
+const v_after = v0 / 2;                         // 第一次碰后球/盘速度大小
+
+// 4 次碰撞位置（距上端的物理距离）
+const collision_y = [1*l_unit, 3*l_unit, 7*l_unit, 13*l_unit];
+
+const T_total = 8;
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  //  0.00-0.20：球自由下落到圆盘
+  //  0.20-0.50：第一次碰后球上抛+盘匀速下移；u=0.35 时距离最大 = l
+  //  0.50-0.55：第二次碰撞
+  //  0.55-1.00：标注 4 次碰撞位置（静态展示）
+  let phase = 0;
+  let ball_y, disk_y, ball_v, disk_v;
+
+  if(u < 0.20){
+    // 自由下落
+    phase = 0;
+    const u_p = u / 0.20;
+    const t_real = u_p * Math.sqrt(2*l_unit/g_acc);     // 下落时间
+    ball_y = 0.5 * g_acc * t_real * t_real;
+    disk_y = l_unit;
+    ball_v = g_acc * t_real;
+    disk_v = 0;
+  } else if(u < 0.50){
+    // 第一次碰后：球上抛，盘匀速下移
+    phase = 1;
+    const u_p = (u - 0.20) / 0.30;
+    const t_real = u_p * (2 * v_after / g_acc);     // 直到第二次碰撞时刻
+    ball_y = l_unit - v_after * t_real + 0.5 * g_acc * t_real * t_real;     // 从碰撞点向上 → 向下
+    disk_y = l_unit + v_after * t_real;
+    ball_v = -v_after + g_acc * t_real;
+    disk_v = v_after;
+  } else if(u < 0.55){
+    // 第二次碰撞瞬间
+    phase = 2;
+    ball_y = 3 * l_unit;     // 第二次碰撞位置
+    disk_y = 3 * l_unit;
+    ball_v = 3 * v_after;     // 碰前 v_球
+    disk_v = v_after;          // 碰前 v_盘
+  } else {
+    // 静态展示 4 次碰撞位置
+    phase = 3;
+    ball_y = 13 * l_unit;
+    disk_y = 13 * l_unit;
+    ball_v = 0;
+    disk_v = 0;
+  }
+
+  return {u, phase, ball_y, disk_y, ball_v, disk_v, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawTube(ctx, 14, 14, W*0.40-21, H-28, state);
+  drawAnalysis(ctx, W*0.40+7, 14, W*0.60-21, H-28, state);
+}
+
+function drawTube(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('竖直圆管 20l · 弹性碰撞', panelX+12, panelY+18);
+
+  // y 投影：物理 y（向下为正）→ canvas y（向下为正） — 不反向
+  const padX = 60, padY = 40;
+  const sy = (panelH - 2*padY) / tube_len;
+  const tubeX = panelX + panelW/2;
+  const tubeW = 36;
+  const py = y => panelY + padY + y * sy;
+
+  // 圆管（双竖线）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(tubeX - tubeW/2, py(0)); ctx.lineTo(tubeX - tubeW/2, py(tube_len));
+  ctx.moveTo(tubeX + tubeW/2, py(0)); ctx.lineTo(tubeX + tubeW/2, py(tube_len));
+  ctx.stroke();
+  // 上下端口
+  ctx.beginPath();
+  ctx.moveTo(tubeX - tubeW/2 - 6, py(0)); ctx.lineTo(tubeX + tubeW/2 + 6, py(0));
+  ctx.moveTo(tubeX - tubeW/2 - 6, py(tube_len)); ctx.lineTo(tubeX + tubeW/2 + 6, py(tube_len));
+  ctx.stroke();
+
+  // 标尺：l 刻度
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 9.5px ui-monospace,monospace';
+  for(let i = 0; i <= 20; i += 2){
+    const yy = py(i * l_unit);
+    ctx.strokeStyle = '#dad6c8'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(tubeX - tubeW/2 - 4, yy); ctx.lineTo(tubeX - tubeW/2, yy);
+    ctx.stroke();
+    ctx.fillText(i+'l', tubeX - tubeW/2 - 22, yy + 3);
+  }
+
+  // 4 次碰撞位置标记（state.phase >= 3 显示全部，否则按进度）
+  const showAll = state.phase >= 3;
+  collision_y.forEach((cy, i) => {
+    if(showAll || i === 0 && state.phase >= 1 || i === 1 && state.phase >= 2){
+      ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5; ctx.setLineDash([4,2]);
+      ctx.beginPath();
+      ctx.moveTo(tubeX + tubeW/2 + 4, py(cy)); ctx.lineTo(tubeX + tubeW/2 + 24, py(cy));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#c2611f';
+      ctx.font = '700 10px "Noto Sans SC",sans-serif';
+      ctx.fillText('第'+(i+1)+'次 ('+(cy/l_unit)+'l)', tubeX + tubeW/2 + 28, py(cy) + 4);
+    }
+  });
+
+  // 圆盘
+  ctx.fillStyle = '#c8a06a';
+  ctx.fillRect(tubeX - tubeW/2 + 2, py(state.disk_y) - 4, tubeW - 4, 8);
+  ctx.strokeStyle = '#8a6e3a'; ctx.lineWidth = 1;
+  ctx.strokeRect(tubeX - tubeW/2 + 2, py(state.disk_y) - 4, tubeW - 4, 8);
+  ctx.fillStyle = '#5d3a1a';
+  ctx.font = 'italic 700 10px Georgia,serif';
+  ctx.fillText('M', tubeX + tubeW/2 + 8, py(state.disk_y) + 3);
+
+  // 小球
+  if(state.phase === 0 || state.phase === 1){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.beginPath(); ctx.arc(tubeX, py(state.ball_y), 7, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#1f4f6f'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'italic 800 9px Georgia,serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('m', tubeX, py(state.ball_y) + 3);
+    ctx.textAlign = 'start';
+  }
+
+  // 速度向量
+  if(state.phase === 0 && state.ball_v > 0){
+    PPath.arrow(ctx, tubeX, py(state.ball_y), tubeX, py(state.ball_y) + state.ball_v * 6, '#16613f', 1.8);
+  }
+  if(state.phase === 1){
+    // 球速度（可能向上或向下）
+    const bv_dy = state.ball_v * 6;
+    PPath.arrow(ctx, tubeX, py(state.ball_y), tubeX, py(state.ball_y) + bv_dy, '#16613f', 1.8);
+    // 盘速度（向下）
+    PPath.arrow(ctx, tubeX + 16, py(state.disk_y), tubeX + 16, py(state.disk_y) + state.disk_v * 6, '#7d4f9c', 1.8);
+  }
+
+  // 阶段提示
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+  const phaseText = state.phase === 0 ? '阶段 ① 自由下落 → v₀=√(2gl)' :
+                    state.phase === 1 ? '阶段 ② 第一次碰后：球↑ + 盘↓（最远 l）' :
+                    state.phase === 2 ? '阶段 ③ 第二次碰撞（盘下落 2l）' :
+                                         '阶段 ④ 4 次碰撞位置（1l/3l/7l/13l）';
+  ctx.fillText(phaseText, panelX+12, panelY+panelH-8);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('解题步骤（按阶段揭晓）', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.05){
+    lines.push({c:'#5d6964', t:'• 自由下落 l：v₀ = √(2gl)'});
+  }
+  if(state.u >= 0.20){
+    lines.push({c:'#16613f', t:'• 弹性碰撞 (m=M/3)：动量+能量守恒'});
+    lines.push({c:'#16613f', t:'  v_球 = (m−M)/(m+M)·v₀ = −v₀/2 (反弹)'});
+    lines.push({c:'#16613f', t:'  v_盘 = 2m/(m+M)·v₀ = +v₀/2 (向下)'});
+    lines.push({c:'#c2611f', t:'  ▶ (1) v_球 = v_盘 = (1/2)√(2gl)'});
+  }
+  if(state.u >= 0.35){
+    lines.push({c:'#5d6964', t:'• 球上抛（受 g）：v_球(t) = −v₀/2 + gt'});
+    lines.push({c:'#5d6964', t:'• 盘匀速向下：v_盘 = v₀/2 (摩擦=重力)'});
+    lines.push({c:'#5d6964', t:'• 距离极大时 v_球 = v_盘：t* = v₀/g'});
+    lines.push({c:'#c2611f', t:'  ▶ (2) d_max = v₀²/(2g) = l'});
+  }
+  if(state.u >= 0.55){
+    lines.push({c:'#5d6964', t:'• 第二次碰撞（位移相等）：t = 2v₀/g'});
+    lines.push({c:'#5d6964', t:'  盘下落 2l → 距上端 1+2 = 3l'});
+    lines.push({c:'#5d6964', t:'• 各次盘下移：2l, 4l, 6l, 8l (递增 2l)'});
+    lines.push({c:'#5d6964', t:'  累计：1l, 3l, 7l, 13l, 21l'});
+  }
+  if(state.u >= 0.75){
+    lines.push({c:'#3f6f8f', t:'• 管长 20l，4 次后剩 7l < 8l (第 5 次需要)'});
+    lines.push({c:'#c2611f', t:'  ▶ (3) 总碰撞次数 = 4'});
+  }
+
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 17;
+  });
+
+  // 答案徽章
+  if(state.u > 0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-66, panelW-24, 54, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案', panelX+22, panelY+panelH-50);
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText('(1) v_球 = v_盘 = (1/2)√(2gl)', panelX+22, panelY+panelH-34);
+    ctx.fillText('(2) d_max = l', panelX+22, panelY+panelH-18);
+    ctx.fillText('(3) 碰撞次数 = 4', panelX+22, panelY+panelH-4);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 12 题 · 12 分',
+  title: '圆管+圆盘+小球弹性碰撞 · 多次碰撞分析',
+  subtitle: '竖直圆管 20l，圆盘 M 距上端 l 静止；m=M/3 小球从上端释放；弹性碰撞 + 摩擦=重力（圆盘匀速）。',
+  deliv: {
+    title: '弹性碰撞 + 多次递推 · 4 次',
+    sub: '盘下移序列 2l/4l/6l/8l → 4 次后剩 7l<8l 退出'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 计算 · 第 12 题 · 12 分',
+    image: '../../source/images/image90.png',
+    text: `如图，一竖直固定的长直圆管内有一质量为 M 的静止薄圆盘，圆盘与管的上端口距离为 l，圆管长度为 20l。一质量为 m = M/3 的小球从管的上端口由静止下落，并撞在圆盘中心，圆盘向下滑动，所受滑动摩擦力与其所受重力大小相等。小球在管内运动时与管壁不接触，圆盘始终水平，小球与圆盘发生的碰撞均为弹性碰撞且碰撞时间极短。不计空气阻力，重力加速度大小为 g。求`,
+    subQuestions: [
+      '（1）第一次碰撞后瞬间小球和圆盘的速度大小；',
+      '（2）在第一次碰撞到第二次碰撞之间，小球与圆盘间的最远距离；',
+      '（3）圆盘在管内运动过程中，小球与圆盘碰撞的次数。'
+    ],
+    officialAnswer: '（1）自由下落 l：v₀=√(2gl)。弹性碰撞（m=M/3）：v_球 = (m−M)/(m+M)·v₀ = −v₀/2（反弹），v_盘 = 2m/(m+M)·v₀ = +v₀/2（向下）。即两者速度大小均为 (1/2)√(2gl)。\n（2）第一次碰后：球做竖直上抛（v₀/2 上，受 g）；盘匀速 v₀/2 下（摩擦=重力）。距离极大时两者速度相同：−v₀/2 + gt = v₀/2 → t* = v₀/g。距离 d_max = v₀²/(2g) = l。\n（3）第一次碰到第二次碰：位移相等 → t = 2v₀/g。盘下移 v₀²/g = 2l。同理后续各次盘下移 4l, 6l, 8l（递增 2l）。盘累计位置 1l, 3l, 7l, 13l, 21l。管长 20l，4 次碰后剩 7l &lt; 8l（第 5 次需要的下移距离）→ 盘脱出。共 4 次。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 自由下落 v₀', label_short:'v₀',
+     formula_tex: String.raw`v_0 = \sqrt{2gl}`,
+     note:'小球从上端口释放，下落 l 距离到达圆盘。'},
+    {label:'阶段 ② 弹性碰撞 (m=M/3)', label_short:'弹碰',
+     formula_tex: String.raw`v'_{球} = \dfrac{m-M}{m+M}v_0 = -\dfrac{v_0}{2},\quad v'_{盘} = \dfrac{2m}{m+M}v_0 = \dfrac{v_0}{2}`,
+     note:'(1) 答案：两者速度大小均为 (1/2)√(2gl)。'},
+    {label:'阶段 ③ 最远距离', label_short:'d_max',
+     formula_tex: String.raw`d_{\max} = \dfrac{v_0^2}{2g} = l`,
+     note:'(2) 答案。共速时刻 t*=v₀/g 时距离最大。'},
+    {label:'阶段 ④ 多次碰撞递推', label_short:'递推',
+     formula_tex: String.raw`\Delta y_{盘}^{(n)} = 2nl,\quad \sum = 1l, 3l, 7l, 13l, 21l`,
+     note:'每次碰后盘下移 2l, 4l, 6l, 8l 递增。'},
+    {label:'阶段 ⑤ 总碰撞次数', label_short:'(3) 4',
+     formula_tex: String.raw`13l + 8l = 21l > 20l \;\Rightarrow\; \text{4 次后退出}`,
+     note:'(3) 答案：4 次。第 4 次碰后盘只剩 7l 但需 8l 才能再碰。'}
+  ],
+  stats: [
+    {label:'圆管长',         fmt:()=>'20 l'},
+    {label:'圆盘起始位',     fmt:()=>'距上端 l'},
+    {label:'小球质量',       fmt:()=>'m = M/3'},
+    {label:'圆盘摩擦力',     fmt:()=>'= Mg（匀速）'},
+    {label:'v₀ 落下',        fmt:()=>'√(2gl)'},
+    {label:'第 1 次碰后 v',  fmt:()=>'v₀/2'},
+    {label:'第 2 次盘下移',  fmt:()=>'2l → 累计 3l'},
+    {label:'第 3 次盘下移',  fmt:()=>'4l → 累计 7l'},
+    {label:'第 4 次盘下移',  fmt:()=>'6l → 累计 13l'},
+    {label:'(若)第 5 次需',  fmt:()=>'8l > 剩余 7l ✗'}
+  ],
+  conclusions: [
+    {label_text:'(1) v 球/盘', value_text:'(1/2)√(2gl)',          note:'弹性碰撞 m=M/3'},
+    {label_text:'(2) d_max',    value_text:'l',                     note:'共速时刻'},
+    {label_text:'(3) 次数',     value_text:'4',                     note:'第 5 次盘已脱出'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#1f4f6f',type:'dot'}, text:'小球 m'},
+    {swatch:{bg:'#c8a06a',border:'#8a6e3a',type:'rect'}, text:'圆盘 M'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'球速度'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'盘速度'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'4 次碰撞位置'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:true, guide:true},
+  fileName: '2023全国乙-Q12-圆管弹碰'
+});
+</script>
+</body>
+</html>

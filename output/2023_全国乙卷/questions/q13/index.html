@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 13 题 · 理想气体内能（多选 ACD）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：理想气体 U = nCv·T，仅由 T 决定
+// 初态 (P₀=1, V₀=1) → T₀ = 1（取 nR=1，无量纲）
+// 5 选项分析：
+// A. 等温增压(P↑V↓ T 不变) → 等温膨胀 (P↓V↑ T 不变) — T 全程 1 ✓
+// B. 等压膨胀(V↑ T↑) → 等温压缩 (T 不变) — 末 T>1 ✗
+// C. 等容减压(P↓ T↓) → 等压膨胀(V↑ T↑) — 可调使 T 复原 ✓
+// D. 等容增压(P↑ T↑) → 等压压缩(V↓ T↓) — 可调使 T 复原 ✓
+// E. 等容增压(P↑ T↑) → 等温膨胀(T 不变) — 末 T>1 ✗
+
+// 5 选项的代表性路径（初态都是 (1, 1)）
+const options = [
+  { tag:'A', correct:true,
+    path: [[1,1], [2,0.5], [1,1]],
+    moves: ['等温增压 (P↑V↓, T=1)', '等温膨胀 (P↓V↑, T=1)'],
+    Ts: [1, 1, 1],
+    note:'两步均等温 T=1，内能不变。'},
+  { tag:'B', correct:false,
+    path: [[1,1], [1,2], [2,1]],
+    moves: ['等压膨胀 (V↑→T↑)', '等温压缩 (T 不变)'],
+    Ts: [1, 2, 2],
+    note:'末态 T=2 > 初 T=1，内能增加。'},
+  { tag:'C', correct:true,
+    path: [[1,1], [0.5,1], [0.5,2]],
+    moves: ['等容减压 (P↓→T↓)', '等压膨胀 (V↑→T↑)'],
+    Ts: [1, 0.5, 1],
+    note:'两步可调使末 T 复原 = 1。'},
+  { tag:'D', correct:true,
+    path: [[1,1], [2,1], [2,0.5]],
+    moves: ['等容增压 (P↑→T↑)', '等压压缩 (V↓→T↓)'],
+    Ts: [1, 2, 1],
+    note:'两步可调使末 T 复原 = 1。'},
+  { tag:'E', correct:false,
+    path: [[1,1], [2,1], [1,2]],
+    moves: ['等容增压 (P↑→T↑)', '等温膨胀 (T 不变)'],
+    Ts: [1, 2, 2],
+    note:'末态 T=2 > 初 T=1。'}
+];
+
+const T_total = 8;
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 5 选项一字排开，u 推进显示阶段：
+  // u<0.2: 仅初态点
+  // u 在 [0.2*i, 0.2*(i+1)] 显示选项 i 的两步动画
+  const which = Math.min(4, Math.floor(u * 5));
+  const sub = (u * 5) - which;     // 0..1 子进度
+  // sub<0.5: 走第一段；sub>=0.5: 走第二段
+  return {u, which, sub};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 5 个子图横向 + 上下分栏
+  const sw = (W - 30) / 5;
+  for(let i = 0; i < 5; i++){
+    drawOption(ctx, 14 + i * sw, 14, sw - 8, H * 0.65 - 14, options[i], i, state);
+  }
+  drawSummary(ctx, 14, H * 0.65 + 4, W - 28, H * 0.35 - 14, state);
+}
+
+function drawOption(ctx, panelX, panelY, panelW, panelH, opt, idx, state){
+  ctx.fillStyle = opt.correct ? '#fafaf6' : '#fafaf6';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,8);ctx.fill();ctx.stroke();}
+
+  // 标题（不剧透对错）
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(opt.tag, panelX+8, panelY+18);
+  ctx.font = '500 9px "Noto Sans SC",sans-serif';
+  ctx.fillText(opt.moves[0], panelX+8, panelY+32);
+  ctx.fillText(opt.moves[1], panelX+8, panelY+44);
+
+  // P-V 坐标系
+  const padX = 26, padY = 56;
+  const padBot = 30;
+  const cw = panelW - 2*padX, ch = panelH - padY - padBot;
+  const x0 = panelX + padX, y0 = panelY + padY + ch;
+  const Vmax = 2.5, Pmax = 2.5;
+  const px = v => x0 + (v / Vmax) * cw;
+  const py = p => y0 - (p / Pmax) * ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, panelY + padY); ctx.lineTo(x0, y0); ctx.lineTo(x0 + cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 10px Georgia,serif';
+  ctx.fillText('P', x0 - 12, panelY + padY + 8);
+  ctx.fillText('V', x0 + cw - 4, y0 + 12);
+
+  // 等温线（可选背景指示）：PV = T₀ = 1
+  ctx.strokeStyle = '#dad6c8'; ctx.lineWidth = 0.8; ctx.setLineDash([2,2]);
+  ctx.beginPath();
+  for(let v = 0.4; v <= Vmax; v += 0.05){
+    const p = 1 / v;     // T₀=1 等温线
+    if(v === 0.4) ctx.moveTo(px(v), py(p));
+    else ctx.lineTo(px(v), py(p));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#dad6c8';
+  ctx.font = '500 8px ui-monospace,monospace';
+  ctx.fillText('T₀ 等温线', px(1.7), py(0.55));
+
+  // 路径动画（按当前选项 + 子进度）
+  const isActive = state.which === idx;
+  const isPast = state.which > idx;
+  const showFull = state.u >= 0.92;     // 末段全部展示
+
+  let progress = 0;
+  if(isPast || showFull) progress = 2;       // 全画
+  else if(isActive) progress = state.sub * 2;   // 0..2 (0~1 第一步，1~2 第二步)
+
+  // 画路径段
+  function drawSeg(p1, p2, segIdx){
+    const localProg = Math.max(0, Math.min(progress - segIdx, 1));
+    if(localProg <= 0) return;
+    const xEnd = p1[1] + localProg * (p2[1] - p1[1]);     // V
+    const yEnd = p1[0] + localProg * (p2[0] - p1[0]);     // P
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px(p1[1]), py(p1[0]));
+    if(p1[0] === p2[0] || p1[1] === p2[1]){
+      // 等压(P 同) 或等容(V 同) 或等温
+      // 等压：水平 P 不变 V 变；等容：垂直 V 不变 P 变
+      ctx.lineTo(px(xEnd), py(yEnd));
+    } else {
+      // 等温：双曲线 PV=const
+      const T = p1[0] * p1[1];
+      const N = 30;
+      for(let s = 1; s <= N; s++){
+        const r = s / N;
+        if(r > localProg) break;
+        const v_s = p1[1] + r * (p2[1] - p1[1]);
+        const p_s = T / v_s;
+        ctx.lineTo(px(v_s), py(p_s));
+      }
+    }
+    ctx.stroke();
+  }
+  drawSeg(opt.path[0], opt.path[1], 0);
+  drawSeg(opt.path[1], opt.path[2], 1);
+
+  // 三个状态点（初/中/末）
+  function drawPt(p, label, T_val, show){
+    if(!show) return;
+    const cx = px(p[1]), cy = py(p[0]);
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '600 8.5px ui-monospace,monospace';
+    ctx.fillText(label, cx + 5, cy - 2);
+  }
+  drawPt(opt.path[0], '初', opt.Ts[0], true);
+  drawPt(opt.path[1], '中', opt.Ts[1], progress >= 0.95 || isPast || showFull);
+  drawPt(opt.path[2], '末', opt.Ts[2], progress >= 1.95 || isPast || showFull);
+
+  // T 比较（仅显示选项已演示完后）
+  if(isPast || (isActive && progress >= 1.95) || showFull){
+    const T0 = opt.Ts[0], Tf = opt.Ts[2];
+    const eq = Math.abs(T0 - Tf) < 1e-6;
+    if(state.u >= 0.92){     // 仅 92% 后显示对错
+      ctx.fillStyle = eq ? '#16613f' : '#b4442e';
+      ctx.font = '900 11px "Noto Sans SC",sans-serif';
+      ctx.fillText(eq ? '✓' : '✗', panelX + panelW - 22, panelY + 18);
+    }
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '600 9px ui-monospace,monospace';
+    ctx.fillText(`T_末/T_初 = ${(Tf/T0).toFixed(2)}`, panelX + 8, y0 + 22);
+  }
+}
+
+function drawSummary(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('核心：理想气体 U = nC_v·T，仅由 T 决定 → ΔU = 0 ⇔ T 不变', panelX + 12, panelY + 20);
+
+  const lines = [];
+  if(state.u >= 0.20) lines.push({c:'#3a3a3c', t:'• A 两步等温 → T 始终 = T₀'});
+  if(state.u >= 0.40) lines.push({c:'#3a3a3c', t:'• B 等压膨胀 T↑，等温压缩 T 不变 → 末 T > T₀'});
+  if(state.u >= 0.60) lines.push({c:'#3a3a3c', t:'• C 等容减压 T↓，等压膨胀 T↑ → 可调使 T 复原'});
+  if(state.u >= 0.80) lines.push({c:'#3a3a3c', t:'• D 等容增压 T↑，等压压缩 T↓ → 可调使 T 复原'});
+  if(state.u >= 0.90) lines.push({c:'#3a3a3c', t:'• E 等容增压 T↑，等温膨胀 T 不变 → 末 T > T₀'});
+
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX + 14, yy);
+    yy += 17;
+  });
+
+  if(state.u > 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX + panelW - 130, panelY + 8, 118, 28, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 ACD', panelX + panelW - 110, panelY + 26);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 13 题 · 6 分',
+  title: '理想气体内能 · 5 选项过程对比',
+  subtitle: '理想气体 U = nC_v·T 仅由 T 决定。判 5 选项末态 T 是否可能等于初态。',
+  deliv: {
+    title: 'P-V 路径分析 · 末态 T 比较',
+    sub: 'A/C/D 末态 T 可复原（多选）'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 多选 · 第 13 题 · 6 分',
+    text: `对于一定量的理想气体，经过下列过程，其初始状态的内能与末状态的内能可能相等的是（    ）`,
+    subQuestions: [
+      'A. 等温增压后再等温膨胀',
+      'B. 等压膨胀后再等温压缩',
+      'C. 等容减压后再等压膨胀',
+      'D. 等容增压后再等压压缩',
+      'E. 等容增压后再等温膨胀'
+    ],
+    officialAnswer: 'ACD · 理想气体内能 U 仅由温度 T 决定（U = nC_v·T）。\nA：两步均等温 → T 不变 → ΔU = 0 ✓\nB：等压膨胀 V↑→T↑（PV=nRT，P 不变 V 增大→T 增大）；等温压缩 T 不变 → 末 T > T₀，ΔU > 0 ✗\nC：等容减压 P↓→T↓；等压膨胀 V↑→T↑。两步幅度可调使末 T 复原 = T₀ ✓\nD：等容增压 P↑→T↑；等压压缩 V↓→T↓。两步幅度可调使末 T 复原 = T₀ ✓\nE：等容增压 T↑；等温膨胀 T 不变 → 末 T > T₀ ✗\n故选 ACD。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'核心原理', label_short:'原理',
+     formula_tex: String.raw`U = n C_v T \;\Rightarrow\; \Delta U = 0 \Leftrightarrow T_{\text{末}} = T_{\text{初}}`,
+     note:'理想气体内能仅由温度决定。'},
+    {label:'判据：每步过程 T 变化', label_short:'判据',
+     formula_tex: String.raw`PV = nRT \;\Rightarrow\; T = \dfrac{PV}{nR}`,
+     note:'等温 T 不变；等压 V↑→T↑；等容 P↑→T↑。'},
+    {label:'A 两步等温', label_short:'A',
+     formula_tex: String.raw`T_0 \to T_0 \to T_0`,
+     note:'T 始终不变。'},
+    {label:'C/D 反向叠加可复原', label_short:'C/D',
+     formula_tex: String.raw`T\downarrow + T\uparrow \;\text{或}\; T\uparrow + T\downarrow`,
+     note:'两段方向相反，幅度可调 → 可使末 T = 初 T。'},
+    {label:'B/E 同向 T 升 ✗', label_short:'B/E',
+     formula_tex: String.raw`T\uparrow + (\text{T 不变}) \;\Rightarrow\; T_{\text{末}} > T_0`,
+     note:'两段中只有一段 T 升、另一段 T 不变 → 末态 T 必升。'}
+  ],
+  stats: [
+    {label:'选项 A', fmt:()=>'两步等温 → ✓'},
+    {label:'选项 B', fmt:()=>'等压↑ + 等温 → ✗'},
+    {label:'选项 C', fmt:()=>'等容↓ + 等压↑ → ✓'},
+    {label:'选项 D', fmt:()=>'等容↑ + 等压↓ → ✓'},
+    {label:'选项 E', fmt:()=>'等容↑ + 等温 → ✗'},
+    {label:'核心', fmt:()=>'U = f(T) 单变量'},
+    {label:'当前选项', fmt:s=>['A','B','C','D','E'][s.which]}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'两步等温',         note:'T 不变'},
+    {label_text:'B 错', value_text:'末 T &gt; T₀',     note:'等压膨胀 T↑'},
+    {label_text:'C 对', value_text:'反向叠加复原',     note:'T↓+T↑'},
+    {label_text:'D 对', value_text:'反向叠加复原',     note:'T↑+T↓'},
+    {label_text:'E 错', value_text:'末 T &gt; T₀',     note:'等温保持升高态'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'P-V 路径'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'状态点 初/中/末'},
+    {swatch:{bg:'#dad6c8',border:'#dad6c8',type:'rect'}, text:'T₀ 等温线（双曲线）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023全国乙-Q13-理想气体'
+});
+</script>
+</body>
+</html>
