@@ -39,22 +39,31 @@ function drawScene(ctx, view, state, t, opts){
   ctx.fillStyle = '#fffdf9';
   ctx.fillRect(0,0,W,H);
 
-  // 水池 + 排水管
-  const tankX = 60, tankY0 = H*0.55, tankH = H*0.32;
-  ctx.fillStyle = '#cfe0e8';
-  ctx.fillRect(tankX, tankY0+30, 220, tankH);
-  ctx.strokeStyle = '#88a4ae'; ctx.lineWidth = 2;
-  ctx.strokeRect(tankX, tankY0+30, 220, tankH);
-  ctx.fillStyle = '#5d6964';
-  ctx.font = '600 11px "Noto Sans SC",sans-serif';
-  ctx.fillText('水池', tankX+90, tankY0+50);
-  // 水面
-  ctx.fillStyle = '#a3c4d2';
-  ctx.fillRect(tankX, tankY0+30, 220, 4);
-
-  // 排水管（横放）
+  // 排水管（横放，先画以便确定 pxPerM）
+  const tankY0 = H*0.55, tankH = H*0.32;
   const pipeY = tankY0;
   const pipeX0 = 30, pipeX1 = 200;
+
+  // 像素 / 米（先算落点）
+  const pxPerM_x = (W - pipeX1 - 80) / d * 0.85;
+  const pxPerM_y = (tankY0+30 - pipeY) / h;
+  const landX_calc = pipeX1 + d * pxPerM_x;
+
+  // 水池：覆盖管口下方到落点之外（保证水柱落入水池内）
+  const tankX = pipeX1 - 20;     // 水池起点：略在管口左侧
+  const tankW = (landX_calc - tankX) + 60;     // 宽度：覆盖落点 + 60 缓冲
+  ctx.fillStyle = '#cfe0e8';
+  ctx.fillRect(tankX, tankY0+30, tankW, tankH);
+  ctx.strokeStyle = '#88a4ae'; ctx.lineWidth = 2;
+  ctx.strokeRect(tankX, tankY0+30, tankW, tankH);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('水池', tankX+tankW/2-12, tankY0+50);
+  // 水面
+  ctx.fillStyle = '#a3c4d2';
+  ctx.fillRect(tankX, tankY0+30, tankW, 4);
+
+  // 排水管
   ctx.fillStyle = '#5d6068';
   ctx.fillRect(pipeX0, pipeY-10, pipeX1-pipeX0, 20);
   ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
@@ -62,10 +71,6 @@ function drawScene(ctx, view, state, t, opts){
   ctx.fillStyle = '#3f6f8f';
   ctx.font = '600 10px "Noto Sans SC",sans-serif';
   ctx.fillText('S 截面', pipeX0+10, pipeY-15);
-
-  // 像素 / 米
-  const pxPerM_x = (W - pipeX1 - 80) / d * 0.85;
-  const pxPerM_y = (tankY0+30 - pipeY) / h;
 
   // 落点位置
   const landX = pipeX1 + d * pxPerM_x;

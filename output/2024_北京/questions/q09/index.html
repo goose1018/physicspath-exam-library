@@ -58,7 +58,8 @@ function drawPhoneSpring(ctx, x, y, w, h, state){
   const cx = x + w/2;
   const yCeiling = y + 40;
   const yEqu = y + h*0.55;     // 平衡位置
-  const yPhone = yEqu + state.x*1500;     // 位移放大显示
+  // state.x 物理坐标向上为正；canvas y 向下为正 → 减号翻转方向
+  const yPhone = yEqu - state.x*1500;
 
   // 天花板
   ctx.fillStyle = '#5d6068';

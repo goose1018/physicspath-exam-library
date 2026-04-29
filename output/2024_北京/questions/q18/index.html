@@ -77,15 +77,15 @@ function drawProjectileVersion(ctx, state){
   ctx.fillStyle = '#fdfaf2';
   ctx.fillRect(tableX1-30, boardY-3, W-tableX1, 3);
 
-  // O 点
+  // O 点（斜槽末端正下方在地面上）
   const Ox = tableX1, Oy = boardY;
   ctx.fillStyle = '#1d1d1f';
   ctx.beginPath(); ctx.arc(Ox, Oy, 4, 0, Math.PI*2); ctx.fill();
   ctx.font = '900 12px "Cambria Math",serif';
   ctx.fillText('O', Ox-12, Oy+18);
 
-  // 三个落点 P, M, N
-  const Px = Ox + 240, Mx = Ox + 80, Nx = Ox + 280;
+  // 三个落点 P, M, N（按物理 OP > ON > OM）
+  const Px = Ox + 240, Mx = Ox + 80, Nx = Ox + 180;
   drawHit(ctx, Px, Oy, '#3f6f8f', 'P  (m₁ 单独)');
   drawHit(ctx, Mx, Oy, '#c2611f', 'M  (m₁ 碰后)');
   drawHit(ctx, Nx, Oy, '#16613f', 'N  (m₂ 碰后)');
@@ -94,6 +94,58 @@ function drawProjectileVersion(ctx, state){
   drawRulerLine(ctx, Ox, Px, Oy+30, '#3f6f8f', 'OP');
   drawRulerLine(ctx, Ox, Mx, Oy+50, '#c2611f', 'OM');
   drawRulerLine(ctx, Ox, Nx, Oy+70, '#16613f', 'ON');
+
+  // 平抛轨迹动画（基于 state.u 演示三种小球飞行）
+  // u in [0, 0.33]: 单球落到 P；[0.33, 0.66]: m₁ 落到 M；[0.66, 1.0]: m₂ 落到 N
+  const fallH = boardY - tableY - 2;     // 平抛下落高度
+  function projectileXY(targetX, k){
+    // k ∈ [0,1]: 平抛过程进度。x 线性 (匀速)，y 二次 (重力加速)
+    const dxRange = targetX - Ox;
+    const x = Ox + dxRange * k;
+    const y = (tableY-2) + fallH * k * k;     // y 抛物线
+    return {x, y};
+  }
+  // 抛物线虚线（OP/OM/ON 三条轨迹同时显示便于对比）
+  function drawTrajectory(targetX, color){
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    for(let k=0; k<=1; k+=0.05){
+      const p = projectileXY(targetX, k);
+      if(k===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  drawTrajectory(Px, 'rgba(63,111,143,0.35)');
+  drawTrajectory(Mx, 'rgba(194,97,31,0.35)');
+  drawTrajectory(Nx, 'rgba(22,97,63,0.35)');
+
+  // 当前球（按阶段切换）
+  const u = state.u;
+  let activeBall = null;
+  if(u < 0.33){
+    const k = u/0.33;
+    const p = projectileXY(Px, k);
+    activeBall = {x:p.x, y:p.y, color:'#3f6f8f', label:'m₁'};
+  } else if(u < 0.66){
+    const k = (u-0.33)/0.33;
+    const p = projectileXY(Mx, k);
+    activeBall = {x:p.x, y:p.y, color:'#c2611f', label:'m₁'};
+  } else {
+    const k = (u-0.66)/0.34;
+    const p = projectileXY(Nx, k);
+    activeBall = {x:p.x, y:p.y, color:'#16613f', label:'m₂'};
+  }
+  if(activeBall){
+    ctx.fillStyle = activeBall.color;
+    ctx.beginPath(); ctx.arc(activeBall.x, activeBall.y, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 9px "Noto Sans SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(activeBall.label, activeBall.x, activeBall.y+3);
+    ctx.textAlign = 'left';
+  }
 
   // 公式
   ctx.fillStyle = '#fdf3e6';
@@ -119,42 +171,41 @@ function drawPendulumVersion(ctx, state){
   ctx.font = '800 13px "Noto Sans SC",sans-serif';
   ctx.fillText('版本 2：双摆球碰撞 · 弦长 l 正比于速度 → ml₁ = -ml₂ + Ml₃', 24, 22);
 
-  // 双摆挂点 O 和 O'
-  const xL = W*0.35, xR = W*0.55;
+  // 双摆同挂点（实验装置：两球紧靠，挂在同一支架上，最低点重合便于碰撞）
+  const xC = W*0.45;     // 共同挂点 x
   const yCeil = 50;
   const L_rope = 200;
+  // 支架（横梁）
   ctx.fillStyle = '#5d6068';
-  ctx.fillRect(xL-50, yCeil-10, (xR-xL)+100, 8);
+  ctx.fillRect(xC-100, yCeil-10, 200, 8);
   ctx.fillStyle = '#1d1d1f';
-  ctx.beginPath(); ctx.arc(xL, yCeil-2, 3, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(xR, yCeil-2, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(xC, yCeil-2, 3, 0, Math.PI*2); ctx.fill();
 
-  // 用 state.u (0..1) 演示：
-  // u in [0, 0.3]: 球 1 从 A 摆到 B（最低点）
-  // u in [0.3, 0.4]: 碰撞瞬间
-  // u in [0.4, 1.0]: 球 1 反弹到 A'，球 2 摆到 D
+  // 阶段：
+  // u in [0, 0.4]: 球 1 (m) 从 A 摆到 B 最低点（球 2 静止在最低点）
+  // u in [0.4, 1.0]: 碰后，球 1 反弹到 A'（左小角），球 2 摆到 D（右）
   const phaseU = state.u;
+  const angA = -Math.PI/4;     // 球 1 起始角（左侧 45°）
+  const angAp = Math.PI/8;     // 球 1 碰后反弹左侧小角
+  const angD = Math.PI/6;      // 球 2 碰后摆到右侧 D 的角
   let theta1, theta2;
-  const angA = -Math.PI/4;     // 起始角（A 在 B 左侧 45°）
-  const angAp = Math.PI/8;     // 碰后回弹（小一点）
-  const angD = -Math.PI/6;     // 球 2 摆到 D 的角（向左？反，反向）
-  // 实际：球 1 在右挂点 (...) 实际太复杂，简化两球分别挂左右
   if(phaseU < 0.4){
-    // 球 1 从 A 到 B
     const k = phaseU / 0.4;
-    theta1 = angA * (1 - k);     // 从 -π/4 → 0
-    theta2 = 0;                   // 球 2 静止
+    theta1 = angA * (1 - k);     // -π/4 → 0
+    theta2 = 0;                   // 球 2 静止在最低点
   } else {
     const k = (phaseU - 0.4) / 0.6;
-    theta1 = angAp * k;     // 球 1 反弹（左侧小角度）
-    theta2 = -angD * k;      // 球 2 向右（D 方向）
+    // 摆球甩出 → 摆回 (类似 sin) — 简单线性到最高点
+    const swing = Math.sin(k * Math.PI);     // 0 → 1 → 0
+    theta1 = angAp * swing;     // 球 1 反弹到 A' 又回最低点
+    theta2 = angD * swing;      // 球 2 摆到 D 又回最低点
   }
 
-  // 球 1 (m, 小球)
-  const ball1_x = xL + L_rope*Math.sin(theta1);
+  // 球 1 挂在 xC，碰撞前从左侧摆下
+  const ball1_x = xC + L_rope*Math.sin(theta1);
   const ball1_y = yCeil + L_rope*Math.cos(theta1);
   ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(xL, yCeil); ctx.lineTo(ball1_x, ball1_y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(xC, yCeil); ctx.lineTo(ball1_x, ball1_y); ctx.stroke();
   ctx.fillStyle = '#c2611f';
   ctx.beginPath(); ctx.arc(ball1_x, ball1_y, 10, 0, Math.PI*2); ctx.fill();
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
@@ -163,11 +214,12 @@ function drawPendulumVersion(ctx, state){
   ctx.textAlign = 'center';
   ctx.fillText('m', ball1_x, ball1_y+4);
 
-  // 球 2 (M, 大球)
-  const ball2_x = xR + L_rope*Math.sin(theta2);
+  // 球 2 也挂在 xC（紧靠，但视觉略偏 +x 让两球可见区分）
+  // 球 2 摆动时从最低点（xC, yCeil+L_rope）出发，大球用更大半径
+  const ball2_x = xC + L_rope*Math.sin(theta2);
   const ball2_y = yCeil + L_rope*Math.cos(theta2);
   ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(xR, yCeil); ctx.lineTo(ball2_x, ball2_y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(xC, yCeil); ctx.lineTo(ball2_x, ball2_y); ctx.stroke();
   ctx.fillStyle = '#3f6f8f';
   ctx.beginPath(); ctx.arc(ball2_x, ball2_y, 13, 0, Math.PI*2); ctx.fill();
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
@@ -175,12 +227,24 @@ function drawPendulumVersion(ctx, state){
   ctx.fillText('M', ball2_x, ball2_y+4);
   ctx.textAlign = 'left';
 
-  // 标记 A, B, A', D
+  // 碰撞瞬间高亮（u≈0.4）
+  if(Math.abs(phaseU - 0.4) < 0.05){
+    ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(xC, yCeil + L_rope, 24, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('碰撞瞬间', xC + 28, yCeil + L_rope + 4);
+  }
+
+  // 标记 A, B, A', D（基于 xC 共同挂点）
   ctx.fillStyle = '#94a09b';
   ctx.font = '600 10px "Noto Sans SC",sans-serif';
-  ctx.fillText('A (起始)', xL + L_rope*Math.sin(angA) - 30, yCeil + L_rope*Math.cos(angA) + 18);
-  ctx.fillText('B (碰撞)', xL - 25, yCeil + L_rope + 18);
-  ctx.fillText('D (右最高)', xR + L_rope*Math.sin(-angD) - 5, yCeil + L_rope*Math.cos(-angD) + 18);
+  ctx.fillText('A (m 起始)', xC + L_rope*Math.sin(angA) - 30, yCeil + L_rope*Math.cos(angA) + 18);
+  ctx.fillText('B (碰撞点)', xC - 25, yCeil + L_rope + 24);
+  ctx.fillText("A' (m 反弹)", xC + L_rope*Math.sin(angAp) + 8, yCeil + L_rope*Math.cos(angAp) + 18);
+  ctx.fillText('D (M 最高)', xC + L_rope*Math.sin(angD) + 8, yCeil + L_rope*Math.cos(angD) + 18);
 
   // 公式
   ctx.fillStyle = '#fdf3e6';

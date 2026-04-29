@@ -37,12 +37,13 @@ function drawScene(ctx, view, state, t, opts){
   const cx = W*0.32, cy = H*0.5;
   const Rmax = Math.min(W*0.25, H*0.4);
 
-  // 星空背景
+  // 星空背景（确定性 — 不用 Math.random 避免每帧闪烁）
   for(let i=0; i<60; i++){
     const x = (Math.sin(i*7.3)*0.5+0.5)*W;
     const y = (Math.cos(i*5.1)*0.5+0.5)*H;
     ctx.fillStyle = `rgba(150,160,175,${0.3+(Math.sin(i*2.7)*0.5+0.5)*0.4})`;
-    ctx.beginPath(); ctx.arc(x,y, Math.random()*1.2+0.5, 0, Math.PI*2); ctx.fill();
+    const r = 0.5 + (Math.sin(i*1.7)*0.5+0.5)*1.2;
+    ctx.beginPath(); ctx.arc(x,y, r, 0, Math.PI*2); ctx.fill();
   }
 
   // O 点（观测点，中心）
@@ -82,12 +83,13 @@ function drawScene(ctx, view, state, t, opts){
   ctx.font = 'italic 700 11px Georgia,serif';
   ctx.fillText('r', (cx+Px)/2+5, (cy+Py)/2+5);
 
-  // 内部填充（密度 ∝ ρ）
+  // 内部填充（密度 ∝ ρ）— 确定性锚点 + 随膨胀径向外移
   const dotCount = Math.floor(60 * state.rho_ratio);
   ctx.fillStyle = 'rgba(180, 100, 50, 0.5)';
   for(let i=0; i<dotCount; i++){
-    const ang = Math.random() * Math.PI*2;
-    const rad = Math.sqrt(Math.random()) * r_now * 0.95;
+    const ang = i * 2.39996;     // 黄金角，分布均匀
+    const rad_norm = Math.sqrt((i+0.5)/60);     // 锚点半径（归一化）
+    const rad = rad_norm * r_now * 0.95;     // 随 r_now 膨胀外移
     const xx = cx + rad*Math.cos(ang);
     const yy = cy + rad*Math.sin(ang);
     ctx.beginPath(); ctx.arc(xx, yy, 1.2, 0, Math.PI*2); ctx.fill();

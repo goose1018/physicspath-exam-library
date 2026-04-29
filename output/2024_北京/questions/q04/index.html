@@ -36,12 +36,13 @@ function drawScene(ctx, view, state, t, opts){
   ctx.fillStyle = '#fffdf9';
   ctx.fillRect(0,0,W,H);
 
-  // 太空背景
+  // 太空背景（确定性星点 — 不用 Math.random 避免每帧闪烁）
   for(let i=0; i<40; i++){
     const x = (Math.sin(i*7.3)*0.5+0.5)*W;
     const y = (Math.cos(i*5.1)*0.5+0.5)*H;
     ctx.fillStyle = `rgba(150,160,175,${0.4 + (Math.sin(i*2.7)*0.5+0.5)*0.5})`;
-    ctx.beginPath(); ctx.arc(x,y, Math.random()*1.2+0.5, 0, Math.PI*2); ctx.fill();
+    const r = 0.5 + (Math.sin(i*3.1)*0.5+0.5)*1.2;
+    ctx.beginPath(); ctx.arc(x,y, r, 0, Math.PI*2); ctx.fill();
   }
 
   const cy = H * 0.5;
@@ -53,9 +54,9 @@ function drawScene(ctx, view, state, t, opts){
   drawStation(ctx, baseX + 130, cy, M_station);
   // 飞船
   drawShip(ctx, baseX, cy, m_ship);
-  // 对接管
+  // 对接管（从飞船右端 baseX+30 到空间站左端 baseX+105）
   ctx.strokeStyle = '#5d6068'; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(baseX+50, cy); ctx.lineTo(baseX+95, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(baseX+30, cy); ctx.lineTo(baseX+105, cy); ctx.stroke();
 
   // 推力 F (作用在飞船上，向右)
   PPath.arrow(ctx, baseX-30, cy, baseX-10, cy, '#c2611f', 3);
