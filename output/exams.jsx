@@ -175,6 +175,9 @@ const REAL_PROBLEMS = [
   { id:'2023-gk2-q16', year:2023, paper:'gk2', no:'16', module:'光学',     tplId:null, title:'等腰直角棱镜 · 折射+反射几何（计算）',           summary:'n=√2 等腰直角；i=45°→r=30°；折射光与水平 15°，反射射向 A；AM=(3−√3)/3·AB。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q16/index.html' },
   // ── 2023 新课标卷 ──
   { id:'2023-xgk1-q05', year:2023, paper:'xgk1', no:'5',  module:'电磁学',  tplId:null, title:'电子+α 粒子电磁场方向判断',                       summary:'α 直线打 a 受力平衡 v_α=E/B；电子 v_e>v_α 净力向右偏 b。E 向右 + B 向里。答案 C。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_新课标卷/questions/q05/index.html' },
+  { id:'2023-xgk1-q06', year:2023, paper:'xgk1', no:'6',  module:'力学',    tplId:null, title:'两条形磁铁吸引 · 摩擦+动量',                       summary:'m_甲>m_乙 μ 同；a_i=F/m_i−μg → v_甲<v_乙；|p_甲|<|p_乙|；Σp=−μg(m₁−m₂)t 向左不为零。答案 BD。', diff:'中', heat:115, hasAnim:true, htmlPath:'2023_新课标卷/questions/q06/index.html' },
+  // ── 2021 全国甲卷 ──
+  { id:'2021-gk1-q01', year:2021, paper:'gk1', no:'1',  module:'力学',    tplId:null, title:'光滑长平板下滑时间随夹角变化',                    summary:'PQ 水平距离 L 固定；t(θ)=2√(L/g·sin2θ)；45° 最小，30°/60° 同值。30°→60° 先减后增。答案 D。', diff:'中', heat:140, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q01/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -276,6 +279,9 @@ const PROBLEM_META = {
   '2023-gk2-q16': { type:'calc',          answer:[{sub:'AM',val:'(3−√3)/3 · AB ≈ 0.423 AB'}] },
   // 2023 新课标卷
   '2023-xgk1-q05': { type:'choice-single', answer:'C' },
+  '2023-xgk1-q06': { type:'choice-multi',  answer:'BD' },
+  // 2021 全国甲卷
+  '2021-gk1-q01': { type:'choice-single', answer:'D' },
 };
 
 // 按 year×paper 计数

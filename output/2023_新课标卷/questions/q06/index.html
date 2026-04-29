@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 新课标 · 第 6 题 · 两条形磁铁吸引（摩擦+动量）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：甲（左，N 极朝右）和乙（右，S 极朝左），m_甲 > m_乙，μ 相同
+// 同时释放 → 互相吸引（甲被拉向右、乙被拉向左）
+//
+// 取 +x 向右
+// 甲：磁吸力 +F、摩擦 -μm_甲g（甲向右动 → 摩擦向左）→ 净力 (F-μm_甲g) 向右
+// 乙：磁吸力 -F、摩擦 +μm_乙g（乙向左动 → 摩擦向右）→ 净力 (F-μm_乙g) 向左
+//
+// 加速度大小：
+//   a_甲 = (F-μm_甲g)/m_甲 = F/m_甲 - μg
+//   a_乙 = (F-μm_乙g)/m_乙 = F/m_乙 - μg
+// m_甲 > m_乙 → F/m_甲 < F/m_乙 → a_甲 < a_乙 → v_甲 < v_乙 → A 错
+//
+// 动量大小（dp/dt = F_net）：
+//   |p_甲| = (F-μm_甲g)·t,  |p_乙| = (F-μm_乙g)·t
+//   m_甲g·μ > m_乙g·μ → |p_甲| < |p_乙| → B 对、C 错
+//
+// 合动量（系统）：内力 ±F 抵消，外力只剩摩擦差
+//   ΣF = -μm_甲g + μm_乙g = -μg(m_甲-m_乙) < 0  → 合动量向左不为零 → D 对
+// 答案 BD
+
+// 参数（定性近似，视觉化）
+const m_jia = 2.0;   // 甲质量（kg）
+const m_yi  = 1.0;   // 乙质量（kg）
+const mu    = 0.2;   // 共同动摩擦因数
+const g_g   = 10;    // 重力加速度
+const F_mag = 6.0;   // 磁吸力（恒力简化，定性）
+const a_jia = (F_mag - mu*m_jia*g_g) / m_jia;  //  1 m/s²
+const a_yi  = (F_mag - mu*m_yi*g_g)  / m_yi;   //  4 m/s²
+const x0_jia = -2.5;  // 甲初始位置
+const x0_yi  =  2.5;  // 乙初始位置
+const T_total = 1.0;
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  const tt = u * T_total;
+  // 位置
+  const xJia = x0_jia + 0.5*a_jia*tt*tt;       // 甲向右
+  const xYi  = x0_yi  - 0.5*a_yi *tt*tt;       // 乙向左
+  // 速度大小
+  const vJia = a_jia*tt;
+  const vYi  = a_yi *tt;
+  // 动量（带方向，+x 右）
+  const pJia = +m_jia*vJia;
+  const pYi  = -m_yi *vYi;
+  const pTot = pJia + pYi;
+  return {u, t, tt, xJia, xYi, vJia, vYi, pJia, pYi, pTot};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawApparatus(ctx, 14, 14, W*0.58-21, H-28, state);
+  drawAnalysis(ctx,  W*0.58+7, 14, W*0.42-21, H-28, state);
+}
+
+function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('水平桌面 · 两条形磁铁同时释放后相互吸引', panelX+12, panelY+18);
+
+  // 坐标系
+  const xMin = -4, xMax = 4;
+  const padX = 22, padY = 36;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const offX = panelX + padX + (-xMin)*sx;
+  const yGround = panelY + panelH - 60;  // 桌面 y
+  const px = x => offX + x*sx;
+
+  // 桌面线 + 阴影纹
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(panelX+12, yGround); ctx.lineTo(panelX+panelW-12, yGround); ctx.stroke();
+  ctx.strokeStyle = '#bfb09a'; ctx.lineWidth = 1;
+  for(let xi = panelX+12; xi < panelX+panelW-12; xi += 7){
+    ctx.beginPath(); ctx.moveTo(xi, yGround); ctx.lineTo(xi+5, yGround+8); ctx.stroke();
+  }
+
+  // 磁铁尺寸
+  const barH = 26, barW = sx*1.2;
+
+  // 甲磁铁（左）：左侧 S 蓝、右侧 N 红
+  drawBar(ctx, px(state.xJia)-barW/2, yGround-barH, barW, barH, '甲');
+
+  // 乙磁铁（右）：左侧 S 蓝、右侧 N 红 — 但乙的 S 朝左对着甲的 N
+  // 即：乙朝左（朝甲）的端是 S，所以乙画成左 S（蓝）右 N（红）即可
+  drawBar(ctx, px(state.xYi )-barW/2, yGround-barH, barW, barH, '乙');
+
+  // 标签 m_甲、m_乙（始终显示）
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('m_甲 = 2 kg', px(state.xJia)-30, yGround-barH-6);
+  ctx.fillText('m_乙 = 1 kg', px(state.xYi )-30, yGround-barH-6);
+
+  // 力箭头：磁吸力 F（紫色等大反向，u>=0.15 揭晓）
+  if(state.u >= 0.15){
+    const fyArrow = yGround - barH/2;
+    const aLen = sx*0.9;
+    PPath.arrow(ctx, px(state.xJia)+barW/2, fyArrow, px(state.xJia)+barW/2+aLen, fyArrow, '#7d4f9c', 1.6);
+    PPath.arrow(ctx, px(state.xYi )-barW/2, fyArrow, px(state.xYi )-barW/2-aLen, fyArrow, '#7d4f9c', 1.6);
+    ctx.fillStyle = '#7d4f9c';
+    ctx.font = 'italic 700 12px Georgia,serif';
+    ctx.fillText('F', px(state.xJia)+barW/2+aLen+4, fyArrow+4);
+    ctx.fillText('F', px(state.xYi )-barW/2-aLen-12, fyArrow+4);
+  }
+
+  // 摩擦力箭头（u>=0.30 揭晓，长度反映 μmg 大小）
+  if(state.u >= 0.30){
+    // 摩擦力大小：μ·m_甲·g = 4N，μ·m_乙·g = 2N（甲摩擦更大）
+    const fJia = mu*m_jia*g_g;  // 4
+    const fYi  = mu*m_yi *g_g;  // 2
+    const fScale = sx*0.18;
+    // 甲向右动 → 摩擦向左
+    const fyF = yGround - 6;
+    PPath.arrow(ctx, px(state.xJia), fyF, px(state.xJia) - fJia*fScale, fyF, '#c2611f', 1.4);
+    // 乙向左动 → 摩擦向右
+    PPath.arrow(ctx, px(state.xYi),  fyF, px(state.xYi)  + fYi*fScale,  fyF, '#c2611f', 1.4);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('μm₁g=4N', px(state.xJia) - fJia*fScale-30, fyF+12);
+    ctx.fillText('μm₂g=2N', px(state.xYi)  + fYi*fScale+4,   fyF+12);
+  }
+
+  // 速度向量（u>=0.45 揭晓）— 显示 v_乙 > v_甲
+  if(state.u >= 0.45){
+    const vyArrow = yGround - barH - 18;
+    const vScale = sx*0.18;
+    if(state.vJia > 0.05){
+      PPath.arrow(ctx, px(state.xJia), vyArrow, px(state.xJia) + state.vJia*vScale, vyArrow, '#3f6f8f', 1.6);
+      ctx.fillStyle = '#3f6f8f';
+      ctx.font = '700 10px ui-monospace,monospace';
+      ctx.fillText('v_甲', px(state.xJia) + state.vJia*vScale + 4, vyArrow+4);
+    }
+    if(state.vYi > 0.05){
+      PPath.arrow(ctx, px(state.xYi),  vyArrow, px(state.xYi)  - state.vYi*vScale, vyArrow, '#16613f', 1.6);
+      ctx.fillStyle = '#16613f';
+      ctx.font = '700 10px ui-monospace,monospace';
+      ctx.fillText('v_乙', px(state.xYi)  - state.vYi*vScale - 24, vyArrow+4);
+    }
+  }
+
+  // 合动量箭头（u>=0.70 揭晓）— 在桌面下方显示
+  if(state.u >= 0.70){
+    const pyArrow = yGround + 26;
+    const pScale = sx*0.20;
+    // 中点
+    const mx = (px(state.xJia) + px(state.xYi)) / 2;
+    PPath.arrow(ctx, mx, pyArrow, mx + state.pTot*pScale, pyArrow, '#b4442e', 2.0);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('Σp（向左）', mx + state.pTot*pScale - 8, pyArrow-6);
+  }
+
+  // 答案文字（u>=0.85 才显示）
+  if(state.u >= 0.85){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('|p_甲| < |p_乙|（B 对）  ·  Σp ≠ 0（D 对）', panelX+12, panelY+panelH-8);
+  }
+}
+
+function drawBar(ctx, x, y, w, h, label){
+  // 左半 S（蓝）、右半 N（红）
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(x, y, w/2, h);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(x + w/2, y, w/2, h);
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+  // S/N 字母
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px Georgia,serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('S', x + w/4,     y + h/2 + 5);
+  ctx.fillText('N', x + 3*w/4,   y + h/2 + 5);
+  ctx.textAlign = 'start';
+  // 中文标签
+  ctx.fillStyle = '#3a3a3c';
+  ctx.font = '700 10px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, x + w/2 - 6, y + h + 12);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('受力分析与动量推导', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• 取 +x 向右；磁吸力 F 内力对'});
+  if(state.u >= 0.18) lines.push({c:'#7d4f9c', t:'  → F 大小同（牛三）'});
+  if(state.u >= 0.30) lines.push({c:'#c2611f', t:'• 摩擦：甲 μm₁g=4N（左）'});
+  if(state.u >= 0.32) lines.push({c:'#c2611f', t:'         乙 μm₂g=2N（右）'});
+  if(state.u >= 0.45) lines.push({c:'#3f6f8f', t:'• a₁ = F/m₁−μg = 1 m/s²'});
+  if(state.u >= 0.47) lines.push({c:'#16613f', t:'  a₂ = F/m₂−μg = 4 m/s²'});
+  if(state.u >= 0.55) lines.push({c:'#5d6964', t:'  → 同时刻 v_甲 比 v_乙 小'});
+  if(state.u >= 0.65) lines.push({c:'#5d6964', t:'• |p₁|=(F−μm₁g)t  vs  |p₂|=(F−μm₂g)t'});
+  if(state.u >= 0.70) lines.push({c:'#5d6964', t:'  甲摩擦更大 → 动量积累慢'});
+  if(state.u >= 0.78) lines.push({c:'#b4442e', t:'• 系统外力 = −μg(m₁−m₂) 向左'});
+  if(state.u >= 0.82) lines.push({c:'#b4442e', t:'  Σp = 系统外力·t 不为零'});
+  if(state.u >= 0.90) lines.push({c:'#c2611f', t:'答案 BD'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 16;
+  });
+
+  // 答案徽章（u>=0.85）
+  if(state.u >= 0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-46, panelW-24, 34, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BD', panelX+22, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '两条形磁铁吸引 · 摩擦+动量',
+  subtitle: 'm_甲&gt;m_乙，μ 相同；同时释放比较 v、p、Σp。',
+  deliv: { title: '受力分析 + 系统动量定理', sub: 'BD：|p_甲|&lt;|p_乙| 且 Σp≠0' },
+  originalProblem: {
+    meta: '2023 新课标 · 多选 · 第 6 题 · 6 分',
+    image: '../../source/images/image23.png',
+    text: `使甲、乙两条形磁铁隔开一段距离，静止于水平桌面上，甲的 N 极正对着乙的 S 极，甲的质量大于乙的质量，两者与桌面之间的动摩擦因数相等。现同时释放甲和乙，在它们相互接近过程中的任一时刻（    ）`,
+    subQuestions: [
+      'A. 甲的速度大小比乙的大',
+      'B. 甲的动量大小比乙的小',
+      'C. 甲的动量大小与乙的相等',
+      'D. 甲和乙的动量之和不为零'
+    ],
+    officialAnswer: 'BD · 受力分析（取 +x 右）：甲受磁吸力 +F 与摩擦 −μm₁g（甲向右动→摩擦向左），合力 (F−μm₁g) 向右；乙受磁吸力 −F 与摩擦 +μm₂g（乙向左动→摩擦向右），合力大小 (F−μm₂g) 向左。加速度 a₁=F/m₁−μg、a₂=F/m₂−μg；因 m₁&gt;m₂ → a₁&lt;a₂ → v_甲&lt;v_乙（A 错）。动量大小：|p_甲|=(F−μm₁g)t、|p_乙|=(F−μm₂g)t；因 μm₁g&gt;μm₂g → |p_甲|&lt;|p_乙|（B 对、C 错）。系统外力 ΣF=−μm₁g+μm₂g=−μg(m₁−m₂)&lt;0 → 合动量 Σp=−μg(m₁−m₂)t&lt;0 始终向左不为零（D 对）。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 内力对', label_short:'F',
+     formula_tex: String.raw`F_{\text{磁}} \;\text{对内力}, \;\; |F_{12}|=|F_{21}|`,
+     note:'磁吸力是甲乙之间的内力对（牛三），大小相等方向相反。'},
+    {label:'阶段 ② 摩擦差', label_short:'f',
+     formula_tex: String.raw`f_1 = \mu m_1 g, \;\; f_2 = \mu m_2 g, \;\; m_1>m_2 \;\Rightarrow\; f_1>f_2`,
+     note:'甲质量大 → 摩擦大；乙质量小 → 摩擦小（μ 相同）。'},
+    {label:'阶段 ③ 加速度', label_short:'a',
+     formula_tex: String.raw`a_i = F/m_i - \mu g \;\Rightarrow\; a_1<a_2 \;\Rightarrow\; v_甲<v_乙`,
+     note:'同时间→ v_甲 比 v_乙 小，A 错。'},
+    {label:'阶段 ④ 动量比较', label_short:'p',
+     formula_tex: String.raw`|p_i| = (F-\mu m_i g)\,t \;\Rightarrow\; |p_甲|<|p_乙|`,
+     note:'按动量定理：摩擦更大的甲，动量积累更慢；B 对、C 错。'},
+    {label:'阶段 ⑤ 合动量', label_short:'Σp',
+     formula_tex: String.raw`\Sigma p = -\mu g (m_1-m_2)\,t \neq 0 \;(\text{向左})`,
+     note:'系统外力（净摩擦差）向左 → 合动量始终向左不为零；D 对。'}
+  ],
+  stats: [
+    {label:'F 磁吸力',  fmt:s=>(s.u>=0.15? F_mag.toFixed(1)+' N' : '?')},
+    {label:'a_甲',      fmt:s=>(s.u>=0.45? a_jia.toFixed(2)+' m/s²' : '?')},
+    {label:'a_乙',      fmt:s=>(s.u>=0.45? a_yi .toFixed(2)+' m/s²' : '?')},
+    {label:'v_甲',      fmt:s=>(s.u>=0.45? s.vJia.toFixed(2)+' m/s' : '?')},
+    {label:'v_乙',      fmt:s=>(s.u>=0.45? s.vYi .toFixed(2)+' m/s' : '?')},
+    {label:'p_甲(右+)', fmt:s=>(s.u>=0.65? s.pJia.toFixed(2)+' kg·m/s' : '?')},
+    {label:'p_乙(右+)', fmt:s=>(s.u>=0.65? s.pYi .toFixed(2)+' kg·m/s' : '?')},
+    {label:'Σp',        fmt:s=>(s.u>=0.78? s.pTot.toFixed(2)+' kg·m/s' : '?')},
+    {label:'当前 t',    fmt:s=>(s.tt).toFixed(2)+' s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'v_甲 &lt; v_乙', note:'a_甲&lt;a_乙 → v_甲&lt;v_乙'},
+    {label_text:'B 对', value_text:'|p_甲| &lt; |p_乙| ✓', note:'摩擦阻动量积累'},
+    {label_text:'C 错', value_text:'|p_甲| ≠ |p_乙|', note:'内外力差异'},
+    {label_text:'D 对', value_text:'Σp ≠ 0（向左）✓', note:'净摩擦力向左'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'S 极（蓝）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'N 极（红）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'磁吸力 F'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'摩擦力 μmg'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'},  text:'v_甲'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'v_乙'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'Σp（合动量）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023新课标-Q6-磁铁吸引动量'
+});
+</script>
+</body>
+</html>
