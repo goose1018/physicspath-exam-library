@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 5 题 · 带电粒子磁场+电场（速度选择器）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：
+// 原情况（仅磁场 B 向里）：
+//   带电粒子从 O 沿 +x 入射 → 在磁场中做圆周运动 → 出射点 S 在 (a√3, a)（y 向下）
+//   几何：圆心 O' = (0, 2a)，半径 r = 2a
+//   S 处速度方向：与 x 轴夹 30° 向下（dy/dx = tan30°）
+//   出磁场后沿直线打到屏上 P 点；SP = l，S 到屏水平距离 l/2，竖直距离 l·√3/2
+//
+// 加电场后（速度选择器）：
+//   电场 E 沿 +y（向下）使粒子沿 x 直线 → qE = qvB → v = E/B
+//
+// 联立：
+//   r = mv/(qB) = 2a → v = 2aqB/m
+//   v = E/B
+//   → 2aqB/m = E/B
+//   → q/m = E/(2aB²)
+//
+// 答案 A: q/m = E/(2aB²)
+
+// 物理参数（无量纲，让动画好看即可）
+const a_dist = 1.0;          // a（题中长度参数）
+const r_circle = 2 * a_dist; // r = 2a
+const xMagLeft = 0;
+const xMagRight = a_dist * Math.sqrt(3);     // 磁场右边界 x 坐标 = a√3
+const xScreen = xMagRight + a_dist * 1.0;   // 屏的 x 坐标（视觉用 l/2 = a）
+
+// O' 圆心位置（canvas y 向下，与题图一致）
+const O_prime = {x: 0, y: r_circle};
+
+// S 点位置
+const S_pt = {x: xMagRight, y: a_dist};
+
+// S 处速度方向（顺时针圆周运动，速度沿切线指向运动方向）
+// 圆心到 S 的半径向量：S - O' = (a√3, -a)，长度 2a
+// 速度方向 = 半径向量 旋转 +90°（顺时针运动 = 在 canvas 视觉上）
+// 旋转 +90°（canvas 视角）：(x, y) → (-y, x)
+// 半径单位 = (√3/2, -1/2) → 旋转后 = (1/2, √3/2)
+// 即 v_at_S 单位向量 = (1/2, √3/2)
+const v_at_S = {x: 0.5, y: Math.sqrt(3)/2};
+
+// P 点位置：S + l·v̂_S，且水平距离 l/2 = (xScreen - S_pt.x)
+// l/2 = xScreen - xMagRight = a_dist
+// l = 2 * a_dist
+// SP_y = l · √3/2 = a_dist · √3
+const l_dist = 2 * (xScreen - S_pt.x);
+const P_pt = {x: xScreen, y: S_pt.y + l_dist * Math.sqrt(3)/2};
+
+// 动画时序
+// phase 1: 0 → 0.5  原情况（粒子从 O → 圆周 → S → 直线 → P）
+// phase 2: 0.5 → 1   加电场（粒子从 O → 沿 x 直线 → 屏）
+const T_total = 9;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* 纯函数预计算，无需重置 */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(t/T_total, 1));     // 0..1 全局进度
+
+  if(u < 0.5){
+    // Phase 1：原情况
+    const u1 = u / 0.5;     // 0..1 phase 进度
+    if(u1 < 0.6){
+      // 圆周段：u1 ∈ [0, 0.6]
+      const u_arc = u1 / 0.6;     // 0..1 弧线进度
+      const angle = -Math.PI/2 + u_arc * (Math.PI/3);     // -90° → -30°
+      return {
+        phase: 1,
+        sub: 'arc',
+        x: O_prime.x + r_circle * Math.cos(angle),
+        y: O_prime.y + r_circle * Math.sin(angle),
+        u, u1, t
+      };
+    } else {
+      // 直线段 S → P：u1 ∈ [0.6, 1]
+      const u_line = (u1 - 0.6) / 0.4;     // 0..1
+      return {
+        phase: 1,
+        sub: 'line',
+        x: S_pt.x + u_line * (P_pt.x - S_pt.x),
+        y: S_pt.y + u_line * (P_pt.y - S_pt.y),
+        u, u1, t
+      };
+    }
+  } else {
+    // Phase 2：加电场，沿 x 直线
+    const u2 = (u - 0.5) / 0.5;     // 0..1
+    return {
+      phase: 2,
+      sub: 'straight',
+      x: 0 + u2 * xScreen,
+      y: 0,
+      u, u2, t
+    };
+  }
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawOriginal(ctx, 14, 14, W*0.5-21, H-28, state);
+  drawWithE(ctx,    W*0.5+7, 14, W*0.5-21, H-28, state);
+}
+
+// 物理坐标 → 像素映射
+function makeProjector(panelX, panelY, panelW, panelH){
+  const xMin = -0.5, xMax = xScreen + 0.6;
+  const yMin = -0.8, yMax = 4.2;
+  const padX = 28, padY = 36;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - 2*padY) / (yMax - yMin);
+  const s = Math.min(sx, sy);
+  const offX = panelX + padX + (-xMin)*s + (panelW - 2*padX - (xMax-xMin)*s)/2;
+  const offY = panelY + padY + (-yMin)*s + (panelH - 2*padY - (yMax-yMin)*s)/2;
+  return {
+    px: x => offX + x*s,
+    py: y => offY + y*s,     // y 向下：物理 y 大 → canvas y 大（不反向）
+    s
+  };
+}
+
+function drawMagField(ctx, proj, panelX, panelY){
+  // 磁场区 × 矩阵
+  ctx.fillStyle = 'rgba(63,111,143,0.04)';
+  ctx.fillRect(proj.px(xMagLeft), proj.py(-0.6), proj.s*(xMagRight - xMagLeft), proj.s*4.6);
+  ctx.strokeStyle = 'rgba(63,111,143,0.6)';
+  ctx.lineWidth = 1;
+  // × 标记网格
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 12px Georgia,serif';
+  for(let xi = 0.4; xi < xMagRight; xi += 0.55){
+    for(let yi = -0.4; yi < 4.0; yi += 0.55){
+      ctx.fillText('×', proj.px(xi)-4, proj.py(yi)+4);
+    }
+  }
+  // 磁场右边界（蓝色虚线）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5; ctx.setLineDash([5,3]);
+  ctx.beginPath();
+  ctx.moveTo(proj.px(xMagRight), proj.py(-0.6));
+  ctx.lineTo(proj.px(xMagRight), proj.py(4.0));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // 标 B
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = 'italic 800 14px Georgia,serif';
+  ctx.fillText('B', proj.px(0.6), proj.py(2.5));
+}
+
+function drawAxes(ctx, proj){
+  // x 轴
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(proj.px(-0.4), proj.py(0));
+  ctx.lineTo(proj.px(xScreen+0.4), proj.py(0));
+  ctx.stroke();
+  // y 轴
+  ctx.beginPath();
+  ctx.moveTo(proj.px(0), proj.py(-0.6));
+  ctx.lineTo(proj.px(0), proj.py(4.0));
+  ctx.stroke();
+  // 箭头
+  PPath.arrow(ctx, proj.px(xScreen+0.2), proj.py(0), proj.px(xScreen+0.4), proj.py(0), '#5d6964', 1.5);
+  PPath.arrow(ctx, proj.px(0), proj.py(3.8), proj.px(0), proj.py(4.0), '#5d6964', 1.5);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('x', proj.px(xScreen+0.4)+4, proj.py(0)+4);
+  ctx.fillText('y', proj.px(0)-12, proj.py(4.0));
+  // O 标
+  ctx.fillText('O', proj.px(0)-12, proj.py(0)-4);
+}
+
+function drawScreen(ctx, proj){
+  // 接收屏（垂直 x 轴）
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(proj.px(xScreen), proj.py(-0.4));
+  ctx.lineTo(proj.px(xScreen), proj.py(4.0));
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('接收屏', proj.px(xScreen)+8, proj.py(0.5));
+}
+
+// === 左面板：原情况（仅磁场）===
+function drawOriginal(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('情形 ① 仅磁场 B（粒子圆周 → 直线打 P）', panelX+12, panelY+18);
+
+  const proj = makeProjector(panelX, panelY+10, panelW, panelH-40);
+
+  drawMagField(ctx, proj, panelX, panelY);
+  drawAxes(ctx, proj);
+  drawScreen(ctx, proj);
+
+  // 圆周轨迹（完整 60°）— 用浅色画完整轨迹作背景
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  for(let aa = -Math.PI/2; aa <= -Math.PI/6; aa += 0.02){
+    const x = O_prime.x + r_circle*Math.cos(aa);
+    const y = O_prime.y + r_circle*Math.sin(aa);
+    if(aa === -Math.PI/2) ctx.moveTo(proj.px(x), proj.py(y));
+    else ctx.lineTo(proj.px(x), proj.py(y));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 直线轨迹 S → P（浅色虚线背景）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(proj.px(S_pt.x), proj.py(S_pt.y));
+  ctx.lineTo(proj.px(P_pt.x), proj.py(P_pt.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // S, P 点标
+  ctx.fillStyle = '#3a3a3c';
+  ctx.beginPath(); ctx.arc(proj.px(S_pt.x), proj.py(S_pt.y), 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(proj.px(P_pt.x), proj.py(P_pt.y), 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('S', proj.px(S_pt.x)-14, proj.py(S_pt.y)+4);
+  ctx.fillText('P', proj.px(P_pt.x)+8, proj.py(P_pt.y)+4);
+
+  // 距离 a 标注（O 到 S 的 y 方向）
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+  ctx.beginPath();
+  ctx.moveTo(proj.px(xMagRight), proj.py(0));
+  ctx.lineTo(proj.px(xMagRight), proj.py(a_dist));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16613f';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('a', proj.px(xMagRight)+4, proj.py(0.5));
+
+  // l/2 标注（S 到屏水平距离）
+  ctx.fillStyle = '#16613f';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('l/2', proj.px((S_pt.x+xScreen)/2)-8, proj.py(S_pt.y)-4);
+
+  // l 标注（S 到 P 直线长度）
+  ctx.fillText('l', proj.px((S_pt.x+P_pt.x)/2)+4, proj.py((S_pt.y+P_pt.y)/2)+4);
+
+  // 当前粒子位置（仅 phase 1 显示）
+  if(state.phase === 1){
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(proj.px(state.x), proj.py(state.y), 6, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // 当前速度方向
+    let vx, vy;
+    if(state.sub === 'arc'){
+      const angle = -Math.PI/2 + (state.u1/0.6) * (Math.PI/3);
+      vx = -Math.sin(angle); vy = Math.cos(angle);     // 切线方向（顺时针）
+      // 反向校验：在 angle=-π/2，vx=-(-1)=1, vy=0 → +x ✓
+      // 在 angle=-π/6, vx=-(-1/2)=1/2, vy=√3/2 → 30° 向下 ✓
+    } else {
+      vx = v_at_S.x; vy = v_at_S.y;
+    }
+    const vLen = 0.45 / Math.hypot(vx, vy);
+    PPath.arrow(ctx, proj.px(state.x), proj.py(state.y),
+                     proj.px(state.x + vx*vLen), proj.py(state.y + vy*vLen),
+                     '#16613f', 2.2);
+  }
+
+  // 圆心 O' 标（磁场内圆心位置）
+  ctx.fillStyle = '#94a09b';
+  ctx.beginPath(); ctx.arc(proj.px(O_prime.x), proj.py(O_prime.y), 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.font = '700 10px Georgia,serif';
+  ctx.fillText("O'", proj.px(O_prime.x)-14, proj.py(O_prime.y)+4);
+
+  // 文字注释
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText('几何 → r = 2a', panelX+12, panelY+panelH-22);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+  ctx.fillText('qvB = mv²/r → v = 2aqB/m', panelX+12, panelY+panelH-6);
+}
+
+// === 右面板：加电场（速度选择器）===
+function drawWithE(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('情形 ② 同时加电场 E（粒子沿 x 直线）', panelX+12, panelY+18);
+
+  const proj = makeProjector(panelX, panelY+10, panelW, panelH-40);
+
+  drawMagField(ctx, proj, panelX, panelY);
+  drawAxes(ctx, proj);
+  drawScreen(ctx, proj);
+
+  // 电场 E 箭头（稀疏化：磁场区底部仅 3 个箭头作为"标尺式"指示，避免与 × 网格视觉打架）
+  // 物理：正电粒子沿 +x 在 B 向里磁场中受 qvB 向下，需 qE 向上（即 E 沿 -y 即视觉向上）平衡
+  ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 1.8;
+  const E_xs = [0.45, 0.95, 1.45];     // 3 个稀疏位置（远离 × 网格的 0.4/0.95/1.5 行间隙）
+  const E_yBot = 3.7, E_yTop = 3.05;
+  E_xs.forEach(xi => {
+    PPath.arrow(ctx, proj.px(xi), proj.py(E_yBot), proj.px(xi), proj.py(E_yTop), '#7d4f9c', 1.5);
+  });
+  ctx.fillStyle = '#7d4f9c';
+  ctx.font = 'italic 800 14px Georgia,serif';
+  ctx.fillText('E', proj.px(0.05), proj.py(3.4));
+
+  // 直线轨迹（沿 x 轴）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(proj.px(0), proj.py(0));
+  ctx.lineTo(proj.px(xScreen), proj.py(0));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 粒子（仅 phase 2 显示）
+  if(state.phase === 2){
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(proj.px(state.x), proj.py(state.y), 6, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // 速度向量（沿 +x）
+    PPath.arrow(ctx, proj.px(state.x), proj.py(state.y),
+                     proj.px(state.x+0.5), proj.py(state.y),
+                     '#16613f', 2.2);
+    // 力示意：qvB 向下（深红）+ qE 向上（紫）— 同一 x 偏移共线显示，体现"等长反向 → 抵消"
+    // qvB 改深红 #8a2e1e 区别于粒子 #b4442e（C2 E2 修复）
+    // qvB / qE 同 x 偏移 +20（C2 E3 修复：共线，避免学生误判为两个独立力）
+    const fxOff = 20;
+    PPath.arrow(ctx, proj.px(state.x)+fxOff, proj.py(state.y), proj.px(state.x)+fxOff, proj.py(state.y)+24, '#8a2e1e', 1.6);
+    PPath.arrow(ctx, proj.px(state.x)+fxOff, proj.py(state.y), proj.px(state.x)+fxOff, proj.py(state.y)-24, '#7d4f9c', 1.6);
+    ctx.fillStyle = '#8a2e1e';
+    ctx.font = '700 9.5px "Cambria Math",serif';
+    ctx.fillText('qvB', proj.px(state.x)+fxOff+4, proj.py(state.y)+34);
+    ctx.fillStyle = '#7d4f9c';
+    ctx.fillText('qE', proj.px(state.x)+fxOff+4, proj.py(state.y)-28);
+  }
+
+  // 文字注释
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText('力平衡 qE = qvB', panelX+12, panelY+panelH-22);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+  ctx.fillText('→ v = E/B', panelX+12, panelY+panelH-6);
+
+  // 答案徽章（仅 80%+ 进度才显示）
+  if(state.u > 0.78){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+panelW-176, panelY+8, 164, 26, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('q/m = E/(2aB²)', panelX+panelW-160, panelY+25);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '带电粒子磁场圆周 + 电场速度选择器 → 比荷',
+  subtitle: '原情况 r=2a → v=2aqB/m；加电场速度选择器 v=E/B；联立 q/m = E/(2aB²)',
+  deliv: {
+    title: '比荷推导 · 双情形联立',
+    sub: 'r=2a · v=E/B · q/m = E/(2aB²)'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 单选 · 第 5 题 · 6 分',
+    image: '../../source/images/image18.png',
+    text: `如图，一磁感应强度大小为 B 的匀强磁场，方向垂直于纸面（xOy 平面）向里，磁场右边界与 x 轴垂直。一带电粒子由 O 点沿 x 正向入射到磁场中，在磁场另一侧的 S 点射出，粒子离开磁场后，沿直线运动打在垂直于 x 轴的接收屏上的 P 点；SP = l，S 与屏的距离为 l/2，与 x 轴的距离为 a。如果保持所有条件不变，在磁场区域再加上电场强度大小为 E 的匀强电场，该粒子入射后则会沿 x 轴到达接收屏。该粒子的比荷为（    ）`,
+    subQuestions: [
+      'A. q/m = E/(2aB²)',
+      'B. （选项原图为 .wmf 公式截图，具体表达式不可读）',
+      'C. （同上）',
+      'D. （同上）'
+    ],
+    officialAnswer: 'A · 几何分析：SP=l 与 S 到屏 l/2 形成 30-60-90 三角形，S 在 (x_S, a) 处速度方向与 x 轴夹 30°，反推圆心在 y 轴上、半径 r = 2a。由洛伦兹力提供向心力：qvB = mv²/r ⇒ v = qBr/m = 2aqB/m。加电场后沿 x 直线 ⇒ 速度选择器条件 qE = qvB ⇒ v = E/B。联立两式：2aqB/m = E/B ⇒ q/m = E/(2aB²)。故选 A。'
+  },
+  totalT: T_total,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 几何分析 → r = 2a', label_short:'r=2a',
+     formula_tex: String.raw`\text{30-60-90 三角形}\;\Rightarrow\; r = 2a`,
+     note:'SP = l, S 到屏 l/2 → P 在 S 下方 l·√3/2。S 处速度方向与 x 轴夹 30°（切线垂直半径）→ 反推圆心在 y 轴上，半径 r = 2a。'},
+    {label:'阶段 ② 圆周运动 → v = 2aqB/m', label_short:'v 圆',
+     formula_tex: String.raw`qvB = \dfrac{mv^2}{r} \;\Rightarrow\; v = \dfrac{qBr}{m} = \dfrac{2aqB}{m}`,
+     note:'洛伦兹力提供向心力。'},
+    {label:'阶段 ③ 速度选择器 → v = E/B', label_short:'v 电',
+     formula_tex: String.raw`qE = qvB \;\Rightarrow\; v = \dfrac{E}{B}`,
+     note:'加电场后粒子沿 x 直线，电场力与磁场力平衡（速度选择器）。'},
+    {label:'阶段 ④ 联立 → q/m = E/(2aB²)', label_short:'q/m',
+     formula_tex: String.raw`\dfrac{2aqB}{m} = \dfrac{E}{B} \;\Rightarrow\; \dfrac{q}{m} = \dfrac{E}{2aB^2}`,
+     note:'两式联立消去 v。答案 A。'}
+  ],
+  stats: [
+    {label:'磁场 B',       fmt:()=>'⊗ 向里'},
+    {label:'a（O 到 S 竖距）', fmt:()=>a_dist.toFixed(2)+' (单位)'},
+    {label:'圆周半径 r',   fmt:()=>r_circle.toFixed(2)+' = 2a'},
+    {label:'l（SP 直线）', fmt:()=>l_dist.toFixed(2)+' = 2(l/2)'},
+    {label:'S 速度方向',   fmt:()=>'30° 向下（沿切线）'},
+    {label:'阶段',         fmt:s=>s.phase===1?'① 仅磁场':'② 加电场'},
+    {label:'当前 x',       fmt:s=>s.x.toFixed(2)},
+    {label:'当前 y',       fmt:s=>s.y.toFixed(2)}
+  ],
+  conclusions: [
+    {label_text:'r 几何', value_text:'2a',          note:'30-60-90 三角形'},
+    {label_text:'v 圆',   value_text:'2aqB/m',      note:'圆周运动'},
+    {label_text:'v 电',   value_text:'E/B',         note:'速度选择器'},
+    {label_text:'答案 A', value_text:'q/m = E/(2aB²)', note:'两式联立'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁场 B（× 向里）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'电场 E（情形 ② 添加）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'带电粒子'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'速度 v'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'轨迹'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:true, guide:false},
+  fileName: '2023全国乙-Q5-比荷'
+});
+</script>
+</body>
+</html>

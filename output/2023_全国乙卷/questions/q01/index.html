@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 1 题 · 排球上抛+空气阻力</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：排球自 O 点垫起竖直向上 → 上升 → 最高点 → 下落回 O。
+// 空气阻力 f = k·|v|，方向始终与速度反向。
+//
+// 上升（v>0）：阻力向下，a_up = -g - k·v/m  → |a_up| > g（减速很快）
+// 下降（v<0）：阻力向上，a_down = -g - k·v/m，但 v<0 故 -k·v/m > 0 → 实际 a_down 大小 = g - k·|v|/m
+//             |a_down| < g（加速慢，且 v 增大时 a 减小）
+//
+// 4 选项判定：
+// A 错：上升时间 < 下落时间（上升加速度大 → 时间短；下落加速度小且变小 → 时间长）
+// B 对：被垫起瞬间 v₀ 最大（阻力一直做负功 → 机械能单调减少 → v 永远 ≤ v₀；
+//                          下落时 v 又被阻力压制不超过终速 v_t = mg/k）
+// C 错：最高点 v=0 → 阻力 f=0，但重力始终存在 → a = g ≠ 0
+// D 错：下落不是匀加速 — a_down = g - k·|v|/m 随 |v| 增大而减小（变加速运动）
+
+const m = 0.27;        // 排球质量 kg（GB 标准 270 g）
+const g = 9.8;
+const k = 0.18;        // 阻力系数（让运动学效应明显）
+const v0 = 9.0;        // 抛出速度 m/s
+
+// 数值积分整个上抛 → 落回过程
+function simulate(){
+  const data = [];
+  let yy = 0, vv = v0, t = 0;
+  const dt = 0.002;
+  data.push({t, y:yy, v:vv, phase:1});
+  // 上升：v>0
+  while(vv > 0){
+    const a = -g - k*vv/m;     // 上升时阻力向下，与重力同向
+    vv += a*dt; yy += vv*dt; t += dt;
+    if(vv <= 0) vv = 0;
+    data.push({t, y:yy, v:vv, phase:1});
+  }
+  const t_up = t, y_max = yy;
+  // 下降：v<0
+  while(yy > 0){
+    const a = -g - k*vv/m;     // 公式同上：v<0 时 -k·v/m > 0（阻力向上）
+    vv += a*dt; yy += vv*dt; t += dt;
+    if(yy <= 0){ yy = 0; }
+    data.push({t, y:yy, v:vv, phase:2});
+    if(yy <= 0) break;
+  }
+  const t_total = t;
+  const v_land = vv;     // 落地瞬时速度（负值，向下）
+  const v_terminal = m*g/k;     // 终速度（理论最大下落速度）
+  return {data, t_up, t_total, y_max, v_land, v_terminal};
+}
+const sim = simulate();
+
+const T_total = 7;
+const slowFactor = T_total / sim.t_total;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* scrub backward 不需重置因 sim 是预计算 */ }
+  lastT = t;
+  const tReal = Math.max(0, Math.min(t/slowFactor, sim.t_total));
+  let lo = 0, hi = sim.data.length - 1;
+  while(lo < hi){
+    const mid = (lo+hi)>>1;
+    if(sim.data[mid].t < tReal) lo = mid+1; else hi = mid;
+  }
+  const d = sim.data[Math.max(0, lo-1)];
+  return {phase:d.phase, y:d.y, v:d.v, tReal, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawBallMotion(ctx, 14, 14, W*0.34-21, H-28, state);
+  drawVT(ctx, W*0.34+7, 14, W*0.66-21, H-28, state);
+}
+
+function drawBallMotion(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('竖直上抛 · 空气阻力 f = k|v|', panelX+12, panelY+18);
+
+  const yGround = panelY + panelH - 50;
+  const yMaxPx = panelH - 90;
+  const ballY = yGround - state.y/sim.y_max * yMaxPx;
+  const ballX = panelX + panelW/2;
+
+  // 地面 + O 点
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(panelX+15, yGround, panelW-30, 4);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px Georgia,serif';
+  ctx.fillText('O', ballX+14, yGround+14);
+  ctx.beginPath();
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.2;
+  ctx.arc(ballX, yGround+2, 3, 0, Math.PI*2);
+  ctx.stroke();
+
+  // 最高点参考线
+  const yMaxLine = yGround - yMaxPx*0.99;
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(panelX+25, yMaxLine); ctx.lineTo(panelX+panelW-25, yMaxLine);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`y_max ≈ ${sim.y_max.toFixed(2)} m`, panelX+panelW-95, yMaxLine-3);
+
+  // 球
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(ballX, ballY, 11, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  // 排球纹（两条弧线）
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(ballX-3, ballY, 11, -Math.PI*0.7, -Math.PI*0.3); ctx.stroke();
+  ctx.beginPath(); ctx.arc(ballX+3, ballY, 11, Math.PI*0.3, Math.PI*0.7); ctx.stroke();
+
+  // 速度箭头（向上为正方向）
+  const vScale = 5.5;
+  const vArrowEnd = ballY - state.v*vScale;
+  if(Math.abs(state.v) > 0.05){
+    PPath.arrow(ctx, ballX, ballY, ballX, vArrowEnd, '#16613f', 2.4);
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 700 11px Georgia,serif';
+    ctx.fillText('v', ballX-12, (ballY+vArrowEnd)/2);
+  }
+  // 阻力 f = k|v|，与速度反向
+  if(Math.abs(state.v) > 0.05){
+    const fMag = k*Math.abs(state.v);
+    const fScale = 18;     // 视觉放大
+    const fDir = state.v > 0 ? 1 : -1;     // 上升 v>0 → 阻力向下（+y down 方向）
+    PPath.arrow(ctx, ballX+22, ballY, ballX+22, ballY + fDir*fMag*fScale, '#c2611f', 1.8);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText('f', ballX+30, ballY+fDir*fMag*fScale*0.5);
+  }
+  // 重力 mg（始终向下）
+  PPath.arrow(ctx, ballX-22, ballY, ballX-22, ballY + g*2.6, '#5d6068', 1.8);
+  ctx.fillStyle = '#5d6068';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('mg', ballX-44, ballY+18);
+
+  // 阶段标 + 实时数值
+  const phaseColor = state.phase === 1 ? '#16613f' : '#b4442e';
+  ctx.fillStyle = phaseColor;
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(state.phase === 1 ? '阶段 ① 上升（v>0，阻力向下）' : '阶段 ② 下降（v<0，阻力向上）', panelX+12, panelY+panelH-20);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(`t = ${state.tReal.toFixed(2)} s · v = ${state.v.toFixed(2)} m/s · y = ${state.y.toFixed(2)} m`, panelX+12, panelY+panelH-6);
+}
+
+function drawVT(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('v-t 图（上半 v>0 上升 · 下半 v<0 下降）', panelX+12, panelY+18);
+
+  const padL=46, padR=22, padT=32, padB=210;
+  const cw = panelW - padL - padR, ch = panelH - padT - padB;
+  const x0 = panelX + padL, y0 = panelY + padT + ch/2;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, panelY+padT); ctx.lineTo(x0, panelY+padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('v', x0-14, panelY+padT-2);
+  ctx.fillText('t', x0+cw+4, y0+12);
+
+  // 上下区域填色（暗示）
+  ctx.fillStyle = 'rgba(22,97,63,0.06)';
+  ctx.fillRect(x0+1, panelY+padT+1, cw-1, ch/2-1);
+  ctx.fillStyle = 'rgba(180,68,46,0.06)';
+  ctx.fillRect(x0+1, y0+1, cw-1, ch/2-1);
+
+  // 曲线
+  const vMax = v0;
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(let i=0; i<sim.data.length; i+=3){
+    const d = sim.data[i];
+    const px = x0 + (d.t/sim.t_total)*cw;
+    const py = y0 - (d.v/vMax)*(ch/2)*0.85;
+    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 当前点
+  const pxNow = x0 + (state.tReal/sim.t_total)*cw;
+  const pyNow = y0 - (state.v/vMax)*(ch/2)*0.85;
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(pxNow, pyNow, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 关键时刻竖线（上升结束）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  const tUpPx = x0 + (sim.t_up/sim.t_total)*cw;
+  ctx.beginPath();
+  ctx.moveTo(tUpPx, panelY+padT); ctx.lineTo(tUpPx, panelY+padT+ch);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(`t_up = ${sim.t_up.toFixed(2)} s`, tUpPx+3, panelY+padT-4);
+  ctx.fillText(`t_total = ${sim.t_total.toFixed(2)} s`, x0+cw-100, panelY+padT+ch+12);
+
+  // 端点标注：v₀ 与 v_land
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText(`v₀ = ${v0.toFixed(1)}`, x0+4, y0 - (v0/vMax)*(ch/2)*0.85 - 4);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText(`v_落 = ${sim.v_land.toFixed(2)} (|v|<v₀)`, x0+cw-115, y0 - (sim.v_land/vMax)*(ch/2)*0.85 + 14);
+
+  // 4 选项判定
+  const judgments = [
+    {opt:'A · 上升时间 = 下落时间', verdict:`错（上升 ${sim.t_up.toFixed(2)}s &lt; 下落 ${(sim.t_total-sim.t_up).toFixed(2)}s）`, correct:false},
+    {opt:'B · 被垫起瞬间速度最大',  verdict:`对 ✓（v₀=${v0} m/s, 全程 |v|≤v₀）`, correct:true},
+    {opt:'C · 最高点加速度为零',     verdict:'错（v=0 → f=0，但 mg 仍存在，a=g）', correct:false},
+    {opt:'D · 下落是匀加速运动',     verdict:'错（a=g-k|v|/m 随 |v| 减小 → 变加速）', correct:false}
+  ];
+  let yy = panelY + padT + ch + 28;
+  judgments.forEach((j) => {
+    ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+    ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+    ctx.fillText(j.opt, panelX+14, yy);
+    ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+    ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+    // 注意：fillText 会显示 &lt; 字面量。canvas 不解析 HTML 实体，需直接用 < 字符
+    const verdictPlain = j.verdict.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    ctx.fillText(verdictPlain, panelX+14, yy+15);
+    yy += 35;
+  });
+
+  // 答案徽章
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){
+    ctx.beginPath();
+    ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · v₀ 最大', panelX+panelW-138, panelY+panelH-22);
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '排球上抛 + 空气阻力（f = k|v|）',
+  subtitle: '排球自 O 点垫起竖直向上→下落回 O；阻力大小与速度大小成正比。判 4 选项。',
+  deliv: {
+    title: '上抛带阻力 · 4 项分析',
+    sub: '上升 t 短 · v₀ 最大 · 最高点 a=g · 下落变加速 · 答案 B'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 单选 · 第 1 题 · 6 分',
+    text: `一同学将排球自 O 点垫起，排球竖直向上运动，随后下落回到 O 点。设排球在运动过程中所受空气阻力大小和速度大小成正比。则该排球（    ）`,
+    subQuestions: [
+      'A. 上升时间等于下落时间',
+      'B. 被垫起后瞬间的速度最大',
+      'C. 达到最高点时加速度为零',
+      'D. 下落过程中做匀加速运动'
+    ],
+    officialAnswer: 'B · A 错：上升时阻力向下，与重力同向，a_↑ = g + k|v|/m &gt; g；下落时阻力向上，与重力反向，a_↓ = g − k|v|/m &lt; g。同段位移上升加速度大 → 上升时间短。B 对：阻力始终做负功，机械能单调减小 → 排球速度始终 ≤ v₀，故被垫起瞬间速度最大。C 错：最高点 v=0，阻力 f=0，但重力始终存在，a=g≠0。D 错：下落 a_↓ = g − k|v|/m 随 |v| 增大而减小（趋向终速度 v_t = mg/k 时 a→0），属变加速运动。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 上升（v &gt; 0）', label_short:'上升',
+     formula_tex: String.raw`a_{\uparrow} = g + \dfrac{k|v|}{m},\quad |a_{\uparrow}| > g \;\Rightarrow\; t_{up} \text{ 短}`,
+     note:'阻力与速度反向 → 上升时阻力向下，与重力同向叠加。加速度始终大于 g → 排球减速很快 → 上升时间短。'},
+    {label:'阶段 ② 下降（v &lt; 0）', label_short:'下降',
+     formula_tex: String.raw`a_{\downarrow} = g - \dfrac{k|v|}{m},\quad |a_{\downarrow}| < g`,
+     note:'下降时阻力向上，部分抵消重力。加速度小于 g 且随 |v| 增大而减小（趋向终速度 v_t=mg/k）。整体落地速度 |v_落| &lt; v₀。'}
+  ],
+  stats: [
+    {label:'抛出 v₀',      fmt:()=>v0.toFixed(1)+' m/s'},
+    {label:'排球质量 m',   fmt:()=>m+' kg'},
+    {label:'阻力系数 k',   fmt:()=>k},
+    {label:'终速度 v_t',   fmt:()=>sim.v_terminal.toFixed(2)+' m/s'},
+    {label:'最高点 y_max', fmt:()=>sim.y_max.toFixed(2)+' m'},
+    {label:'上升时间',     fmt:()=>sim.t_up.toFixed(3)+' s'},
+    {label:'下落时间',     fmt:()=>(sim.t_total - sim.t_up).toFixed(3)+' s'},
+    {label:'落地 |v_落|',  fmt:()=>Math.abs(sim.v_land).toFixed(2)+' m/s'},
+    {label:'当前 v',       fmt:s=>s.v.toFixed(2)+' m/s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'上升 &lt; 下落',     note:'a_↑ &gt; a_↓ → 上升时间短'},
+    {label_text:'B 对', value_text:'v₀ 最大 ✓',          note:'阻力做负功 → 机械能单调减'},
+    {label_text:'C 错', value_text:'最高点 a = g',       note:'v=0 时 f=0，仅余重力'},
+    {label_text:'D 错', value_text:'下落变加速',          note:'a 随 |v| 减小'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'排球'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'速度 v'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'阻力 f = k|v|（与 v 反向）'},
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'重力 mg（向下）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'v-t 曲线'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2023全国乙-Q1-排球上抛阻力'
+});
+</script>
+</body>
+</html>

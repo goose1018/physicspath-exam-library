@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 2 题 · 曲线运动合力方向</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：水平面内 S 形轨道，小车从左到右运动，动能一直增加。
+// 4 选项判断合力方向。两条原则：
+// (i) 曲线运动 → 合力必有指向凹侧的法向分量（向心加速度需求）
+// (ii) 动能增加 → 合力·速度 > 0 → 合力与速度夹角 < 90°（锐角）
+//
+// A 错：合力指外侧（违反 i）
+// B 错：合力纯切线方向（无法向分量，违反 i）
+// C 错：合力指凹侧但与速度夹角钝角（动能会减少，违反 ii）
+// D 对：合力指凹侧 + 与速度夹角锐角（同时满足 i 和 ii）
+
+// 轨道：俯视图，y = A·sin(2π·x/L)
+const trackA = 0.6;     // 振幅（无量纲）
+const trackL = 4.0;     // 一个完整周期
+const xStart = 0.2;
+const xEnd = 1.6 * trackL;     // 走 1.6 个周期，看到驼峰 + 谷底 + 驼峰
+
+function trackY(x){
+  return trackA * Math.sin(2*Math.PI*x/trackL);
+}
+function trackDY(x){
+  return trackA * (2*Math.PI/trackL) * Math.cos(2*Math.PI*x/trackL);
+}
+function trackD2Y(x){
+  return -trackA * (2*Math.PI/trackL)**2 * Math.sin(2*Math.PI*x/trackL);
+}
+
+// 速度大小随 x 单调增加（动能递增）
+function speedAt(x){
+  const u = (x - xStart) / (xEnd - xStart);     // 0..1
+  return 0.6 + 1.2 * u;     // v: 0.6 → 1.8
+}
+
+// 单位切线（沿运动方向）
+function tangent(x){
+  const dy = trackDY(x);
+  const norm = Math.hypot(1, dy);
+  return [1/norm, dy/norm];
+}
+// 单位法向（指向凹侧）：
+// 默认法向 (-dy, 1)/norm 指向 +y 上方；y''<0 时凹侧在 -y 下方 → 取反
+// 物理坐标：sin 在 x∈(0, L/2) 时 y''<0（驼峰），x∈(L/2, L) 时 y''>0（谷底）
+function normalConcave(x){
+  const dy = trackDY(x);
+  const d2y = trackD2Y(x);
+  const norm = Math.hypot(1, dy);
+  let nx = -dy/norm, ny = 1/norm;     // 默认朝 +y
+  if(d2y < 0){ nx = -nx; ny = -ny; }     // 凹向 -y → 翻转
+  return [nx, ny];
+}
+
+// 主动画：D 选项 — 合力 = 切向 + 法向（凹侧），锐角
+const T_total = 8;
+function carPos(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  const x = xStart + u * (xEnd - xStart);
+  return {x, y: trackY(x), u};
+}
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* sim 是函数式预计算，无需重置 */ }
+  lastT = t;
+  const p = carPos(t);
+  const v = speedAt(p.x);
+  return {x:p.x, y:p.y, u:p.u, v, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawMain(ctx, 14, 14, W*0.58-21, H-28, state);
+  drawCandidates(ctx, W*0.58+7, 14, W*0.42-21, H-28, state);
+}
+
+// ---- 物理坐标 → 像素映射工具 ----
+function makeProjector(panelX, panelY, panelW, panelH, padX, padY){
+  const xMin = xStart - 0.3, xMax = xEnd + 0.3;
+  const yRange = trackA + 0.4;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - 2*padY) / (2*yRange);
+  const cy = panelY + panelH/2;
+  return {
+    px: x => panelX + padX + (x - xMin) * sx,
+    py: y => cy - y * sy,
+    sx, sy
+  };
+}
+
+function drawMain(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('俯视图 · D 正解 — 合力始终指向凹侧 + 与速度夹锐角', panelX+12, panelY+18);
+
+  const proj = makeProjector(panelX, panelY+14, panelW, panelH-44, 28, 28);
+
+  // 轨道
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for(let x = xStart; x <= xEnd; x += 0.05){
+    const px = proj.px(x), py = proj.py(trackY(x));
+    if(x === xStart) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 起点 / 终点标记
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('start', proj.px(xStart) - 26, proj.py(trackY(xStart)) + 4);
+  ctx.fillText('→ 运动方向', proj.px(xEnd) - 50, proj.py(trackY(xEnd)) + 22);
+
+  // 小车
+  const cx = proj.px(state.x), cy = proj.py(state.y);
+  // 切线 + 法向
+  const [tx, ty] = tangent(state.x);
+  const [nx, ny] = normalConcave(state.x);
+
+  // 速度向量（沿切线，颜色绿）
+  const vScale = 38;
+  PPath.arrow(ctx, cx, cy, cx + tx*state.v*vScale, cy - ty*state.v*vScale, '#16613f', 2.4);
+  ctx.fillStyle = '#16613f';
+  ctx.font = 'italic 800 12px Georgia,serif';
+  ctx.fillText('v', cx + tx*state.v*vScale + 6, cy - ty*state.v*vScale - 4);
+
+  // 合力（D 答案）：F = F_t·t̂ + F_n·n̂_concave，F_t>0, F_n>0
+  // canvas y 轴反向：物理 +y 对应 canvas -y
+  const F_t = 0.7;     // 切向分量（让动能递增）
+  const F_n = 1.1;     // 法向分量（指凹侧）
+  const fScale = 36;
+  const Fx = F_t*tx + F_n*nx;
+  const Fy = F_t*ty + F_n*ny;     // 物理 y
+  PPath.arrow(ctx, cx, cy, cx + Fx*fScale, cy - Fy*fScale, '#3f6f8f', 2.4);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = 'italic 800 12px Georgia,serif';
+  ctx.fillText('F', cx + Fx*fScale + 6, cy - Fy*fScale - 4);
+
+  // 小车圆点
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 实时数值
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  const cosTheta = (Fx*tx + Fy*ty) / Math.hypot(Fx,Fy);     // 单位切向 dot 单位 F 方向
+  const thetaDeg = Math.acos(Math.max(-1, Math.min(1, cosTheta))) * 180/Math.PI;
+  ctx.fillText(`x=${state.x.toFixed(2)} · v=${state.v.toFixed(2)} · θ(F,v)=${thetaDeg.toFixed(0)}°`, panelX+12, panelY+panelH-22);
+
+  // F·v > 0 提示（仅陈述物理事实，结论留给学生看完动画后揭晓）
+  const FdotV = Fx*tx + Fy*ty;     // |F|·|v|·cosθ 的方向分量（v 单位向量是 t̂）
+  ctx.fillStyle = FdotV > 0 ? '#16613f' : '#b4442e';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(`F·v = ${(FdotV*state.v).toFixed(2)} > 0  →  动能 ↑`, panelX+12, panelY+panelH-6);
+
+  // 答案徽章（仅 80%+ 进度才显示，避免过早剧透）
+  if(state.u > 0.78){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+panelW-130, panelY+8, 118, 26, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 D', panelX+panelW-90, panelY+26);
+  }
+}
+
+// ---- 候选对比缩略图 ----
+function drawCandidates(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('4 候选对比（同一轨道，不同合力方向）', panelX+12, panelY+18);
+
+  const items = [
+    {tag:'A', verdict:'外侧 → 违反"凹侧"原则', mode:'outside', correct:false},
+    {tag:'B', verdict:'纯切线 → 无法向分量，曲线运动不成立', mode:'tangent', correct:false},
+    {tag:'C', verdict:'凹侧但夹角钝角 → 动能会减少', mode:'concave-obtuse', correct:false},
+    {tag:'D', verdict:'凹侧 + 锐角 → 动能↑ ✓', mode:'concave-acute', correct:true}
+  ];
+
+  const reveal = state.u > 0.78;     // 与主舞台答案徽章同步：78% 进度后才高亮 D
+  const rowH = (panelH - 30) / 4;
+  items.forEach((item, i) => {
+    const ry = panelY + 30 + i*rowH;
+    drawMiniTrack(ctx, panelX+8, ry, panelW-16, rowH-6, item, reveal);
+  });
+}
+
+function drawMiniTrack(ctx, panelX, panelY, panelW, panelH, item, reveal){
+  // 缩略轨道（半个周期 + 一段）：从驼峰下行 → 谷底 → 上行
+  // 选两个采样点：x1 ≈ trackL*0.25（驼峰附近），x2 ≈ trackL*0.65（谷底之后上行段）
+  const padX = 14, padY = 8;
+  const x1Phys = trackL*0.20, x2Phys = trackL*0.65;
+  const xLo = trackL*0.05, xHi = trackL*0.85;
+  const yRange = trackA + 0.3;
+  const sx = (panelW - 2*padX) / (xHi - xLo);
+  const sy = (panelH - 2*padY - 14) / (2*yRange);
+  const cy = panelY + (panelH-14)/2 + 14;
+  const px = x => panelX + padX + (x - xLo)*sx;
+  const py = y => cy - y*sy;
+
+  // 行边框（仅 reveal=true 时 D 高亮，否则 4 行统一灰）
+  const highlight = item.correct && reveal;
+  ctx.strokeStyle = highlight ? '#c2a565' : '#dad6c8';
+  ctx.lineWidth = highlight ? 1.6 : 1;
+  ctx.fillStyle = highlight ? '#fdf6e6' : '#fafaf6';
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,8);ctx.fill();ctx.stroke();}
+
+  // 行内 tag + verdict（reveal=false 时去掉 D 的 ✓ 字符避免剧透）
+  const verdictText = (item.correct && !reveal) ? item.verdict.replace(' ✓', '') : item.verdict;
+  ctx.fillStyle = highlight ? '#7d6314' : '#5d6964';
+  ctx.font = `${highlight?900:800} 11.5px "Noto Sans SC",sans-serif`;
+  ctx.fillText(item.tag + ' · ' + verdictText, panelX+8, panelY+12);
+
+  // 轨道
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for(let x = xLo; x <= xHi; x += 0.04){
+    if(x === xLo) ctx.moveTo(px(x), py(trackY(x))); else ctx.lineTo(px(x), py(trackY(x)));
+  }
+  ctx.stroke();
+
+  // 两个采样点 + 合力箭头（按 mode）
+  [x1Phys, x2Phys].forEach((xs, i) => {
+    const cxp = px(xs), cyp = py(trackY(xs));
+    const [tx, ty] = tangent(xs);
+    const [nx, ny] = normalConcave(xs);
+    let fx, fy;
+    if(item.mode === 'outside'){
+      // A：外侧 = 凹侧反向
+      fx = -nx; fy = -ny;
+    } else if(item.mode === 'tangent'){
+      // B：沿切线
+      fx = tx; fy = ty;
+    } else if(item.mode === 'concave-obtuse'){
+      // C：凹侧但与切线夹角钝角（与运动方向反向偏一点）
+      fx = -tx*0.5 + nx*0.7;
+      fy = -ty*0.5 + ny*0.7;
+      const norm = Math.hypot(fx, fy);
+      fx /= norm; fy /= norm;
+    } else {
+      // D：凹侧 + 锐角
+      fx = tx*0.5 + nx*0.85;
+      fy = ty*0.5 + ny*0.85;
+      const norm = Math.hypot(fx, fy);
+      fx /= norm; fy /= norm;
+    }
+    const arrowLen = 22;
+    PPath.arrow(ctx, cxp, cyp, cxp + fx*arrowLen, cyp - fy*arrowLen, highlight ? '#7d6314' : '#5d6964', 1.6);
+    // 点
+    ctx.fillStyle = '#3a3a3c';
+    ctx.beginPath(); ctx.arc(cxp, cyp, 2.5, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 6 分',
+  title: '小车曲线运动 · 合力方向判断',
+  subtitle: '小车在水平面沿 S 形轨道从左到右运动，动能一直增加。判 4 候选合力方向。',
+  deliv: {
+    title: '曲线运动 · 合力方向 · 双原则',
+    sub: '凹侧原则 + 锐角原则 → 答案 D'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 单选 · 第 2 题 · 6 分',
+    image: '../../source/images/image5.png',
+    text: `小车在水平地面上沿轨道从左向右运动，动能一直增加。如果用带箭头的线段表示小车在轨道上相应位置处所受合力，下列四幅图可能正确的是（    ）`,
+    subQuestions: [
+      'A. 合力均指向曲线外侧（凸侧）',
+      'B. 合力均沿切线方向（即沿速度方向）',
+      'C. 合力指向凹侧，但与速度方向夹钝角',
+      'D. 合力指向凹侧，且与速度方向夹锐角'
+    ],
+    officialAnswer: 'D · AB 错：曲线运动的合外力必须有指向凹侧的法向分量（向心力分量），A 指向外侧、B 沿切线无法向分量，均不能维持曲线轨迹。CD 对比：动能一直增加 → 合外力对小车做正功 → F · v &gt; 0 → 合外力与速度方向夹角必为锐角。C 凹侧 + 钝角会让动能减小（与题意矛盾），D 凹侧 + 锐角同时满足两个条件。故选 D。'
+  },
+  totalT: T_total,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'原则 ① 凹侧（曲线运动法向需求）', label_short:'凹侧',
+     formula_tex: String.raw`\vec{F}_{\perp} \neq 0,\quad \vec{F}_{\perp} \,\text{指凹侧}`,
+     note:'曲线运动一定有法向加速度（向心方向），所以合外力必有指向凹侧的法向分量。直接淘汰 A（外侧）和 B（纯切向）。'},
+    {label:'原则 ② 锐角（动能增加 ⇒ F·v &gt; 0）', label_short:'锐角',
+     formula_tex: String.raw`\dfrac{dE_k}{dt} = \vec{F}\cdot\vec{v} > 0 \;\Rightarrow\; \theta(\vec{F},\vec{v}) < 90^{\circ}`,
+     note:'动能定理：合外力功率 P = F·v。动能一直增加 → P &gt; 0 → 合外力与速度夹锐角。淘汰 C（钝角，动能会减少）。'},
+    {label:'结论 · 双原则同时满足只有 D', label_short:'D 对',
+     formula_tex: String.raw`\text{D}: \;\vec{F}\,\text{指凹侧}\;\land\;\theta < 90^{\circ}`,
+     note:'A/B 违反原则 ①，C 违反原则 ②，D 同时满足。'}
+  ],
+  stats: [
+    {label:'动能变化',     fmt:()=>'E_k 单调增'},
+    {label:'F · v',        fmt:()=>'> 0（锐角）'},
+    {label:'F⊥（法向）',   fmt:()=>'指凹侧'},
+    {label:'F∥（切向）',   fmt:()=>'与 v 同向'},
+    {label:'当前 v',       fmt:s=>s.v.toFixed(2)+' (任意单位)'},
+    {label:'当前 x',       fmt:s=>s.x.toFixed(2)}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'外侧',         note:'违反凹侧原则'},
+    {label_text:'B 错', value_text:'纯切向',       note:'无法向分量'},
+    {label_text:'C 错', value_text:'凹侧+钝角',    note:'动能会减小'},
+    {label_text:'D 对', value_text:'凹侧+锐角 ✓', note:'双原则满足'}
+  ],
+  legend: [
+    {swatch:{bg:'#3a3a3c',border:'#3a3a3c',type:'rect'}, text:'轨道（俯视）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'},  text:'小车'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'速度 v（沿切线）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'合力 F（D 答案）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:true, guide:false},
+  fileName: '2023全国乙-Q2-曲线运动合力'
+});
+</script>
+</body>
+</html>
