@@ -183,7 +183,7 @@ function drawTube(ctx, panelX, panelY, panelW, panelH, state){
   const phaseText = state.phase === 0 ? '阶段 ① 自由下落 → v₀=√(2gl)' :
                     state.phase === 1 ? '阶段 ② 第一次碰后：球↑ + 盘↓（最远 l）' :
                     state.phase === 2 ? '阶段 ③ 第二次碰撞（盘下落 2l）' :
-                                         '阶段 ④ 4 次碰撞位置（1l/3l/7l/13l）';
+                                         '阶段 ④ 完整递推完成';
   ctx.fillText(phaseText, panelX+12, panelY+panelH-8);
 }
 
