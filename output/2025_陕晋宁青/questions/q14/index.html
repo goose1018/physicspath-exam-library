@@ -63,6 +63,9 @@ function evalState(t){
 
 function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
+  // 全屏背景（防 GIF 边缘残影）
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0, 0, W, H);
   // 主图区
   drawParticles(ctx, 0, 0, W, H*0.65);
   // 能量条
@@ -74,12 +77,12 @@ function drawParticles(ctx, x, y, w, h){
   const cy = y + h*0.55;
   const px = xv => x + 50 + (xv+0.3)/3.8 * (w-100);
 
-  // 库仑力示意
+  // 库仑力示意（牛三定律：A、B 受到的库仑力大小相等，方向相反）
   if(S.phase < 3 && r > 0.01){
     const cxA = px(S.xA), cxB = px(S.xB);
     const fmag = Math.min(60, 30/(r*r));
     PPath.arrow(ctx, cxA, cy-30, cxA-fmag, cy-30, '#b4442e', 2);
-    PPath.arrow(ctx, cxB, cy-30, cxB+fmag/2, cy-30, '#b4442e', 2);
+    PPath.arrow(ctx, cxB, cy-30, cxB+fmag, cy-30, '#b4442e', 2);
     ctx.strokeStyle = 'rgba(180,68,46,.25)'; ctx.setLineDash([3,4]); ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(cxA, cy); ctx.lineTo(cxB, cy); ctx.stroke();
     ctx.setLineDash([]);
@@ -187,9 +190,9 @@ function drawEnergyBars(ctx, x, y, w, h){
 PathQuestion({
   paperTitle: '陕晋宁青卷',
   paperHref: '../../index.html',
-  eyebrow: '计算 · 第 14 题 · B 级 · 双 agent 审',
+  eyebrow: '计算 · 第 14 题 · B 级',
   title: '双带电粒子 · 动量与能量守恒',
-  subtitle: '同性 A、B 粒子（质量 m、2m）。A 以 v₀ 追 B → 共速 → 对 B 施加恒力 → A 停下、B 速度 v₀、距离恢复 r₀。',
+  subtitle: '同性 A、B 粒子（m、2m）相距 r₀。A 以 v₀ 追 B；共速时对 B 施恒力 F。求共速速度、阶段 1 中 B 的位移、恒力作用时间。',
   originalProblem: {
     meta: '2025 陕晋宁青卷 · 第 14 题 · 14 分',
     image: '../../source/images/image182.png',
