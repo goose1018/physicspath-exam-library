@@ -30,7 +30,10 @@ const R_ring = 1.0;     // 圆环半径（归一化）
 
 function evalState(t){
   const wt = omega * t;     // OP 与初始位置（向上）的角度（顺时针为正）
-  const angle_OP = -Math.PI/2 + wt;     // OP 角度（标准坐标，从 +x 逆时针）
+  // 修：题目要求顺时针。canvas y 反向，标准 angle 减小才对应视觉顺时针
+  // 原 -π/2 + ωt 致 O 沿下→右→上→左 = canvas 逆时针 ❌
+  // 改 -π/2 - ωt 致 O 沿下→左→上→右 = canvas 顺时针 ✓
+  const angle_OP = -Math.PI/2 - wt;     // canvas 顺时针：angle 减小
 
   // 虚线沿 +x 方向（水平）
   // OP 与虚线夹角：α = |angle_OP - 0|（取 [0, 2π)）

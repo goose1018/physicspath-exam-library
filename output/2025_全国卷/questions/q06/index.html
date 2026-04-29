@@ -100,20 +100,23 @@ function drawVTGraph(ctx, x, y, w, h, state){
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // 标记 c 的过原点直线（不画完整，仅 highlight 当 stage=2 时）
+  // 标记 c 的过原点直线（仅 stage=2 高亮）— 修：clamp 到 T_max 防止越界
   if(state.stage === 2){
     const slope_c = states.c.V / states.c.T;     // = 0.4
+    // 终点 T 取 V/slope（到 V_max 时的 T），但 clamp 到 T_max 防止画出图框
+    const T_end = Math.min(V_max/slope_c, T_max);
+    const V_end = T_end * slope_c;     // 对应的 V（可能小于 V_max）
     ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
     ctx.setLineDash([3,3]);
     ctx.beginPath();
     ctx.moveTo(x0, y0);
-    ctx.lineTo(TtoPx(V_max/slope_c), VtoPx(V_max));
+    ctx.lineTo(TtoPx(T_end), VtoPx(V_end));
     ctx.stroke();
     ctx.setLineDash([]);
-    // 注释：斜率小 → p 大
+    // 注释（在线段中点附近，确保在图框内）
     ctx.fillStyle = '#c2611f';
     ctx.font = '700 10px "Noto Sans SC",sans-serif';
-    ctx.fillText('斜率小 → p_c 大', TtoPx(V_max/slope_c)-80, VtoPx(V_max)+4);
+    ctx.fillText('斜率小 → p_c 大', TtoPx(T_end*0.5)+4, VtoPx(V_end*0.5)-4);
   }
 
   // 三个点
