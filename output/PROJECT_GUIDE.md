@@ -311,13 +311,14 @@ PhysicsPath 项目主要用 `general-purpose` agent，按 prompt 角色分工：
 
 1. ⬜ 读完本文件 `PROJECT_GUIDE.md`（你正在看的）
 2. ⬜ 读 `CLAUDE.md`（铁律 1+2 全文）
-3. ⬜ 读 `2024_QUEUE.md` 第 0、0.5 节（状态 + 工作纪律）
-4. ⬜ 读 `AUDIT_LOG.md` 末尾几行（最近的题）
-5. ⬜ 用 git log 看最近 3-5 个 commit（了解最近改了什么）
-6. ⬜ 看 todo 列表（user 之前的对话进度）
-7. ⬜ 然后才能动手
+3. ⬜ **读 `COMMUNICATION_CONTRACT.md`**（沟通契约 — 用户 14 项偏好钉死）
+4. ⬜ 读 `2024_QUEUE.md` 第 0、0.5 节（状态 + 工作纪律）
+5. ⬜ 读 `AUDIT_LOG.md` 末尾几行（最近的题）
+6. ⬜ 用 git log 看最近 5 个 commit（了解最近改了什么）
+7. ⬜ 看 todo 列表（user 之前的对话进度）
+8. ⬜ **汇报当前状态给用户，等确认才动手**
 
-**严禁不读直接动手**。
+**严禁不读直接动手 / 不汇报直接动手**。
 
 ---
 

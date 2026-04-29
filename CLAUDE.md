@@ -3,6 +3,20 @@
 > 这是 PhysicsPath（高考物理动画题库）项目的本地 Claude Code 规则。
 > 全局规则在 `~/.claude/rules/common/`。本文件覆盖项目特定的强制约束。
 
+## 🚨 接手对话第一件事必读
+
+**按这个顺序读完才能动手**：
+
+1. **本文件 CLAUDE.md**（铁律 1+2）
+2. **`output/COMMUNICATION_CONTRACT.md`** ← **沟通契约**：用户偏好 14 条钉死，含汇报方式、进度推进、禁忌等
+3. **`output/PROJECT_GUIDE.md`**（项目总览，11 章节）
+4. **`output/2024_QUEUE.md`**（进度表）
+5. **`output/AUDIT_LOG.md`**（最近审核记录）
+6. `git log --oneline -15`
+7. todo 列表
+
+**严禁不读直接动手**。读完后必须汇报当前状态，等用户确认才能开始。
+
 ---
 
 ## 🚨 第一条铁律 — Sub-Agent 独立性规则（用户强制）
