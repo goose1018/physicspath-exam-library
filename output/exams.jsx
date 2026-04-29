@@ -169,6 +169,8 @@ const REAL_PROBLEMS = [
   { id:'2023-gk2-q13', year:2023, paper:'gk2', no:'13', module:'热学',     tplId:null, title:'理想气体内能 · 5 选项过程对比（多选）',           summary:'U=nC_vT 仅由 T 决定；A 等温-等温/C 等容↓+等压↑/D 等容↑+等压↓ 可使末 T=初 T。答案 ACD。', diff:'易', heat:80, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q13/index.html' },
   { id:'2023-gk2-q15', year:2023, paper:'gk2', no:'15', module:'振动波动', tplId:null, title:'简谐横波 · 波形+振动图（多选）',                   summary:'λ=4m, T=2s, v=2m/s 向左；P 路程 70cm；t=7s x=3 波峰。答案 ABE。', diff:'中', heat:90, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q15/index.html' },
   { id:'2023-gk2-q16', year:2023, paper:'gk2', no:'16', module:'光学',     tplId:null, title:'等腰直角棱镜 · 折射+反射几何（计算）',           summary:'n=√2 等腰直角；i=45°→r=30°；折射光与水平 15°，反射射向 A；AM=(3−√3)/3·AB。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q16/index.html' },
+  // ── 2023 新课标卷 ──
+  { id:'2023-xgk1-q05', year:2023, paper:'xgk1', no:'5',  module:'电磁学',  tplId:null, title:'电子+α 粒子电磁场方向判断',                       summary:'α 直线打 a 受力平衡 v_α=E/B；电子 v_e>v_α 净力向右偏 b。E 向右 + B 向里。答案 C。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_新课标卷/questions/q05/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -268,6 +270,8 @@ const PROBLEM_META = {
   '2023-gk2-q13': { type:'choice-multi',  answer:'ACD' },
   '2023-gk2-q15': { type:'choice-multi',  answer:'ABE' },
   '2023-gk2-q16': { type:'calc',          answer:[{sub:'AM',val:'(3−√3)/3 · AB ≈ 0.423 AB'}] },
+  // 2023 新课标卷
+  '2023-xgk1-q05': { type:'choice-single', answer:'C' },
 };
 
 // 按 year×paper 计数

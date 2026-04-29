@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 新课标 · 第 5 题 · 电子+α 粒子电磁场</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：电子(-e) 和 α 粒子(+2e) 从 O 竖直向上射出，电场+磁场在铅盒与屏之间
+// α 速度 < 电子速度（α 重，能量同 → v 小）
+// 一打 a（O 正上方），一打 b（a 右侧）
+//
+// 答案 C：电场向右、磁场向里
+// 受力分析（取 +x 右、+y 上、+z 出纸）：
+// - 电场 E = +x̂·E
+// - 磁场 B = -ẑ·B（向里）
+// - 速度 v = +ŷ·v
+//
+// α 粒子（+2e）：
+//   F_E = +2eE 向右
+//   F_B = (+2e)·v×B = (+2e)(v ŷ × -B ẑ) = -2evB (ŷ×ẑ) = -2evB x̂ = 2evB 向左
+//   平衡：2eE = 2e·v_α·B → v_α = E/B → 直线到 a ✓
+//
+// 电子（-e）：
+//   F_E = -eE 向左（负电）
+//   F_B = -e·v_e×B = -e(v ŷ × -B ẑ) = +ev_e·B 向右
+//   净力：F_x = ev_e·B - eE = e(v_e·B - E)
+//   因 v_e > v_α = E/B → v_e·B > E → F_x > 0 向右 → 偏向 b ✓
+
+// （死代码 v_alpha/v_electron/O_pos/a_pos/b_pos 已清理 — 仅注释/硬编码使用）
+const T_total = 6;
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 两粒子同时上行
+  // α 粒子直线 O → a
+  const u_alpha = Math.min(u/0.85, 1);
+  const alphaY = u_alpha * 4;
+  // 电子抛物线 O → b（与 v 垂直力 → 抛物线）
+  const u_e = Math.min(u/0.65, 1);     // 电子速度大，更早到屏
+  const eY = u_e * 4;
+  // 抛物线 x = (1.5/16) · y² (平方关系，让 y=4 时 x=1.5)
+  const eX = 1.5 * (eY/4) * (eY/4);
+  return {u, alphaY, eY, eX, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawApparatus(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawAnalysis(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('铅盒 → O → 电磁场区 → 屏 P', panelX+12, panelY+18);
+
+  const xMin = -1, xMax = 3.5, yMin = -1.5, yMax = 5.5;
+  const padX = 30, padY = 32;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - 2*padY) / (yMax - yMin);
+  const s = Math.min(sx, sy);
+  const offX = panelX + padX + (-xMin)*s + (panelW - 2*padX - (xMax-xMin)*s)/2;
+  const offY = panelY + padY + yMax*s + (panelH - 2*padY - (yMax-yMin)*s)/2;
+  const px = x => offX + x*s;
+  const py = y => offY - y*s;
+
+  // 铅盒（O 下方）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px(-0.5), py(-1.0)); ctx.lineTo(px(-0.5), py(-0.2));
+  ctx.moveTo(px(-0.2), py(-0.2)); ctx.lineTo(px(0.2), py(-0.2));
+  ctx.moveTo(px(0.5), py(-0.2)); ctx.lineTo(px(0.5), py(-1.0));
+  ctx.moveTo(px(-0.5), py(-1.0)); ctx.lineTo(px(0.5), py(-1.0));
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px "Noto Sans SC",sans-serif';
+  ctx.fillText('铅盒', px(-0.4), py(-0.7));
+
+  // 屏 P
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px(-0.6), py(4)); ctx.lineTo(px(3.0), py(4));
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('P', px(3.0)+4, py(4)-4);
+  ctx.fillText('a', px(0)-3, py(4)-4);
+  ctx.fillText('b', px(1.5)-3, py(4)-4);
+  // a, b 点
+  ctx.fillStyle = '#3a3a3c';
+  ctx.beginPath(); ctx.arc(px(0), py(4), 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(px(1.5), py(4), 3, 0, Math.PI*2); ctx.fill();
+
+  // O 点
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('O', px(0)-14, py(0)+4);
+  ctx.beginPath(); ctx.arc(px(0), py(0), 3, 0, Math.PI*2); ctx.fill();
+
+  // 电磁场区（铅盒到屏之间）
+  ctx.fillStyle = 'rgba(63,111,143,0.05)';
+  ctx.fillRect(px(-0.6), py(4), s*3.6, py(0)-py(4));
+
+  // 磁场 × 网格（C2 修复：u>=0.30 才显示，避免直接告诉学生 B 方向）
+  if(state.u >= 0.30){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 10px Georgia,serif';
+    for(let xi = -0.4; xi < 3; xi += 0.6){
+      for(let yi = 0.4; yi < 4; yi += 0.6){
+        ctx.fillText('×', px(xi)-3, py(yi)+3);
+      }
+    }
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = 'italic 800 14px Georgia,serif';
+    ctx.fillText('B', px(2.7), py(2.5));
+  }
+
+  // 电场 → 箭头（C2 修复：u>=0.20 才显示，避免剧透 E 方向）
+  if(state.u >= 0.20){
+    ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 1.5;
+    for(let yi = 0.7; yi < 3.8; yi += 1.0){
+      PPath.arrow(ctx, px(-0.4), py(yi), px(0.0), py(yi), '#7d4f9c', 1.4);
+    }
+    ctx.fillStyle = '#7d4f9c';
+    ctx.font = 'italic 800 14px Georgia,serif';
+    ctx.fillText('E', px(-0.55), py(2.5));
+  }
+
+  // α 粒子（直线 O→a，+2e 红色）
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(0));
+  ctx.lineTo(px(0), py(state.alphaY));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // 当前 α 点
+  if(state.alphaY < 4){
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(px(0), py(state.alphaY), 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 8px Georgia,serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('α', px(0), py(state.alphaY)+3);
+    ctx.textAlign = 'start';
+  }
+
+  // 电子（抛物线 O→b，-e 蓝色）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  for(let yy = 0; yy <= state.eY; yy += 0.05){
+    const xx = 1.5 * (yy/4) * (yy/4);
+    if(yy === 0) ctx.moveTo(px(xx), py(yy));
+    else ctx.lineTo(px(xx), py(yy));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // 当前电子点
+  if(state.eY < 4){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.beginPath(); ctx.arc(px(state.eX), py(state.eY), 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 9px Georgia,serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('e', px(state.eX), py(state.eY)+3);
+    ctx.textAlign = 'start';
+  }
+
+  // 注释（C2 修复：底部"E 向右 + B 向里"答案文字加 u>=0.80 守卫）
+  if(state.u >= 0.50){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '600 10px ui-monospace,monospace';
+    ctx.fillText('α 粒子（+2e）直线 → a；电子（-e）抛物 → b', panelX+12, panelY+panelH-22);
+  }
+  if(state.u >= 0.80){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10.5px ui-monospace,monospace';
+    ctx.fillText('E 向右 + B 向里 → α 受力平衡；电子偏向右', panelX+12, panelY+panelH-6);
+  }
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('受力分析（按阶段揭晓）', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• 设 +x 右，+y 上，B 向里=-ẑ'});
+  if(state.u >= 0.20) lines.push({c:'#b4442e', t:'• α 粒子(+2e) v 沿 +y：'});
+  if(state.u >= 0.25) lines.push({c:'#b4442e', t:'  F_E = +2eE 向右'});
+  if(state.u >= 0.30) lines.push({c:'#b4442e', t:'  F_B = qv×B = -2ev_α B 向左'});
+  if(state.u >= 0.40) lines.push({c:'#16613f', t:'  α 平衡：v_α = E/B → 直线到 a'});
+  if(state.u >= 0.50) lines.push({c:'#3f6f8f', t:'• 电子(-e) v_e > v_α：'});
+  if(state.u >= 0.55) lines.push({c:'#3f6f8f', t:'  F_E = -eE 向左'});
+  if(state.u >= 0.60) lines.push({c:'#3f6f8f', t:'  F_B = -e·v_e·B 向右（负电反向）'});
+  if(state.u >= 0.65) lines.push({c:'#3f6f8f', t:'  v_e·B > E → 净力向右 → 偏到 b'});
+  if(state.u >= 0.80) lines.push({c:'#c2611f', t:'答案 C：电场向右 + 磁场向里'});
+
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 18;
+  });
+
+  if(state.u > 0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-46, panelW-24, 34, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C：E 右 + B 里', panelX+22, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '电子+α 粒子 · 电磁场方向判断',
+  subtitle: '从 O 向上射，电子打 b（偏右），α 打 a（直线）；判 E 与 B 方向。',
+  deliv: { title: '受力平衡 + 偏转方向', sub: 'C：E 向右 + B 向里' },
+  originalProblem: {
+    meta: '2023 新课标 · 单选 · 第 5 题 · 6 分',
+    image: '../../source/images/image18.png',
+    text: `一电子和一 α 粒子从铅盒上的小孔 O 竖直向上射出后，打到铅盒上方水平放置的屏幕 P 上的 a 和 b 两点，a 点在小孔 O 的正上方，b 点在 a 点的右侧。已知 α 粒子的速度小于电子速度，铅盒与屏幕之间存在匀强电场和匀强磁场，则电场和磁场方向可能为（    ）`,
+    subQuestions: [
+      'A. 电场方向水平向左、磁场方向垂直纸面向里',
+      'B. 电场方向水平向左、磁场方向垂直纸面向外',
+      'C. 电场方向水平向右、磁场方向垂直纸面向里',
+      'D. 电场方向水平向右、磁场方向垂直纸面向外'
+    ],
+    officialAnswer: 'C · E 向右、B 向里。受力分析（+x 右、+y 上、B=-ẑ 向里）：α 粒子(+2e) v_α 沿 +y → F_E=2eE 向右，F_B=qv×B=-2ev_α B 向左。平衡条件：v_α=E/B → 直线到 a。电子(-e) v_e 沿 +y、v_e>v_α → F_E=-eE 向左，F_B=-e·v_e·B 向右（负电反向）。净力 e(v_e·B-E)>0 向右 → 偏到 b。其他选项分析：A/D 中 α 受力均不平衡；B 中电子向左偏不到 b。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① α 受力平衡', label_short:'α',
+     formula_tex: String.raw`F_E + F_B = 0 \;\Rightarrow\; v_\alpha = E/B`,
+     note:'α(+2e) v 沿 +y：F_E 向右、F_B 向左 → 平衡条件 v_α=E/B → 直线到 a。'},
+    {label:'阶段 ② 电子偏到 b', label_short:'e',
+     formula_tex: String.raw`v_e > v_\alpha = E/B \;\Rightarrow\; F_{net} = e(v_e B - E) > 0 \;\text{向右}`,
+     note:'电子(-e) F_E 向左、F_B 向右（负电反向）；v_e>v_α → 洛伦兹大于电场 → 净力向右 → 偏到 b。'},
+    {label:'阶段 ③ 答案 C', label_short:'C',
+     formula_tex: String.raw`\boxed{E\,\text{向右}\;+\;B\,\text{向里}}`,
+     note:'其他选项 α 受力不平衡或电子偏向错。'}
+  ],
+  stats: [
+    {label:'α 粒子',     fmt:()=>'+2e，直线到 a'},
+    {label:'电子',       fmt:()=>'-e，偏到 b（右）'},
+    {label:'v_α 关系',   fmt:()=>'= E/B（平衡）'},
+    {label:'v_e 关系',   fmt:()=>'> v_α'},
+    {label:'E 方向',     fmt:()=>'向右'},
+    {label:'B 方向',     fmt:()=>'向里 (×)'},
+    {label:'当前 t',     fmt:s=>(s.t).toFixed(2)+' s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'E 左 + B 里',  note:'α 不平衡'},
+    {label_text:'B 错', value_text:'E 左 + B 外',  note:'电子向左偏'},
+    {label_text:'C 对', value_text:'E 右 + B 里 ✓', note:'α 平衡 + 电子向右'},
+    {label_text:'D 错', value_text:'E 右 + B 外',  note:'α 不平衡'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'α 粒子（+2e）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'}, text:'电子（-e）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'电场 E（向右）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁场 B（× 向里）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023新课标-Q5-粒子电磁场'
+});
+</script>
+</body>
+</html>
