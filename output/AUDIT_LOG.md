@@ -188,6 +188,7 @@
 | Q11 弹簧+平抛+反弹（计算）| ✅ | ✅ | ✅ | ✅ | (1) v₀=√(2E_p/m)=4 m/s (2) d=4√(E_p·h/(mg))≈3.58 m；A:aa5c069f / B:a962b5c0 / C:a6a58f89 / D:a600def7；H=4h、t_fall=0.894s 数值闭合；α=1/2 比例假设已用 <b>1/2</b> 强调 |
 | Q12 U型导轨弹性碰撞+电磁感应（计算）| ✅ | ✅ | 🟡 | 🟡→✅ | (1) v₀/2 (2) mv₀² (3) 2mR/(B²L²)；A:a344e979 / B:a090a66b / C:accc183b / D:aca73303；C 关🟡磁场 B↑ 侧视示意性折中（侧视图无 ⊙ 符号）；D 关🟡 phases[0] aligned 环境在 displayMode:false 不能渲染 → 已改单行 \quad；m_Q=3m 弹碰 + 落地同点 + 动量定理推导全验证 |
 | Q15 棱镜双色折射（多选）| ✅ | ✅ | ✅ | 🟡→✅ | 答案 ACE；A:a7e55f7d / B:a5a064af / C:a73cfd53 / D:a9b30687；A=120° 钝顶配置 + n_甲=1.5,n_乙=1.7；ac_jia.y=0.224 < ac_yi.y=0.281 几何验证；**D 关 FAIL→修**：(1) 删 line 95-97 死代码 seg1_t/total_t_jia/total_t_yi (2) line 230 运算符优先级 bug 简化为 progress===2 |
+| Q16 两横波相向传播 · 干涉极大/极小（计算）| ✅ | ✅ | ✅ | 🟡 | 答案 (1)t=0 波形见图 / (2)极大 x=2,6 m / 极小 x=0,4,8 m；C2 复审 a988cbb837341fb9c 🟡 WARN（5 条全高竖虚线视觉过载 + 答案 3 处重复 + 红绿色误导，列入后续优化）；λ=8m / v=4m/s / T=2s；两源反相 → 距离差 (2n+1)λ/2 加强、nλ 减弱 |
 
 ---
 
@@ -228,3 +229,15 @@
 
 **总判**：3 个 🟡 WARN（非阻塞、属优化建议）+ 1 个 ✅ PASS。
 **修复决策**：仅修 Q7 OA 同色（最易引起学生概念混淆）；其他 WARN 列入"后续视觉优化清单"，不阻塞 commit。
+
+---
+
+## 🚨 注册遗漏修复（2026-04-29 新对话发现）
+
+### Q16 注册遗漏（数据注册铁律违反）
+- **症状**：2023 全国甲 Q16（两横波相向传播 · 干涉极大/极小）HTML 已生产（`output/2023_全国甲卷/questions/q16/index.html`，13.2KB），但 exams.jsx 未注册 → **主页看不到 Q16 入口**
+- **根因**：上次 commit `a97e1e9` 信息写"9 道"但实际只在 REAL_PROBLEMS / PROBLEM_META 注册了 8 道（Q1/Q3/Q6/Q7/Q8/Q11/Q12/Q15）
+- **修复**：补 exams.jsx 两处
+  - REAL_PROBLEMS 加 entry：`module:'振动波动'` + diff:'中' + heat:110
+  - PROBLEM_META 加 `'2023-gk1-q16': {type:'calc', answer:[(1)波形 / (2)极大 x=2,6 / 极小 x=0,4,8]}`
+- **教训**：每次 commit 完成一卷（或一组题）必须**核对 questions/ 目录数量 vs exams.jsx entry 数量**。CLAUDE.md "数据注册铁律"已写明，但实践仍漏 → 加入 commit 前 checklist。

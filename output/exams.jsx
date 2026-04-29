@@ -157,6 +157,7 @@ const REAL_PROBLEMS = [
   { id:'2023-gk1-q11', year:2023, paper:'gk1', no:'11', module:'力学',     tplId:null, title:'弹簧 · 平抛 · 反弹',                     summary:'v₀=√(2E_p/m)；d=4√(E_p·h/(mg))。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q11/index.html' },
   { id:'2023-gk1-q12', year:2023, paper:'gk1', no:'12', module:'电磁学',   tplId:null, title:'U 型导轨 · 弹性碰撞 + 电磁感应',         summary:'(1) v₀/2  (2) mv₀²  (3) 2mR/(B²L²)。', diff:'难', heat:180, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q12/index.html', paid:true },
   { id:'2023-gk1-q15', year:2023, paper:'gk1', no:'15', module:'光学',     tplId:null, title:'等腰棱镜 · 双色折射',                    summary:'甲在乙下方 → n_甲<n_乙；ACE 全证。', diff:'中', heat:90, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q15/index.html' },
+  { id:'2023-gk1-q16', year:2023, paper:'gk1', no:'16', module:'振动波动', tplId:null, title:'两横波相向传播 · 干涉极大/极小',         summary:'P 沿 +x、Q 沿 -x 反相传播；λ=8m, v=4m/s → 极大 x=2,6 m, 极小 x=0,4,8 m。', diff:'中', heat:110, hasAnim:true, htmlPath:'2023_全国甲卷/questions/q16/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -244,6 +245,7 @@ const PROBLEM_META = {
   '2023-gk1-q11': { type:'calc',          answer:[{sub:'(1) v₀ =',val:'√(2E_p/m)'},{sub:'(2) d =',val:'4√(E_p·h/(mg))'}] },
   '2023-gk1-q12': { type:'calc',          answer:[{sub:'(1) v_P =',val:'v₀/2'},{sub:'(2) Q_热 =',val:'m·v₀²'},{sub:'(3) t_Q =',val:'2mR/(B²L²)'}] },
   '2023-gk1-q15': { type:'choice-multi',  answer:'ACE' },
+  '2023-gk1-q16': { type:'calc',          answer:[{sub:'(1) t=0 波形',val:'见图（P 虚线 / Q 实线，反相）'},{sub:'(2) 极大',val:'x = 2, 6 m'},{sub:'(2) 极小',val:'x = 0, 4, 8 m'}] },
 };
 
 // 按 year×paper 计数
