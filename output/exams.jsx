@@ -3,14 +3,18 @@
 // 数据为示意级（题干为典型高考物理题型，参数和模板对接到工坊）
 
 const PAPERS = [
-  { id:'gk1',   short:'全国甲',  name:'全国甲卷',     region:'全国', tier:'core' },
-  { id:'gk2',   short:'全国乙',  name:'全国乙卷',     region:'全国', tier:'core' },
-  { id:'xgk1',  short:'新高考Ⅰ', name:'新高考 I 卷',  region:'全国', tier:'core' },
-  { id:'xgk2',  short:'新高考Ⅱ', name:'新高考 II 卷', region:'全国', tier:'core' },
-  { id:'bj',    short:'北京',    name:'北京卷',       region:'地方', tier:'local' },
-  { id:'sh',    short:'上海',    name:'上海卷',       region:'地方', tier:'local' },
-  { id:'tj',    short:'天津',    name:'天津卷',       region:'地方', tier:'local' },
-  { id:'zj',    short:'浙江',    name:'浙江卷',       region:'地方', tier:'local' },
+  { id:'gk1',    short:'全国甲',   name:'全国甲卷',      region:'全国', tier:'core' },
+  { id:'gk2',    short:'全国乙',   name:'全国乙卷',      region:'全国', tier:'core' },
+  { id:'xgk1',   short:'新高考Ⅰ',  name:'新高考 I 卷',   region:'全国', tier:'core' },
+  { id:'xgk2',   short:'新高考Ⅱ',  name:'新高考 II 卷',  region:'全国', tier:'core' },
+  // 2017-2020 新课标 I/II/III 卷（旧大纲版，区别于 2021+ 的"新高考 I/II"）
+  { id:'xkbI',   short:'新课标Ⅰ',  name:'新课标 I 卷',   region:'全国', tier:'core' },
+  { id:'xkbII',  short:'新课标Ⅱ',  name:'新课标 II 卷',  region:'全国', tier:'core' },
+  { id:'xkbIII', short:'新课标Ⅲ',  name:'新课标 III 卷', region:'全国', tier:'core' },
+  { id:'bj',     short:'北京',     name:'北京卷',        region:'地方', tier:'local' },
+  { id:'sh',     short:'上海',     name:'上海卷',        region:'地方', tier:'local' },
+  { id:'tj',     short:'天津',     name:'天津卷',        region:'地方', tier:'local' },
+  { id:'zj',     short:'浙江',     name:'浙江卷',        region:'地方', tier:'local' },
 ];
 
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016];
