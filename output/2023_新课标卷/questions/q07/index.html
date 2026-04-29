@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 新课标 · 第 7 题 · W-x 图分段拉力（动能/功率/动量）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：m=1kg 物体由静止从 x=0 沿 +x 在水平面运动；W-x 图：
+//   0-2m 段斜率 = F1 = 6N（W=12J at x=2）
+//   2-4m 段斜率 = F2 = 3N（W=18J at x=4）
+// μ=0.4, g=10 → f = μmg = 4N
+//
+// 动能定理：½mv² = W_拉 − W_摩擦 = W(x) − f·x
+//   x=1: ½v² = 6−4 = 2 → v=2 → P = F1·v = 12W （A 错，不是 6W）
+//   x=2: ½v² = 12−8 = 4 → v=2√2 ≈ 2.828 m/s（最大速度，因 F2=3<f=4 后段减速）
+//   x=3: ½v² = 15−12 = 3 → v=√6 ≈ 2.449
+//   x=4: ½v² = 18−16 = 2 → v=2 → KE = 2J ✓ B 对
+// 摩擦做功 0→2m: 4·2 = 8J ✓ C 对
+// 最大动量 p_max = m·v_max = 2√2 ≈ 2.83 kg·m/s（D 错，不是 2）
+// 答案 BC
+
+const m_obj = 1;
+const mu = 0.4;
+const g_g = 10;
+const f_fric = mu * m_obj * g_g;  // 4N
+const F1 = 6, F2 = 3;
+const a1 = (F1 - f_fric) / m_obj; // +2 m/s²
+const a2 = (F2 - f_fric) / m_obj; // -1 m/s²
+
+// 时间相位
+// 0→2m: x=½·a1·t² → t=√(x); v=2t；  t at x=2: √2 ≈ 1.414
+// 2→4m: x=2 + v0·t' + ½·a2·t'², v0=2√2; 解 0.5t'² − 2√2·t' + (x-2) = 0
+const T1 = Math.sqrt(2);
+const v_at2 = a1 * T1;            // 2√2 ≈ 2.828
+// x=4 in 2nd phase: 0.5·1·t'² − 2√2·t' + 2 = 0 → t' = 2√2 − √(8-4) = 2.828 − 2 = 0.828
+const T2 = v_at2 - Math.sqrt(v_at2*v_at2 - 4);  // 取较小根
+const T_total = T1 + T2;          // ≈ 2.243s
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  const tt = u * T_total;
+  let x, v;
+  if(tt <= T1){
+    x = 0.5 * a1 * tt * tt;
+    v = a1 * tt;
+  } else {
+    const tp = tt - T1;
+    x = 2 + v_at2 * tp + 0.5 * a2 * tp * tp;
+    v = v_at2 + a2 * tp;
+  }
+  // 拉力 F at x
+  const F_now = (x < 2 - 1e-9) ? F1 : F2;
+  const W_pull = (x < 2 - 1e-9) ? F1 * x : (12 + F2 * (x - 2));
+  const W_fric = f_fric * x;
+  const KE = W_pull - W_fric;       // = ½mv²
+  const P_now = F_now * v;          // 拉力功率
+  const p_now = m_obj * v;          // 动量
+  return {u, t, tt, x, v, F_now, W_pull, W_fric, KE, P_now, p_now};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawWxGraph(ctx, 14, 14, W*0.55-21, H*0.55-14, state);
+  drawTrack(ctx, 14, H*0.55+7, W*0.55-21, H*0.45-21, state);
+  drawAnalysis(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawWxGraph(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('W-x 图（拉力做功 vs 坐标）', panelX+12, panelY+18);
+
+  const xMin = 0, xMax = 4.5, yMin = 0, yMax = 22;
+  const padX = 38, padYTop = 30, padYBot = 24;
+  const sx = (panelW - padX - 12) / (xMax - xMin);
+  const sy = (panelH - padYTop - padYBot) / (yMax - yMin);
+  const offX = panelX + padX;
+  const offY = panelY + panelH - padYBot;
+  const px = x => offX + x*sx;
+  const py = y => offY - y*sy;
+
+  // 坐标轴
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(offX, py(0)); ctx.lineTo(px(xMax), py(0));   // x 轴
+  ctx.moveTo(offX, py(0)); ctx.lineTo(offX, py(yMax));    // W 轴
+  ctx.stroke();
+  // 箭头
+  PPath.arrow(ctx, px(xMax)-8, py(0), px(xMax), py(0), '#5d6964', 1.4);
+  PPath.arrow(ctx, offX, py(yMax)+8, offX, py(yMax), '#5d6964', 1.4);
+  // 标签
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10px Georgia,serif';
+  ctx.fillText('x/m', px(xMax)-2, py(0)+14);
+  ctx.fillText('W/J', offX-4, py(yMax)-4);
+  // 刻度
+  ctx.font = '600 9px ui-monospace,monospace';
+  for(let xi = 1; xi <= 4; xi++){
+    ctx.beginPath(); ctx.moveTo(px(xi), py(0)); ctx.lineTo(px(xi), py(0)+4); ctx.stroke();
+    ctx.fillText(String(xi), px(xi)-3, py(0)+14);
+  }
+  for(const yi of [6, 12, 18]){
+    ctx.beginPath(); ctx.moveTo(offX, py(yi)); ctx.lineTo(offX-4, py(yi)); ctx.stroke();
+    ctx.fillText(String(yi), offX-18, py(yi)+3);
+  }
+
+  // W-x 折线（两段）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(0));
+  ctx.lineTo(px(2), py(12));
+  ctx.lineTo(px(4), py(18));
+  ctx.stroke();
+
+  // 当前 x 在 W-x 图上的位置点
+  const xNow = Math.min(state.x, 4);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px(xNow), py(state.W_pull), 5, 0, Math.PI*2); ctx.fill();
+  // 投影虚线
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(px(xNow), py(0)); ctx.lineTo(px(xNow), py(state.W_pull));
+  ctx.lineTo(offX, py(state.W_pull));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 段斜率标签（u>=0.20 揭晓）
+  if(state.u >= 0.20){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('斜率=F₁=6N', px(0.6), py(8));
+    ctx.fillText('斜率=F₂=3N', px(2.4), py(15.5));
+  }
+
+  // f 摩擦水平参考线（u>=0.40 揭晓）—— 关键提示 F2<f
+  if(state.u >= 0.40){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.2; ctx.setLineDash([5,3]);
+    // 画 W = f·x 参考线（虚线对照拉力斜率 = 摩擦力斜率 4N）
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(0));
+    ctx.lineTo(px(4), py(16));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 9.5px ui-monospace,monospace';
+    ctx.fillText('参考: W=f·x (f=4N)', px(2.6), py(19));
+  }
+}
+
+function drawTrack(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('物体在水平面上的运动（μ=0.4，g=10）', panelX+12, panelY+18);
+
+  const xMin = -0.3, xMax = 4.5;
+  const padX = 28;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const offX = panelX + padX + (-xMin)*sx;
+  const yGround = panelY + panelH - 30;
+  const px = x => offX + x*sx;
+
+  // 桌面线
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(px(-0.3), yGround); ctx.lineTo(px(xMax-0.1), yGround); ctx.stroke();
+  // 桌面纹
+  ctx.strokeStyle = '#bfb09a'; ctx.lineWidth = 1;
+  for(let xi = px(-0.3); xi < px(xMax-0.1); xi += 7){
+    ctx.beginPath(); ctx.moveTo(xi, yGround); ctx.lineTo(xi+5, yGround+8); ctx.stroke();
+  }
+
+  // x 轴刻度
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 9px ui-monospace,monospace';
+  for(let xi = 0; xi <= 4; xi++){
+    ctx.beginPath(); ctx.moveTo(px(xi), yGround); ctx.lineTo(px(xi), yGround+5); ctx.stroke();
+    ctx.fillText(String(xi)+' m', px(xi)-8, yGround+18);
+  }
+
+  // 物体方块
+  const boxW = sx*0.25, boxH = 22;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(px(state.x)-boxW/2, yGround-boxH, boxW, boxH);
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(px(state.x)-boxW/2, yGround-boxH, boxW, boxH);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px Georgia,serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('m', px(state.x), yGround-boxH/2+4);
+  ctx.textAlign = 'start';
+
+  // 拉力 F 箭头（u>=0.10 揭晓）
+  if(state.u >= 0.10){
+    const fyArrow = yGround - boxH - 10;
+    const fScale = sx*0.10;
+    const Flen = state.F_now * fScale;
+    PPath.arrow(ctx, px(state.x), fyArrow, px(state.x) + Flen, fyArrow, '#7d4f9c', 1.6);
+    ctx.fillStyle = '#7d4f9c';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('F='+state.F_now+'N', px(state.x) + Flen + 4, fyArrow+4);
+  }
+  // 摩擦力 f 箭头（u>=0.25 揭晓）— 阻碍运动方向，向左
+  if(state.u >= 0.25 && state.v > 0.01){
+    const fyF = yGround - 6;
+    const fScale = sx*0.10;
+    PPath.arrow(ctx, px(state.x), fyF, px(state.x) - f_fric*fScale, fyF, '#c2611f', 1.4);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('f=4N', px(state.x) - f_fric*fScale - 30, fyF+12);
+  }
+  // 速度 v 箭头（u>=0.40 揭晓）
+  if(state.u >= 0.40 && state.v > 0.01){
+    const vyArrow = yGround - boxH - 26;
+    const vScale = sx*0.20;
+    PPath.arrow(ctx, px(state.x), vyArrow, px(state.x) + state.v*vScale, vyArrow, '#16613f', 1.6);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('v='+state.v.toFixed(2), px(state.x) + state.v*vScale + 4, vyArrow+4);
+  }
+
+  // 区段背景色（提示 0-2 加速 / 2-4 减速）
+  if(state.u >= 0.55){
+    ctx.fillStyle = 'rgba(63,111,143,0.08)';
+    ctx.fillRect(px(0), yGround+22, sx*2, 8);
+    ctx.fillStyle = 'rgba(180,68,46,0.08)';
+    ctx.fillRect(px(2), yGround+22, sx*2, 8);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 9px ui-monospace,monospace';
+    ctx.fillText('a=+2 加速', px(0.4), yGround+30);
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('a=−1 减速', px(2.4), yGround+30);
+  }
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('动能定理逐选项核对', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• ½mv² = W_拉 − f·x  (f=μmg=4N)'});
+  if(state.u >= 0.20) lines.push({c:'#3f6f8f', t:'• 0-2m: F₁=6N → 净 2N → a=+2 m/s²'});
+  if(state.u >= 0.22) lines.push({c:'#b4442e', t:'• 2-4m: F₂=3N → 净 −1N → a=−1 m/s²'});
+  if(state.u >= 0.35) lines.push({c:'#5d6964', t:'A. x=1m 时'});
+  if(state.u >= 0.38) lines.push({c:'#5d6964', t:'   ½v²=W_拉−f·x=6−4=2'});
+  if(state.u >= 0.85) lines.push({c:'#5d6964', t:'   v=2，P=F₁·v=12 W'});
+  if(state.u >= 0.50) lines.push({c:'#5d6964', t:'B. x=4m 时'});
+  if(state.u >= 0.53) lines.push({c:'#5d6964', t:'   ½v²=W−f·x=18−16=2'});
+  if(state.u >= 0.85) lines.push({c:'#5d6964', t:'   KE=2 J'});
+  if(state.u >= 0.62) lines.push({c:'#5d6964', t:'C. 0→2m 摩擦做功'});
+  if(state.u >= 0.85) lines.push({c:'#5d6964', t:'   W_f=f·x=4×2=8 J'});
+  if(state.u >= 0.75) lines.push({c:'#5d6964', t:'D. 最大动量位置（F₂&lt;f → 减速）'});
+  if(state.u >= 0.85) lines.push({c:'#5d6964', t:'   v_max=2√2 → p_max=2√2 kg·m/s'});
+  if(state.u >= 0.92) lines.push({c:'#c2611f', t:'答案 BC'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 16;
+  });
+
+  // 答案徽章
+  if(state.u >= 0.88){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-46, panelW-24, 34, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BC', panelX+22, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: 'W-x 图分段拉力 · 动能/功率/动量',
+  subtitle: 'm=1, μ=0.4, g=10；W-x 折线斜率给 F；动能定理 ½mv²=W−f·x。',
+  deliv: { title: '动能定理 + 功率与动量', sub: 'BC：x=4 时 KE=2J、0→2 摩擦做功 8J' },
+  originalProblem: {
+    meta: '2023 新课标 · 多选 · 第 7 题 · 6 分',
+    image: '../../source/images/image27.png',
+    text: `一质量为 1 kg 的物体在水平拉力的作用下，由静止开始在水平地面上沿 x 轴运动，出发点为 x 轴零点，拉力做的功 W 与物体坐标 x 的关系如图所示（0–2 m 段斜率为 6 N、2–4 m 段斜率为 3 N，W 由 0 → 12 J → 18 J）。物体与水平地面间的动摩擦因数为 0.4，重力加速度大小取 10 m/s²。下列说法正确的是（    ）`,
+    subQuestions: [
+      'A. 在 x = 1 m 时，拉力的功率为 6 W',
+      'B. 在 x = 4 m 时，物体的动能为 2 J',
+      'C. 从 x = 0 运动到 x = 2 m，物体克服摩擦力做的功为 8 J',
+      'D. 从 x = 0 运动到 x = 4 的过程中，物体的动量最大为 2 kg·m/s'
+    ],
+    officialAnswer: 'BC · 动能定理 ½mv² = W_拉 − f·x，f=μmg=4N。A：x=1m 时 ½v²=6−4=2 → v=2，P=F₁·v=6×2=12W（不是 6W），A 错。B：x=4m 时 ½v²=18−16=2 → KE=2J，B 对。C：0→2m 摩擦做功 W_f=f·x=4×2=8J，C 对。D：因 F₂=3N&lt;f=4N，2m 后减速，最大速度在 x=2m 处：½v²=12−8=4 → v=2√2 m/s，p_max=mv=2√2≈2.83 kg·m/s（不是 2），D 错。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 拉力分段', label_short:'F',
+     formula_tex: String.raw`F_1 = 6\,\text{N}\;(0\text{-}2\,\text{m}),\quad F_2 = 3\,\text{N}\;(2\text{-}4\,\text{m})`,
+     note:'W-x 图斜率给出每段拉力大小；摩擦 f=μmg=4N。'},
+    {label:'阶段 ② 加速度', label_short:'a',
+     formula_tex: String.raw`a_1 = (F_1-f)/m = +2,\quad a_2 = (F_2-f)/m = -1\;\text{m/s}^2`,
+     note:'F₂&lt;f → 后段减速；最大速度在 x=2m。'},
+    {label:'阶段 ③ A 选项', label_short:'A',
+     formula_tex: String.raw`x=1: \tfrac12 v^2 = 6-4=2 \Rightarrow v=2,\; P=F_1 v = 12\,\text{W}`,
+     note:'拉力功率 12W ≠ 6W，A 错。'},
+    {label:'阶段 ④ B 选项', label_short:'B',
+     formula_tex: String.raw`x=4: \tfrac12 v^2 = 18-16=2 \Rightarrow E_k = 2\,\text{J}`,
+     note:'B 对。'},
+    {label:'阶段 ⑤ C 选项', label_short:'C',
+     formula_tex: String.raw`W_f(0\to 2) = f\cdot x = 4\times 2 = 8\,\text{J}`,
+     note:'C 对。'},
+    {label:'阶段 ⑥ D 选项', label_short:'D',
+     formula_tex: String.raw`v_{\max}=v(2)=2\sqrt2 \Rightarrow p_{\max}=2\sqrt2 \approx 2.83`,
+     note:'p_max ≠ 2 kg·m/s，D 错。'}
+  ],
+  stats: [
+    {label:'当前 x',  fmt:s=>(s.x).toFixed(2)+' m'},
+    {label:'当前 v',  fmt:s=>(s.u>=0.40? s.v.toFixed(2)+' m/s' : '?')},
+    {label:'拉力 F',  fmt:s=>(s.u>=0.10? s.F_now+' N' : '?')},
+    {label:'W_拉',    fmt:s=>(s.u>=0.20? s.W_pull.toFixed(2)+' J' : '?')},
+    {label:'W_摩擦',  fmt:s=>(s.u>=0.25? s.W_fric.toFixed(2)+' J' : '?')},
+    {label:'KE = ½mv²', fmt:s=>(s.u>=0.50? s.KE.toFixed(2)+' J' : '?')},
+    {label:'功率 P',  fmt:s=>(s.u>=0.35? s.P_now.toFixed(2)+' W' : '?')},
+    {label:'动量 p',  fmt:s=>(s.u>=0.75? s.p_now.toFixed(2)+' kg·m/s' : '?')},
+    {label:'当前 t',  fmt:s=>(s.tt).toFixed(2)+' s'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'P = 12 W',         note:'½v²=2 → v=2 → P=F₁·v=12W'},
+    {label_text:'B 对', value_text:'KE = 2 J ✓',       note:'x=4: ½v²=18−16=2'},
+    {label_text:'C 对', value_text:'W_f = 8 J ✓',      note:'f·x=4·2=8'},
+    {label_text:'D 错', value_text:'p_max = 2√2',      note:'v_max=2√2 在 x=2m'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'物体（蓝）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'拉力 F'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'摩擦力 f=4N'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'速度 v'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'当前 W-x 工作点'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023新课标-Q7-Wx图分段拉力'
+});
+</script>
+</body>
+</html>

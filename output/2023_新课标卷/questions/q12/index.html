@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 新课标 · 第 12 题 · 密立根油滴质量比+电荷比</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：密立根油滴
+// 不加电压：a、b 在重力+空气阻力作用下匀速下落，速率 v₀, v₀'=v₀/4（v₀' 取自 image61.wmf，按答案反推）
+//   匀速：mg = krv → m = krv/g
+//   球形 m=(4/3)πr³ρ → r∝m^(1/3) → m∝v^(3/2)
+//   m_a/m_b = (v₀/v₀')^(3/2) = 4^(3/2) = 8
+//
+// 加电压（上板正极 → 板间电场向下）后：两油滴共同末速 v_共=v₀/2（按答案反推）
+//   a 减速（v₀ → v₀/2）→ 电场力向上 → a 带负电
+//   b 加速（v₀/4 → v₀/2）→ 电场力向下 → b 带正电
+//
+// 匀速时：
+//   a: mg − qE = krv_共  → qE/(kr_a) = v₀ − v_共
+//   b: mg + qE = krv_共  → qE/(kr_b) = v_共 − v₀'
+//   q_a/q_b = (r_a/r_b)·(v₀−v_共)/(v_共−v₀') = 2·(v₀/2)/(v₀/4) = 2·2 = 4
+//
+// 答案：(1) m_a:m_b = 8:1；(2) a 负 b 正，q_a:q_b = 4:1
+
+const v0 = 4;        // 任意单位
+const v0_prime = 1;  // v₀/4
+const v_共 = 2;       // v₀/2
+const m_a_over_m_b = 8;
+const r_a_over_r_b = 2;
+const q_a_over_q_b = 4;
+// 视觉半径
+const r_a_px = 14;
+const r_b_px = 7;
+
+const T_total = 12;
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面
+  // 0.10-0.40 阶段 ①：不加电压（a 快下 v₀, b 慢下 v₀/4）
+  // 0.40-0.45 加电压瞬间（电场显示）
+  // 0.45-0.70 阶段 ②：加电后 a 减速、b 加速 → 共同 v_共
+  // 0.70-1.00 揭晓比值
+  let phase = 0, sub = 0;
+  if(u < 0.10){ phase = 0; sub = u/0.10; }
+  else if(u < 0.40){ phase = 1; sub = (u-0.10)/0.30; }
+  else if(u < 0.45){ phase = 1.5; sub = (u-0.40)/0.05; }
+  else if(u < 0.70){ phase = 2; sub = (u-0.45)/0.25; }
+  else { phase = 3; sub = 1; }
+
+  // a / b 当前速率（连续过渡）
+  let v_a = v0, v_b = v0_prime;
+  if(phase === 1){ v_a = v0; v_b = v0_prime; }
+  else if(phase === 1.5){ v_a = v0; v_b = v0_prime; }
+  else if(phase === 2){
+    // 加电后到达 v_共
+    const ease = sub*sub*(3-2*sub);  // smooth
+    v_a = v0      + (v_共 - v0)*ease;       // 4 → 2
+    v_b = v0_prime + (v_共 - v0_prime)*ease; // 1 → 2
+  } else if(phase === 3){ v_a = v_共; v_b = v_共; }
+
+  // 板间位置（板高 H_plate=8 单位，垂直方向）
+  // 阶段 0/1（不加电）：a/b 从顶端开始往下
+  // 阶段 2（加电）：从某中间位置继续
+  // 简化：每相 a/b 累积下落距离
+  // 用相位累积：在 phase 内时间 sub*duration
+  // 但保留相对独立 — 用全局 progress 模拟
+  let y_a = 0, y_b = 0;  // 0 = top, 8 = bottom
+  if(phase <= 1){
+    // 阶段 ①
+    const tt = (phase===1) ? sub : 0;
+    y_a = 0 + v_a * tt * 6.5;   // 让在 sub=1 时到 ~5
+    y_b = 0 + v_b * tt * 6.5;
+  } else if(phase === 1.5){
+    // 加电瞬间，保持位置
+    y_a = v0 * 6.5;          // ~26 → 截断 5
+    y_b = v0_prime * 6.5;    // ~6.5 → 截断 5
+  } else if(phase === 2){
+    // 加电后继续下落到板底（baseA/baseB 与 phase 1 末态对齐）
+    const baseA = Math.min(v0 * 6.5, 7.8);          // a 已被钳到 7.8
+    const baseB = Math.min(v0_prime * 6.5, 7.8);    // b = 6.5
+    // 让 b 在 sub=1 时平滑抵达 7.8（增长 1.3 单位），a 已饱和保持 7.8
+    y_a = baseA;
+    y_b = baseB + (7.8 - baseB) * sub;
+  } else {
+    y_a = 7.8; y_b = 7.8;
+  }
+  y_a = Math.min(y_a, 7.8);
+  y_b = Math.min(y_b, 7.8);
+
+  const E_on = phase >= 1.5;
+  return {u, t, phase, sub, v_a, v_b, y_a, y_b, E_on};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawApparatus(ctx, 14, 14, W*0.50-21, H-28, state);
+  drawAnalysis(ctx,  W*0.50+7, 14, W*0.50-21, H-28, state);
+}
+
+function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('密立根油滴 · 平行板 · 加压前后比较', panelX+12, panelY+18);
+
+  // 板坐标
+  const cx = panelX + panelW/2;
+  const yTop = panelY + 50;
+  const yBot = panelY + panelH - 50;
+  const plateH = yBot - yTop;
+  const plateW = panelW * 0.75;
+
+  // 上板（加电时变红 + ）
+  const upColor = state.E_on ? '#b4442e' : '#3a3a3c';
+  ctx.fillStyle = upColor;
+  ctx.fillRect(cx - plateW/2, yTop-6, plateW, 6);
+  // 上板小孔（中央断开 8px）
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(cx-4, yTop-6, 8, 6);
+  // 下板
+  const dnColor = state.E_on ? '#3f6f8f' : '#3a3a3c';
+  ctx.fillStyle = dnColor;
+  ctx.fillRect(cx - plateW/2, yBot, plateW, 6);
+
+  // 板标签（u≥0.10 揭晓）
+  if(state.u >= 0.10){
+    ctx.fillStyle = state.E_on ? '#b4442e' : '#5d6964';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText(state.E_on?'+':'上板', cx + plateW/2 + 6, yTop-2);
+    ctx.fillStyle = state.E_on ? '#3f6f8f' : '#5d6964';
+    ctx.fillText(state.E_on?'−':'下板', cx + plateW/2 + 6, yBot+11);
+  }
+
+  // 电场 E 箭头（加压后向下，u≥phase 1.5）
+  if(state.E_on){
+    ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 1.5;
+    for(let i = 0; i < 4; i++){
+      const xx = cx - plateW/2 + 30 + i*((plateW-60)/3);
+      PPath.arrow(ctx, xx, yTop+4, xx, yBot-4, '#7d4f9c', 1.4);
+    }
+    ctx.fillStyle = '#7d4f9c';
+    ctx.font = 'italic 800 14px Georgia,serif';
+    ctx.fillText('E', cx - plateW/2 - 12, (yTop+yBot)/2);
+  }
+
+  // 油滴位置（y_a/y_b 取 0..8, 映射到 yTop..yBot）
+  const yMap = y => yTop + (y/8) * plateH;
+  const x_a = cx - plateW/4;  // a 在左
+  const x_b = cx + plateW/4;  // b 在右
+  const ya = yMap(state.y_a);
+  const yb = yMap(state.y_b);
+
+  // a 油滴（大）
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(x_a, ya, r_a_px, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(x_a, ya, r_a_px, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px Georgia,serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('a', x_a, ya+5);
+  // a 电荷标记（u≥0.58 与 drawAnalysis 推导链同步）
+  if(state.u >= 0.58){
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px Georgia,serif';
+    ctx.fillText('−', x_a, ya-r_a_px+2);
+  }
+  ctx.textAlign = 'start';
+
+  // b 油滴（小）
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(x_b, yb, r_b_px, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(x_b, yb, r_b_px, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 9px Georgia,serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('b', x_b, yb+3);
+  if(state.u >= 0.68){
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 9px Georgia,serif';
+    ctx.fillText('+', x_b, yb-r_b_px+2);
+  }
+  ctx.textAlign = 'start';
+
+  // 速度向量
+  if(state.phase >= 1){
+    const vScale = 8;
+    PPath.arrow(ctx, x_a-r_a_px-8, ya, x_a-r_a_px-8, ya + state.v_a*vScale, '#b4442e', 1.6);
+    PPath.arrow(ctx, x_b+r_b_px+8, yb, x_b+r_b_px+8, yb + state.v_b*vScale, '#3f6f8f', 1.6);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('v_a', x_a-r_a_px-26, ya + state.v_a*vScale + 12);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('v_b', x_b+r_b_px+12, yb + state.v_b*vScale + 12);
+  }
+
+  // 状态标签
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+  if(state.phase < 1.5){
+    ctx.fillText('阶段 ① 不加电压：a 快、b 慢', panelX+12, yBot+30);
+  } else if(state.phase < 3){
+    ctx.fillText('阶段 ② 加电压：a 减速 / b 加速 → 共同 v', panelX+12, yBot+30);
+  } else {
+    ctx.fillText('稳态：v_a = v_b = v_共', panelX+12, yBot+30);
+  }
+
+  // 关键比值（u≥0.85 揭晓）
+  if(state.u >= 0.85){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('m_a : m_b = 8 : 1', panelX+12, panelY+panelH-26);
+    ctx.fillText('|q_a| : |q_b| = 4 : 1', panelX+12, panelY+panelH-10);
+  }
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('受力分析与比值推导', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'(1) 不加电压时匀速：mg = krv'});
+  if(state.u >= 0.18) lines.push({c:'#5d6964', t:'  → m = krv/g'});
+  if(state.u >= 0.25) lines.push({c:'#5d6964', t:'  球形：m = (4/3)πr³ρ → r∝m^(1/3)'});
+  if(state.u >= 0.32) lines.push({c:'#5d6964', t:'  代入 → m^(2/3) ∝ v → m ∝ v^(3/2)'});
+  if(state.u >= 0.40) lines.push({c:'#5d6964', t:'  m_a/m_b = (v₀/v₀\')^(3/2)'});
+  if(state.u >= 0.85) lines.push({c:'#b4442e', t:'  = 4^(3/2) = 8'});
+  if(state.u >= 0.50) lines.push({c:'#5d6964', t:'(2) 加电压（上板正 → E 向下）'});
+  if(state.u >= 0.55) lines.push({c:'#b4442e', t:'  a 减速（v₀ → v_共）→ 电场力向上'});
+  if(state.u >= 0.58) lines.push({c:'#b4442e', t:'    → a 带负电（被向上拉）'});
+  if(state.u >= 0.65) lines.push({c:'#3f6f8f', t:'  b 加速（v₀\' → v_共）→ 电场力向下'});
+  if(state.u >= 0.68) lines.push({c:'#3f6f8f', t:'    → b 带正电（被向下推）'});
+  if(state.u >= 0.74) lines.push({c:'#5d6964', t:'  匀速 a：mg − qE = kr·v_共'});
+  if(state.u >= 0.76) lines.push({c:'#5d6964', t:'    → qE/(kr_a) = v₀ − v_共'});
+  if(state.u >= 0.78) lines.push({c:'#5d6964', t:'  匀速 b：mg + qE = kr·v_共'});
+  if(state.u >= 0.80) lines.push({c:'#5d6964', t:'    → qE/(kr_b) = v_共 − v₀\''});
+  if(state.u >= 0.85) lines.push({c:'#16613f', t:'  q_a/q_b = (r_a/r_b)·(v₀-v_共)/(v_共-v₀\')'});
+  if(state.u >= 0.88) lines.push({c:'#16613f', t:'  = 2 · (v₀/2)/(v₀/4) = 2·2 = 4'});
+  if(state.u >= 0.92) lines.push({c:'#c2611f', t:'答案 (1) 8:1  (2) a 负、b 正、4:1'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 16;
+  });
+
+  // 答案徽章
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-58, panelW-24, 46, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('m_a:m_b = 8:1   ·   |q_a|:|q_b| = 4:1', panelX+22, panelY+panelH-36);
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('a 带负电、b 带正电', panelX+22, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 12 题 · 12 分',
+  title: '密立根油滴 · 质量比 + 电荷正负与比',
+  subtitle: '不加电压匀速 mg=krv → m∝v^(3/2)；加电压共同末速 → 受力平衡比电荷。',
+  deliv: { title: '球形+斯托克斯阻力比例', sub: '(1) m_a:m_b=8:1  (2) a 负 b 正、4:1' },
+  originalProblem: {
+    meta: '2023 新课标 · 计算 · 第 12 题 · 12 分',
+    image: '../../source/images/image62.png',
+    text: `密立根油滴实验的示意图如图所示。两水平金属平板上下放置，间距固定，可从上板中央的小孔向两板间喷入大小不同、带电量不同、密度相同的小油滴。两板间不加电压时，油滴 a、b 在重力和空气阻力的作用下竖直向下匀速运动，速率分别为 v₀、v₀'（v₀'=v₀/4，由原题 image61 给出）；两板间加上电压后（上板为正极），这两个油滴很快达到相同的速率，均竖直向下匀速运动（共同末速 v_共=v₀/2，由答案反推）。油滴可视为球形，所受空气阻力大小与油滴半径、运动速率成正比，比例系数视为常数。不计空气浮力和油滴间的相互作用。
+（1）求油滴 a 和油滴 b 的质量之比；
+（2）判断油滴 a 和油滴 b 所带电荷的正负，并求 a、b 所带电荷量的绝对值之比。`,
+    subQuestions: [],
+    officialAnswer: '(1) m_a:m_b = 8:1。匀速 mg=krv → m=krv/g；球形 m=(4/3)πr³ρ → r∝m^(1/3) → m^(2/3) ∝ v → m ∝ v^(3/2)；代入 v₀:v₀\'=4:1 → m_a/m_b=(v₀/v₀\')^(3/2)=4^(3/2)=8。(2) a 带负电、b 带正电，|q_a|:|q_b|=4:1。加电压后上板正极 → 电场向下；a 减速（v₀ → v_共=v₀/2）说明合力反向 → 电场力向上 → a 带负电；b 加速（v₀\' → v_共=v₀/2）说明电场力向下加重 → b 带正电。匀速 a：mg − qE = kr_a v_共，结合 mg=kr_a v₀ → qE/(kr_a)=v₀−v_共=v₀/2；匀速 b：mg + qE = kr_b v_共，结合 mg=kr_b v₀\' → qE/(kr_b)=v_共−v₀\'=v₀/4；q_a/q_b=(r_a/r_b)·(v₀/2)/(v₀/4)=2·2=4（其中 r_a/r_b=(m_a/m_b)^(1/3)=2）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.4,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 匀速', label_short:'mg=krv',
+     formula_tex: String.raw`mg = krv \;\Rightarrow\; m = krv/g`,
+     note:'重力 = 阻力，匀速。'},
+    {label:'阶段 ② 球形+m∝v^(3/2)', label_short:'m∝v^{3/2}',
+     formula_tex: String.raw`m = \tfrac{4}{3}\pi r^3 \rho,\; r\propto m^{1/3} \;\Rightarrow\; m \propto v^{3/2}`,
+     note:'代入消去 r。'},
+    {label:'阶段 ③ 质量比', label_short:'8:1',
+     formula_tex: String.raw`m_a/m_b = (v_0/v_0')^{3/2} = 4^{3/2} = 8`,
+     note:'(1) 答案。'},
+    {label:'阶段 ④ 加电后判正负', label_short:'±',
+     formula_tex: String.raw`a\downarrow \text{减速} \Rightarrow F_E \uparrow \Rightarrow q_a < 0;\; b \uparrow \Rightarrow q_b > 0`,
+     note:'电场向下；a 被向上拉负电；b 被向下推正电。'},
+    {label:'阶段 ⑤ 电荷比', label_short:'4:1',
+     formula_tex: String.raw`q_a/q_b = (r_a/r_b)\cdot\dfrac{v_0-v_\text{共}}{v_\text{共}-v_0'} = 2\cdot 2 = 4`,
+     note:'(2) 答案。'}
+  ],
+  stats: [
+    {label:'v_a',     fmt:s=>(s.phase>=1? s.v_a.toFixed(2) : '?')},
+    {label:'v_b',     fmt:s=>(s.phase>=1? s.v_b.toFixed(2) : '?')},
+    {label:'v₀:v₀\'', fmt:s=>(s.u>=0.20? '4 : 1' : '?')},
+    {label:'r_a:r_b', fmt:s=>(s.u>=0.85? '2 : 1' : '?')},
+    {label:'m_a:m_b', fmt:s=>(s.u>=0.85? '8 : 1' : '?')},
+    {label:'q_a 极性',fmt:s=>(s.u>=0.55? '负（−）' : '?')},
+    {label:'q_b 极性',fmt:s=>(s.u>=0.65? '正（+）' : '?')},
+    {label:'q_a:q_b', fmt:s=>(s.u>=0.88? '4 : 1' : '?')}
+  ],
+  conclusions: [
+    {label_text:'m_a:m_b',  value_text:'8 : 1 ✓',           note:'m∝v^(3/2)，v 比 4:1'},
+    {label_text:'a 极性',   value_text:'负（−）',           note:'减速 → F_E 向上 → q&lt;0'},
+    {label_text:'b 极性',   value_text:'正（+）',           note:'加速 → F_E 向下 → q&gt;0'},
+    {label_text:'|q_a|:|q_b|', value_text:'4 : 1 ✓',         note:'比例系数法'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'a 油滴（大、负电）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'},  text:'b 油滴（小、正电）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'电场 E（加压后向下）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023新课标-Q12-密立根油滴'
+});
+</script>
+</body>
+</html>

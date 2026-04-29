@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 新课标 · 第 8 题 · 三段绝热气缸+弹簧+加热</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 几何：缸内布置 [f] - P1 - [g 含弹簧] - P2 - [h]
+// 加热 f → f 升温升压 → P1 右移 → g 被压缩 + 弹簧被压缩 → 弹簧推 P2 右 → h 被压
+//
+// 力平衡（A 截面积）：
+//   P1: P_f·A = P_g·A + F_spring  →  P_f = P_g + F_spring/A
+//   P2: P_g·A + F_spring = P_h·A  →  P_h = P_g + F_spring/A
+//   ∴ P_f = P_h  (D 对)
+//
+// 内能：
+//   h 绝热但被外界做正功（弹簧通过 P2 压 h）→ ΔU_h > 0 → T_h 升 → A 对
+//   f 吸热 + 对外做功 → 升温最显著
+//   g 绝热被压缩 → 升温
+//   T_f >> T_g, T_f >> T_h → B 错、C 错
+// 答案 AD
+
+// 定性数值（保持 D 关系 P_f=P_h，体积守恒 V_f+V_g+V_h=3）
+const V0=1, P0=1, T0=1;
+const Vf_e = 1.4, Vg_e = 0.8, Vh_e = 0.8;   // 末态体积
+const Pf_e = 2.0, Pg_e = 1.6, Ph_e = 2.0;   // 末态压强（P_f=P_h ✓）
+const Tf_e = Pf_e * Vf_e;  // 2.8
+const Tg_e = Pg_e * Vg_e;  // 1.28
+const Th_e = Ph_e * Vh_e;  // 1.6
+const F_spring_e = (Pf_e - Pg_e);  // = (P_h - P_g) = 0.4 (单位 P0·A)
+
+const T_total = 6;
+
+function lerp(a, b, u){ return a + (b-a)*u; }
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0-0.20 静止
+  // 0.20-0.40 加热 f（f 颜色变深、温度计上升，但活塞还未动）
+  // 0.40-0.85 活塞缓慢移动到末态
+  // 0.85-1.0 平衡分析揭晓
+  let Vf, Vg, Vh, Pf, Pg, Ph;
+  if(u <= 0.20){
+    Vf=V0; Vg=V0; Vh=V0; Pf=P0; Pg=P0; Ph=P0;
+  } else if(u <= 0.40){
+    Vf=V0; Vg=V0; Vh=V0;
+    // f 加热但活塞未动 → P_f 升 (T_f/T0 升)
+    const heatU = (u-0.20)/0.20;
+    Pf = lerp(P0, P0*lerp(1, Tf_e/Vf_e, heatU)*Vf_e/V0*0.3, heatU); // 不实际用，仅展示
+    Pg = P0; Ph = P0;
+  } else if(u <= 0.85){
+    const moveU = (u-0.40)/0.45;
+    Vf = lerp(V0, Vf_e, moveU);
+    Vg = lerp(V0, Vg_e, moveU);
+    Vh = lerp(V0, Vh_e, moveU);
+    Pf = lerp(P0, Pf_e, moveU);
+    Pg = lerp(P0, Pg_e, moveU);
+    Ph = lerp(P0, Ph_e, moveU);
+  } else {
+    Vf=Vf_e; Vg=Vg_e; Vh=Vh_e; Pf=Pf_e; Pg=Pg_e; Ph=Ph_e;
+  }
+  // 温度（理想气体方程 nR=1）
+  const Tf = Pf*Vf, Tg = Pg*Vg, Th = Ph*Vh;
+  const heating = (u >= 0.20 && u <= 0.85);
+  return {u, t, Vf, Vg, Vh, Pf, Pg, Ph, Tf, Tg, Th, heating};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawApparatus(ctx, 14, 14, W*0.60-21, H-28, state);
+  drawAnalysis(ctx,  W*0.60+7, 14, W*0.40-21, H-28, state);
+}
+
+function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('绝热汽缸·两活塞+弹簧·加热 f', panelX+12, panelY+18);
+
+  // 缸坐标系（总长 V_f+V_g+V_h=3）
+  const cylX0 = panelX + 30;
+  const cylX1 = panelX + panelW - 30;
+  const cylW = cylX1 - cylX0;
+  const cylY = panelY + panelH * 0.50;
+  const cylH = 70;
+  const cylTop = cylY - cylH/2;
+  const cylBot = cylY + cylH/2;
+  const sx = cylW / 3;  // 每单位体积对应的像素宽
+
+  // 缸壁（绝热标记 - 双线 + 斜纹）
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.rect(cylX0, cylTop, cylW, cylH);
+  ctx.stroke();
+  // 绝热斜纹（缸外）
+  ctx.strokeStyle = '#bfb09a'; ctx.lineWidth = 1;
+  for(let i = 0; i < cylW; i += 8){
+    ctx.beginPath();
+    ctx.moveTo(cylX0+i, cylTop-6); ctx.lineTo(cylX0+i+5, cylTop-1);
+    ctx.moveTo(cylX0+i, cylBot+1); ctx.lineTo(cylX0+i+5, cylBot+6);
+    ctx.stroke();
+  }
+  // 绝热标签
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 9px "Noto Sans SC",sans-serif';
+  ctx.fillText('（绝热缸壁）', cylX0+8, cylTop-12);
+
+  // 活塞位置（按当前 V_f 和 V_f+V_g）
+  const x_P1 = cylX0 + state.Vf * sx;
+  const x_P2 = cylX0 + (state.Vf + state.Vg) * sx;
+  const pisW = 8;
+
+  // f 段（红色 — 加热段）
+  const f_alpha = state.heating ? 0.30 + 0.30*Math.min((state.u-0.20)/0.65, 1) : 0.20;
+  ctx.fillStyle = `rgba(180,68,46,${f_alpha})`;
+  ctx.fillRect(cylX0, cylTop+1, x_P1-cylX0, cylH-2);
+  // g 段（蓝）
+  ctx.fillStyle = 'rgba(63,111,143,0.18)';
+  ctx.fillRect(x_P1+pisW, cylTop+1, x_P2-x_P1-pisW, cylH-2);
+  // h 段（绿）
+  ctx.fillStyle = 'rgba(22,97,63,0.18)';
+  ctx.fillRect(x_P2+pisW, cylTop+1, cylX1-x_P2-pisW, cylH-2);
+
+  // 段标签 f / g / h
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 14px Georgia,serif';
+  ctx.fillText('f', cylX0 + (x_P1-cylX0)/2 - 4, cylY+5);
+  ctx.fillText('g', x_P1 + pisW + (x_P2-x_P1-pisW)/2 - 4, cylY+5);
+  ctx.fillText('h', x_P2 + pisW + (cylX1-x_P2-pisW)/2 - 4, cylY+5);
+
+  // P1 活塞
+  ctx.fillStyle = '#9ca3af';
+  ctx.fillRect(x_P1, cylTop+1, pisW, cylH-2);
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1;
+  ctx.strokeRect(x_P1, cylTop+1, pisW, cylH-2);
+  // P2 活塞
+  ctx.fillStyle = '#9ca3af';
+  ctx.fillRect(x_P2, cylTop+1, pisW, cylH-2);
+  ctx.strokeRect(x_P2, cylTop+1, pisW, cylH-2);
+  // 活塞标签
+  ctx.fillStyle = '#3a3a3c';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText('P₁', x_P1-4, cylTop-6);
+  ctx.fillText('P₂', x_P2-4, cylTop-6);
+
+  // 弹簧（在 g 中，连 P1 右侧 - P2 左侧）
+  drawSpring(ctx, x_P1+pisW, cylY, x_P2, cylY, 7, 8);
+
+  // 电热丝（在 f 中）+ 加热效果
+  if(state.heating){
+    ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2;
+    const heatX = cylX0 + 18;
+    ctx.beginPath();
+    for(let yy=cylTop+12; yy<cylBot-10; yy+=4){
+      ctx.moveTo(heatX, yy); ctx.lineTo(heatX+8, yy+2);
+      ctx.moveTo(heatX+8, yy+2); ctx.lineTo(heatX, yy+4);
+    }
+    ctx.stroke();
+    // 红光晕
+    const grad = ctx.createRadialGradient(heatX+4, cylY, 4, heatX+4, cylY, 30);
+    grad.addColorStop(0, 'rgba(255,180,100,0.4)');
+    grad.addColorStop(1, 'rgba(255,180,100,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(heatX+4, cylY, 30, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 数值条（缸下方）
+  const yStat = cylBot + 36;
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText('V', panelX+8, yStat);
+  ctx.fillText('P', panelX+8, yStat+16);
+  ctx.fillText('T', panelX+8, yStat+32);
+  const showP = state.u >= 0.85;   // 与 P_f=P_h 关键关系文字同步揭晓
+  const showT = state.u >= 0.85;   // 与 T_f≠T_g/T_h 判定同步揭晓
+  // f 列
+  drawCell(ctx, cylX0+(x_P1-cylX0)/2-22, yStat,    state.Vf.toFixed(2), '#b4442e');
+  drawCell(ctx, cylX0+(x_P1-cylX0)/2-22, yStat+16, showP ? state.Pf.toFixed(2) : '?', '#b4442e');
+  drawCell(ctx, cylX0+(x_P1-cylX0)/2-22, yStat+32, showT ? state.Tf.toFixed(2) : '?', '#b4442e');
+  // g 列
+  drawCell(ctx, x_P1+pisW+(x_P2-x_P1-pisW)/2-22, yStat,    state.Vg.toFixed(2), '#3f6f8f');
+  drawCell(ctx, x_P1+pisW+(x_P2-x_P1-pisW)/2-22, yStat+16, showP ? state.Pg.toFixed(2) : '?', '#3f6f8f');
+  drawCell(ctx, x_P1+pisW+(x_P2-x_P1-pisW)/2-22, yStat+32, showT ? state.Tg.toFixed(2) : '?', '#3f6f8f');
+  // h 列
+  drawCell(ctx, x_P2+pisW+(cylX1-x_P2-pisW)/2-22, yStat,    state.Vh.toFixed(2), '#16613f');
+  drawCell(ctx, x_P2+pisW+(cylX1-x_P2-pisW)/2-22, yStat+16, showP ? state.Ph.toFixed(2) : '?', '#16613f');
+  drawCell(ctx, x_P2+pisW+(cylX1-x_P2-pisW)/2-22, yStat+32, showT ? state.Th.toFixed(2) : '?', '#16613f');
+
+  // 关键关系（u>=0.85 揭晓）
+  if(state.u >= 0.85){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('P_f = P_h（活塞+弹簧合力平衡）', panelX+12, panelY+panelH-22);
+    ctx.fillStyle = '#b4442e';
+    ctx.fillText('T_h > T₀ → ΔU_h > 0', panelX+12, panelY+panelH-8);
+  }
+}
+
+function drawSpring(ctx, x1, y, x2, y2, coils, amp){
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(x1, y);
+  const span = x2 - x1;
+  const N = coils * 4;
+  for(let i = 1; i <= N; i++){
+    const xx = x1 + (span * i)/N;
+    const yy = y + ((i%2===0) ? -amp : amp);
+    ctx.lineTo(xx, yy);
+  }
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function drawCell(ctx, x, y, txt, color){
+  ctx.fillStyle = color;
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(txt, x, y);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('力平衡 + 热力学分析', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• 初始：T、V、P 三段相同'});
+  if(state.u >= 0.25) lines.push({c:'#b4442e', t:'• 电热丝加热 f → T_f 升'});
+  if(state.u >= 0.35) lines.push({c:'#b4442e', t:'  → P_f 升 → 推 P₁ 向右'});
+  if(state.u >= 0.45) lines.push({c:'#3f6f8f', t:'• g 被压缩、弹簧被压缩'});
+  if(state.u >= 0.50) lines.push({c:'#3f6f8f', t:'  弹簧推 P₂ 向右 → h 被压'});
+  if(state.u >= 0.60) lines.push({c:'#5d6964', t:'• 力平衡（A 截面积）'});
+  if(state.u >= 0.62) lines.push({c:'#5d6964', t:'  P₁: P_f·A = P_g·A + F_弹'});
+  if(state.u >= 0.65) lines.push({c:'#5d6964', t:'  P₂: P_g·A + F_弹 = P_h·A'});
+  if(state.u >= 0.75) lines.push({c:'#5d6964', t:'• 两式相加/比 → P_f = P_h'});
+  if(state.u >= 0.80) lines.push({c:'#16613f', t:'• h 绝热被外界做正功 → ΔU_h>0'});
+  if(state.u >= 0.85) lines.push({c:'#c2611f', t:'A 对：h 内能增加'});
+  if(state.u >= 0.87) lines.push({c:'#c2611f', t:'D 对：P_f = P_h'});
+  if(state.u >= 0.90) lines.push({c:'#c2611f', t:'B 错：T_f ≠ T_g（f 加热剧烈）'});
+  if(state.u >= 0.92) lines.push({c:'#c2611f', t:'C 错：T_f ≠ T_h'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 16;
+  });
+
+  // 答案徽章（推到 0.93 让所有 A/D 对、B/C 错判定词都先出）
+  if(state.u >= 0.93){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-46, panelW-24, 34, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 AD', panelX+22, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '三段绝热汽缸 + 弹簧 + 加热 f',
+  subtitle: '加热 f → P₁ 推 g、P₂ 推 h；力平衡得 P_f=P_h；h 被做正功 ΔU_h&gt;0。',
+  deliv: { title: '力平衡 + 热一律', sub: 'AD：h 内能增 + P_f=P_h' },
+  originalProblem: {
+    meta: '2023 新课标 · 多选 · 第 8 题 · 6 分',
+    image: '../../source/images/image32.png',
+    text: `如图，一封闭着理想气体的绝热汽缸置于水平地面上，用轻弹簧连接的两绝热活塞将汽缸分为 f、g、h 三部分，活塞与汽缸壁间没有摩擦。初始时弹簧处于原长，三部分中气体的温度、体积、压强均相等。现通过电阻丝对 f 中的气体缓慢加热，停止加热并达到稳定后（    ）`,
+    subQuestions: [
+      'A. h 中的气体内能增加',
+      'B. f 与 g 中的气体温度相等',
+      'C. f 与 h 中的气体温度相等',
+      'D. f 与 h 中的气体压强相等'
+    ],
+    officialAnswer: 'AD · 加热 f → f 升温升压 → P₁ 右移 → g 被压缩、弹簧被压缩 → 弹簧推 P₂ 右 → h 被压缩。力平衡：P₁ 上 P_f·A=P_g·A+F_弹 → P_f=P_g+F_弹/A；P₂ 上 P_g·A+F_弹=P_h·A → P_h=P_g+F_弹/A。两式 → P_f=P_h（D 对）。h 绝热但被外界做正功（弹簧通过 P₂ 压缩 h），由热一律 ΔU=Q+W=0+W&gt;0 → T_h 升、内能增（A 对）。f 吸热剧烈，T_f 升幅最大；g 被压缩升温但幅度小；T_f&gt;T_h&gt;T_g（B 错、C 错）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 初始三段同', label_short:'init',
+     formula_tex: String.raw`P_f^{(0)} = P_g^{(0)} = P_h^{(0)} = P_0`,
+     note:'弹簧原长，三段 T、V、P 都相等。'},
+    {label:'阶段 ② 加热 f', label_short:'heat',
+     formula_tex: String.raw`Q \to f \;\Rightarrow\; T_f \uparrow,\; P_f \uparrow`,
+     note:'f 吸热升温升压，但活塞还未明显移动。'},
+    {label:'阶段 ③ P₁ 右移', label_short:'P₁',
+     formula_tex: String.raw`P_f \cdot A = P_g \cdot A + F_{spring}`,
+     note:'f 升压推 P₁，g 被压缩+弹簧被压缩。'},
+    {label:'阶段 ④ P₂ 右移', label_short:'P₂',
+     formula_tex: String.raw`P_g \cdot A + F_{spring} = P_h \cdot A`,
+     note:'弹簧推 P₂，h 被压缩。'},
+    {label:'阶段 ⑤ 平衡分析', label_short:'eq',
+     formula_tex: String.raw`P_f = P_g + F_{sp}/A = P_h`,
+     note:'两式相比 → P_f=P_h（D 对）。'},
+    {label:'阶段 ⑥ 热一律 h', label_short:'ΔU',
+     formula_tex: String.raw`\Delta U_h = Q + W = 0 + W_{外} > 0`,
+     note:'h 绝热但被弹簧做正功 → 内能增（A 对）。'}
+  ],
+  stats: [
+    {label:'V_f', fmt:s=>s.Vf.toFixed(2)+' V₀'},
+    {label:'V_g', fmt:s=>s.Vg.toFixed(2)+' V₀'},
+    {label:'V_h', fmt:s=>s.Vh.toFixed(2)+' V₀'},
+    {label:'P_f', fmt:s=>(s.u>=0.85? s.Pf.toFixed(2)+' P₀' : '?')},
+    {label:'P_g', fmt:s=>(s.u>=0.85? s.Pg.toFixed(2)+' P₀' : '?')},
+    {label:'P_h', fmt:s=>(s.u>=0.85? s.Ph.toFixed(2)+' P₀' : '?')},
+    {label:'T_f', fmt:s=>(s.u>=0.85? s.Tf.toFixed(2)+' T₀' : '?')},
+    {label:'T_g', fmt:s=>(s.u>=0.85? s.Tg.toFixed(2)+' T₀' : '?')},
+    {label:'T_h', fmt:s=>(s.u>=0.85? s.Th.toFixed(2)+' T₀' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'h 内能 ↑ ✓',     note:'绝热但 W_外&gt;0'},
+    {label_text:'B 错', value_text:'T_f ≠ T_g',       note:'f 吸热剧烈'},
+    {label_text:'C 错', value_text:'T_f ≠ T_h',       note:'升温幅度不同'},
+    {label_text:'D 对', value_text:'P_f = P_h ✓',    note:'弹簧+活塞平衡'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'f 段（吸热）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'g 段（弹簧）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'h 段（被压）'},
+    {swatch:{bg:'#9ca3af',border:'#3a3a3c',type:'rect'}, text:'活塞 P₁/P₂（绝热）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023新课标-Q8-三段气缸弹簧加热'
+});
+</script>
+</body>
+</html>

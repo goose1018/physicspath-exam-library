@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 新课标 · 第 11 题 · 打水漂最小水平抛速度</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：水平抛石，初速度 v₀，初始高 h；落水时速度与水面夹角 α 不能大于 θ
+// 平抛：v_y = √(2gh)（落水时竖直分量）
+// tan α = v_y / v_x = v_y / v₀
+// 要 α ≤ θ → v₀ ≥ v_y / tan θ = √(2gh) / tan θ
+// → v₀_min = √(2gh)/tan θ
+//
+// 数值演示：h = 5m, g = 10, θ = 30° → v_y=10, v₀_min = 10·√3 ≈ 17.32 m/s
+
+const h_drop = 5;
+const g_g = 10;
+const theta_deg = 30;
+const theta_rad = theta_deg * Math.PI / 180;
+const v_y = Math.sqrt(2*g_g*h_drop);                // 10 m/s
+const v0_min = v_y / Math.tan(theta_rad);           // 10·√3 ≈ 17.32
+const tFall = Math.sqrt(2*h_drop/g_g);              // 1 s
+
+// 三个 v₀ 比较：太小、临界、太大
+const v0_small = v0_min * 0.55;   // ≈ 9.5
+const v0_big   = v0_min * 1.50;   // ≈ 26
+// 各对应落水水平距离 = v₀·t_fall
+const x_small = v0_small * tFall;
+const x_min   = v0_min   * tFall;
+const x_big   = v0_big   * tFall;
+
+const T_total = 8;
+// 阶段时间：
+//  [0.00, 0.18] 静止题面
+//  [0.18, 0.42] 抛 ① v₀ 小 → 角度陡 → 失败
+//  [0.42, 0.66] 抛 ② v₀ 临界 v₀_min → 恰好 θ ✓
+//  [0.66, 0.85] 抛 ③ v₀ 大 → 角度更平 ✓
+//  [0.85, 1.00] 揭晓
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 三次抛掷子阶段
+  let trial = 0, sub = 0;     // 0-1 within trial
+  if(u < 0.18){ trial = 0; sub = 0; }
+  else if(u < 0.42){ trial = 1; sub = (u-0.18)/0.24; }
+  else if(u < 0.66){ trial = 2; sub = (u-0.42)/0.24; }
+  else if(u < 0.85){ trial = 3; sub = (u-0.66)/0.19; }
+  else { trial = 4; sub = 1; }
+  // 当前飞行（trial 1/2/3 才有）
+  let v0 = 0, x_now = 0, y_now = h_drop, vx = 0, vy = 0;
+  if(trial === 1){ v0 = v0_small; }
+  else if(trial === 2){ v0 = v0_min; }
+  else if(trial === 3){ v0 = v0_big; }
+  if(trial >= 1 && trial <= 3){
+    const tt = sub * tFall;
+    x_now = v0 * tt;
+    y_now = h_drop - 0.5*g_g*tt*tt;
+    if(y_now < 0) y_now = 0;
+    vx = v0;
+    vy = g_g * tt;
+  }
+  return {u, t, trial, sub, v0, x_now, y_now, vx, vy};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawScene2D(ctx, 14, 14, W*0.62-21, H-28, state);
+  drawAnalysis(ctx, W*0.62+7, 14, W*0.38-21, H-28, state);
+}
+
+function drawScene2D(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('打水漂 · 临界水平抛速度（落水夹角 ≤ θ）', panelX+12, panelY+18);
+
+  // 坐标系：水平 0 到 35m，竖直 -1 到 6m
+  const xMin = -1, xMax = 35;
+  const yMin = -1, yMax = 6.5;
+  const padX = 30, padYTop = 28, padYBot = 24;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - padYTop - padYBot) / (yMax - yMin);
+  const s  = Math.min(sx, sy);
+  const offX = panelX + padX + (-xMin)*s;
+  const offY = panelY + panelH - padYBot - (-yMin)*s;
+  const px = x => offX + x*s;
+  const py = y => offY - y*s;
+
+  // 水面（y=0）
+  ctx.fillStyle = 'rgba(63,111,143,0.10)';
+  ctx.fillRect(px(xMin), py(0), px(xMax)-px(xMin), py(yMin)-py(0));
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(px(xMin), py(0)); ctx.lineTo(px(xMax), py(0)); ctx.stroke();
+  // 水面波纹
+  ctx.strokeStyle = 'rgba(63,111,143,0.4)'; ctx.lineWidth = 1;
+  for(let i=0; i<14; i++){
+    const xx = i*2.5;
+    ctx.beginPath();
+    ctx.moveTo(px(xx), py(0)+3);
+    ctx.quadraticCurveTo(px(xx+1), py(0)+1, px(xx+2), py(0)+3);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = 'italic 700 10px Georgia,serif';
+  ctx.fillText('water', px(xMax)-32, py(0)+12);
+
+  // 抛出点（高 h）
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.beginPath(); ctx.arc(px(0), py(h_drop), 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillText('A (h='+h_drop+'m)', px(0)-8, py(h_drop)-6);
+  // h 标注虚线
+  ctx.strokeStyle = '#bfb09a'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(px(0), py(0)); ctx.lineTo(px(0), py(h_drop)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // θ 阈值角参考（在原点 0 上方画夹角）
+  // 临界角 θ 从水面向上对应 v_y/v_x = tan θ
+  // 在水面线某点画一个 θ 角张开的扇形作为"允许角度"参考
+  if(state.u >= 0.10){
+    ctx.strokeStyle = 'rgba(180,68,46,0.45)'; ctx.lineWidth = 1.5; ctx.setLineDash([5,3]);
+    const refX = 28;  // 水面参考点
+    const refLen = 4;
+    // 水面方向（水平）
+    ctx.beginPath();
+    ctx.moveTo(px(refX), py(0));
+    ctx.lineTo(px(refX-refLen*Math.cos(theta_rad)), py(refLen*Math.sin(theta_rad)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('θ='+theta_deg+'°（阈值）', px(refX-3.5), py(2.0));
+  }
+
+  // 三种 v₀ 的轨迹（已揭晓的）
+  // 抛 ① 小 v₀ — 红（角度太陡）
+  if(state.trial >= 1){
+    drawTrajectory(ctx, px, py, v0_small, '#b4442e', 1.6, state.trial===1 ? state.sub : 1);
+  }
+  // 抛 ② 临界 v₀_min — 紫（恰好临界 ✓）
+  if(state.trial >= 2){
+    drawTrajectory(ctx, px, py, v0_min, '#7d4f9c', 2.4, state.trial===2 ? state.sub : 1);
+  }
+  // 抛 ③ 大 v₀ — 绿（更平 ✓）
+  if(state.trial >= 3){
+    drawTrajectory(ctx, px, py, v0_big, '#16613f', 1.6, state.trial===3 ? state.sub : 1);
+  }
+
+  // 当前飞行的石子
+  if(state.trial >= 1 && state.trial <= 3 && state.sub < 1){
+    let color = '#b4442e';
+    if(state.trial === 2) color = '#7d4f9c';
+    if(state.trial === 3) color = '#16613f';
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(px(state.x_now), py(state.y_now), 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(px(state.x_now), py(state.y_now), 5, 0, Math.PI*2); ctx.stroke();
+  }
+
+  // 落水时速度矢量分解（u≥0.85 揭晓阶段才显示，避免 trial 1 飞完即泄露 α 数值）
+  if(state.u >= 0.85){
+    // 揭晓阶段固定显示临界 v₀_min 的矢量分解（α=θ）
+    const cv0 = v0_min;
+    const xLand = cv0 * tFall;
+    const vScale = 0.10;  // 像素/(m/s)
+    const cx = px(xLand), cy = py(0);
+    // v_x（水平）
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, cx, cy, cx + cv0*vScale*s/Math.min(sx,sy)*8, cy, '#3f6f8f', 1.6);
+    // v_y（向下）
+    PPath.arrow(ctx, cx, cy, cx, cy + v_y*vScale*s/Math.min(sx,sy)*8, '#b4442e', 1.6);
+    // 合速度（与水面夹 α 角）
+    const vMag = Math.sqrt(cv0*cv0 + v_y*v_y);
+    PPath.arrow(ctx, cx, cy, cx + cv0*vScale*s/Math.min(sx,sy)*8, cy + v_y*vScale*s/Math.min(sx,sy)*8, '#3a3a3c', 2.0);
+    // α 角标注
+    ctx.fillStyle = '#3a3a3c';
+    ctx.font = '700 10px ui-monospace,monospace';
+    const alpha_deg = Math.atan2(v_y, cv0)*180/Math.PI;
+    ctx.fillText('α='+alpha_deg.toFixed(1)+'°', cx-30, cy+22);
+  }
+
+  // 答案文字（u>=0.88 揭晓）
+  if(state.u >= 0.88){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('v₀_min = √(2gh)/tan θ ≈ '+v0_min.toFixed(2)+' m/s', panelX+14, panelY+panelH-10);
+  }
+}
+
+function drawTrajectory(ctx, px, py, v0, color, lineW, prog){
+  ctx.strokeStyle = color; ctx.lineWidth = lineW;
+  ctx.beginPath();
+  const N = 80;
+  for(let i = 0; i <= N*prog; i++){
+    const tt = (i/N) * tFall;
+    const xx = v0 * tt;
+    const yy = h_drop - 0.5*g_g*tt*tt;
+    if(yy < 0) break;
+    if(i === 0) ctx.moveTo(px(xx), py(yy));
+    else ctx.lineTo(px(xx), py(yy));
+  }
+  ctx.stroke();
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('物理推导', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.05) lines.push({c:'#5d6964', t:'• 平抛：水平 v_x=v₀，竖直 v_y=g·t'});
+  if(state.u >= 0.12) lines.push({c:'#5d6964', t:'• 落水时 v_y² = 2gh'});
+  if(state.u >= 0.20) lines.push({c:'#b4442e', t:'  → v_y = √(2gh)'});
+  if(state.u >= 0.30) lines.push({c:'#5d6964', t:'• 落水方向与水面夹 α'});
+  if(state.u >= 0.35) lines.push({c:'#5d6964', t:'  tan α = v_y / v_x = v_y / v₀'});
+  if(state.u >= 0.45) lines.push({c:'#3f6f8f', t:'• ① v₀ 小 → α 大 → 失败'});
+  if(state.u >= 0.55) lines.push({c:'#7d4f9c', t:'• ② α = θ 时为临界'});
+  if(state.u >= 0.62) lines.push({c:'#7d4f9c', t:'  v_y / v₀ = tan θ'});
+  if(state.u >= 0.70) lines.push({c:'#16613f', t:'• ③ v₀ 大 → α 小 ✓'});
+  if(state.u >= 0.78) lines.push({c:'#5d6964', t:'• 故 v₀ ≥ v_y / tan θ'});
+  if(state.u >= 0.85) lines.push({c:'#c2611f', t:'答案 v₀_min = √(2gh) / tan θ'});
+
+  ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 16;
+  });
+
+  // 答案徽章
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-58, panelW-24, 46, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('v₀_min = √(2gh)/tan θ', panelX+22, panelY+panelH-36);
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('= '+v0_min.toFixed(2)+' m/s（h='+h_drop+', θ='+theta_deg+'°）', panelX+22, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 新课标卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 11 题 · 8 分',
+  title: '打水漂 · 最小水平抛速度',
+  subtitle: '平抛求落水竖直速度 v_y=√(2gh)；夹角 α≤θ 临界条件得 v₀_min=√(2gh)/tan θ。',
+  deliv: { title: '平抛分解 + 临界角', sub: 'v₀_min = √(2gh) / tan θ' },
+  originalProblem: {
+    meta: '2023 新课标 · 计算 · 第 11 题 · 8 分',
+    image: '',
+    text: `将扁平的石子向水面快速抛出，石子可能会在水面上一跳一跳地飞向远方，俗称"打水漂"。要使石子从水面跳起产生"水漂"效果，石子接触水面时的速度方向与水面的夹角不能大于 θ。为了观察到"水漂"，一同学将一石子从距水面高度为 h 处水平抛出，抛出速度的最小值为多少？（不计石子在空中飞行时的空气阻力，重力加速度大小为 g）`,
+    subQuestions: [],
+    officialAnswer: 'v₀_min = √(2gh) / tan θ · 平抛运动竖直方向自由落体 v_y² = 2gh → v_y = √(2gh)；落水时速度方向与水面夹角 α 满足 tan α = v_y / v_x = v_y / v₀；要 α ≤ θ 即 tan α ≤ tan θ → v_y / v₀ ≤ tan θ → v₀ ≥ v_y / tan θ = √(2gh) / tan θ；故抛出速度的最小值 v₀_min = √(2gh) / tan θ。'
+  },
+  totalT: T_total,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 平抛分解', label_short:'平抛',
+     formula_tex: String.raw`v_x = v_0,\quad v_y = g\,t`,
+     note:'水平匀速 + 竖直自由落体。'},
+    {label:'阶段 ② v_y 求解', label_short:'v_y',
+     formula_tex: String.raw`v_y^2 = 2gh \;\Rightarrow\; v_y = \sqrt{2gh}`,
+     note:'落水时竖直分量。'},
+    {label:'阶段 ③ 落水夹角', label_short:'α',
+     formula_tex: String.raw`\tan\alpha = v_y / v_x = \sqrt{2gh}/v_0`,
+     note:'夹角由两分量比决定。'},
+    {label:'阶段 ④ 临界条件', label_short:'≤θ',
+     formula_tex: String.raw`\alpha \le \theta \;\Leftrightarrow\; v_0 \ge \sqrt{2gh}/\tan\theta`,
+     note:'临界时 α=θ；v₀ 越大角度越平。'},
+    {label:'阶段 ⑤ 答案', label_short:'min',
+     formula_tex: String.raw`\boxed{\,v_{0,\min} = \dfrac{\sqrt{2gh}}{\tan\theta}\,}`,
+     note:'h=5m, θ=30° → v₀_min ≈ 17.32 m/s。'}
+  ],
+  stats: [
+    {label:'h',         fmt:()=>h_drop+' m'},
+    {label:'g',         fmt:()=>g_g+' m/s²'},
+    {label:'θ',         fmt:()=>theta_deg+'°'},
+    {label:'v_y',       fmt:s=>(s.u>=0.20? v_y.toFixed(2)+' m/s' : '?')},
+    {label:'当前 v₀',    fmt:s=>(s.trial>=1? s.v0.toFixed(2)+' m/s' : '?')},
+    {label:'v_x (m/s)', fmt:s=>(s.u>=0.85? s.vx.toFixed(2) : '?')},
+    {label:'v_y (m/s)', fmt:s=>(s.u>=0.85? s.vy.toFixed(2) : '?')},
+    {label:'v₀_min',    fmt:s=>(s.u>=0.85? v0_min.toFixed(2)+' m/s' : '?')}
+  ],
+  conclusions: [
+    {label_text:'v_y',      value_text:'√(2gh)',          note:'平抛竖直分量'},
+    {label_text:'临界条件', value_text:'α = θ',           note:'刚好达上限'},
+    {label_text:'v₀_min',   value_text:'√(2gh)/tan θ ✓', note:'最小水平抛速度'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'抛 ① v₀ 小（α>θ 失败）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'抛 ② v₀_min（α=θ 临界）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'抛 ③ v₀ 大（α<θ 安全）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'v_x（水平）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'v_y（竖直）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023新课标-Q11-打水漂最小抛速度'
+});
+</script>
+</body>
+</html>
