@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2020 新课标Ⅱ · 第 8 题 · 滑冰运动员推物块 8 次反弹</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 水平冰面（无摩擦）+ 竖直挡板。运动员面对挡板静止 (0)。
+// 物块 m=4kg, 推后物块对地速度 v=5m/s（朝挡板方向）。
+// 物块与挡板弹性碰撞 → 速度反向 → 追上运动员后再被推。
+//
+// 取离开挡板方向为正：
+//   第 1 次推：0 = M·V_1 + m·(-v) → V_1 = m·v / M
+//   第 2 次推前：M 以 V_1 退行（正向），物块弹回后以 +v 追上运动员
+//                推后物块以 -v 推向挡板：M·V_1 + m·v = M·V_2 + m·(-v)
+//                → V_2 = V_1 + 2m·v / M
+//   第 n 次推：V_n = V_{n-1} + 2m·v / M
+//   通项：V_n = (2n-1)·m·v / M
+//
+// 条件：
+//   n=7 时仍能再推（即 V_7 < v 物块还能追上）→ 13·m·v/M < v → M > 13·m = 52 kg
+//   n=8 后不能追上（V_8 ≥ v）             → 15·m·v/M ≥ v → M ≤ 15·m = 60 kg
+//   故 52 < M ≤ 60 → 选项 BC（53 / 58）正确
+//
+// 答案：BC（多选，A=48 错，D=63 错）
+// ─────────────────────────────────────────────────────────────────────
+
+const m = 4.0;             // 物块质量 kg
+const v = 5.0;             // 推后物块速度 m/s
+const M_demo = 53.0;       // 用于动画演示的运动员质量（B 选项中间值）
+
+// 通项 V_n = (2n-1)·m·v / M
+function Vn(n, M){ return (2*n - 1) * m * v / M; }
+
+// 预计算 8 次推后的退行速度（M=M_demo）
+const V_LIST = [];
+for(let n=1; n<=8; n++) V_LIST.push(Vn(n, M_demo));
+
+// 临界 M：M > 52, M ≤ 60
+const M_LOWER = 13 * m;        // = 52
+const M_UPPER = 15 * m;        // = 60
+
+const T_total = 10.0;          // 动画总时长
+
+// 阶段：① 装置 + 第 1 次推（u 0-0.20）
+//      ② 物块到挡板 + 弹回（u 0.20-0.32）
+//      ③ 物块追上 + 第 2 次推（u 0.32-0.48）
+//      ④ 后续 6 次循环用速度条快速展示（u 0.48-0.78）
+//      ⑤ 条件分析 + 4 选项判断（u 0.78-1.00）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.20){ phase = 1; prog = u/0.20; }
+  else if(u < 0.32){ phase = 2; prog = (u-0.20)/0.12; }
+  else if(u < 0.48){ phase = 3; prog = (u-0.32)/0.16; }
+  else if(u < 0.78){ phase = 4; prog = (u-0.48)/0.30; }
+  else { phase = 5; prog = (u-0.78)/0.22; }
+
+  // 计算运动员位置 + 物块位置（屏幕方向语义：xPerson 累积负值 = 向屏幕左退行；xBlock 增大 = 朝挡板）
+  // 挡板物理坐标 X_WALL = 12，物块初始 X_BLOCK_INIT = 3（运动员前方 1 米，避免重叠）
+  const X_WALL = 12;
+  const X_BLOCK_INIT = 3;
+  let xPerson = 0, xBlock = X_BLOCK_INIT, vPerson = 0, vBlock = 0;
+  let pushCount = 0;          // 已完成的推次数
+
+  if(phase === 1){
+    // 第 1 次推
+    if(prog < 0.15){
+      xPerson = 0; xBlock = X_BLOCK_INIT; vPerson = 0; vBlock = 0;
+      pushCount = 0;
+    } else {
+      const tau = (prog - 0.15) / 0.85;
+      // 物块从 X_BLOCK_INIT (3) 飞到 X_WALL (12)
+      xBlock = X_BLOCK_INIT + tau * (X_WALL - X_BLOCK_INIT);
+      // 运动员退行：每次推视觉退行系数 ratio = V_n / V_8（按比例）
+      xPerson = -tau * (V_LIST[0] / V_LIST[7]) * 1.0;
+      vPerson = V_LIST[0];
+      vBlock = -v;
+      pushCount = 1;
+    }
+  } else if(phase === 2){
+    // 物块碰挡板 → 弹回
+    const xPersonAt1End = -(V_LIST[0] / V_LIST[7]) * 1.0;
+    xPerson = xPersonAt1End - prog * (V_LIST[0] / V_LIST[7]) * 0.3;
+    xBlock = X_WALL - prog * (X_WALL - xPerson - X_BLOCK_INIT);
+    vPerson = V_LIST[0];
+    vBlock = +v;
+    pushCount = 1;
+  } else if(phase === 3){
+    // 第 2 次推
+    const xPersonStart = -(V_LIST[0] / V_LIST[7]) * 1.3;
+    if(prog < 0.20){
+      xPerson = xPersonStart;
+      xBlock = xPerson + X_BLOCK_INIT;
+      vPerson = V_LIST[0]; vBlock = +v;
+      pushCount = 1;
+    } else {
+      const tau = (prog - 0.20) / 0.80;
+      xPerson = xPersonStart - tau * (V_LIST[1] / V_LIST[7]) * 1.0;
+      xBlock = (xPersonStart + X_BLOCK_INIT) + tau * (X_WALL - xPersonStart - X_BLOCK_INIT);
+      vPerson = V_LIST[1];
+      vBlock = -v;
+      pushCount = 2;
+    }
+  } else if(phase === 4){
+    // 第 3..8 次推循环
+    pushCount = 2 + Math.floor(prog * 6);
+    pushCount = Math.min(8, pushCount);
+    let xAcc = -(V_LIST[0] / V_LIST[7]) * 1.3 - (V_LIST[1] / V_LIST[7]) * 1.0;
+    for(let n=2; n<pushCount; n++){
+      xAcc -= (V_LIST[n] / V_LIST[7]) * 0.7;
+    }
+    xPerson = xAcc;
+    // 物块在挡板与运动员之间循环（每次推一个 cycle）
+    const cyclePhase = (prog * 6) % 1;
+    if(cyclePhase < 0.5){
+      // 推后：从运动员位置 飞 → 挡板
+      const tau2 = cyclePhase / 0.5;
+      xBlock = (xPerson + X_BLOCK_INIT) + tau2 * (X_WALL - xPerson - X_BLOCK_INIT);
+      vBlock = -v;
+    } else {
+      // 弹回：从挡板 飞 → 运动员
+      const tau2 = (cyclePhase - 0.5) / 0.5;
+      xBlock = X_WALL - tau2 * (X_WALL - xPerson - X_BLOCK_INIT);
+      vBlock = +v;
+    }
+    vPerson = V_LIST[Math.min(pushCount-1, 7)];
+  } else {
+    // 阶段 5：第 8 次推 + 物块追不上
+    pushCount = 8;
+    let xAcc = -(V_LIST[0] / V_LIST[7]) * 1.3 - (V_LIST[1] / V_LIST[7]) * 1.0;
+    for(let n=2; n<8; n++) xAcc -= (V_LIST[n] / V_LIST[7]) * 0.7;
+    // 起点接续 phase 4 末（cyclePhase=0 时 xBlock = xPerson + X_BLOCK_INIT，刚被推完准备飞向挡板）
+    if(prog < 0.4){
+      // 第 8 次推：物块从运动员旁飞向挡板（视觉清晰：物块全程飞 9 单位）
+      const tau = prog / 0.4;
+      const xBlockStart = xAcc + X_BLOCK_INIT;
+      xPerson = xAcc - tau * 0.5;
+      xBlock = xBlockStart + tau * (X_WALL - xBlockStart);
+      vPerson = V_LIST[7];
+      vBlock = -v;
+    } else {
+      // 物块碰挡板弹回 +v 朝运动员，但运动员以 V_8 退（V_8>v）→ 距离拉大
+      const tau = (prog - 0.4) / 0.6;
+      xPerson = xAcc - 0.5 - tau * 1.8;     // 运动员加速退（视觉系数 1.8 让差距明显）
+      xBlock = X_WALL - tau * (v / V_LIST[7]) * 1.8;     // 物块同时间走得慢（v/V_8 ≈ 0.88 倍）
+      vPerson = V_LIST[7];
+      vBlock = +v;
+    }
+  }
+
+  return {
+    phase, prog, u, t,
+    xPerson, xBlock, vPerson, vBlock,
+    pushCount,
+    showBars: phase >= 4,
+    showVerdict: phase >= 5
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawIce(ctx, 14, 14, W*0.58 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.58 + 7, 14, W*0.42 - 21, H - 28, state);
+}
+
+function drawIce(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('水平冰面（无摩擦）· 运动员推物块 → 挡板弹性碰撞', panelX+12, panelY+18);
+
+  // 几何映射：挡板在右，运动员初始位置在中间偏左
+  // state.xBlock 物理坐标范围 [3, 12]，state.xPerson 累积值约 [-9, 0]
+  // 让物理 12 (X_WALL) 对应像素 xWall - 16（贴挡板）
+  const padL = 30, padR = 16;
+  const yGround = panelY + panelH - 80;
+  const xWall = panelX + panelW - padR;        // 挡板像素位置
+  const xRefStart = panelX + panelW * 0.45;    // 运动员初始位置（屏幕坐标，留更多左侧空间退行）
+  // pxPerM：让 state.xBlock=3 (运动员前方) → xRefStart + 1·pxPerM；state.xBlock=12 → xWall - 16（贴挡板）
+  // 即 (12 - 3) * pxPerM = (xWall - 16) - (xRefStart + 1*pxPerM) → 求 pxPerM
+  // 简化：让 (state.xBlock - 2) * pxPerM 对应屏幕偏移；xBlock=2 → 0、xBlock=12 → xWall - xRefStart - 20
+  const pxPerM = (xWall - xRefStart - 20) / 10;     // 物理 1m → 像素 (xBlock 范围 [2,12] 距离 10)
+
+  // 运动员退行向左（state.xPerson 累积负值 → 屏幕左偏移）
+  const personPx = xRefStart + state.xPerson * pxPerM * 0.6;     // 0.6 系数让累积约 -9 不超出屏幕左边界
+  const blockPx = xRefStart + (state.xBlock - 2) * pxPerM;       // 去 *0.5，让物块完整飞到挡板
+
+  // 冰面（淡蓝渐变）
+  ctx.fillStyle = '#e8f0f5';
+  ctx.fillRect(panelX+padL, yGround, panelW - padL - padR, 26);
+  ctx.strokeStyle = '#a8c0d0'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(panelX+padL, yGround); ctx.lineTo(xWall, yGround); ctx.stroke();
+  // 冰面纹理
+  ctx.strokeStyle = 'rgba(120,160,180,0.3)'; ctx.lineWidth = 0.7;
+  for(let i=0; i<10; i++){
+    const xL = panelX + padL + (panelW - padL - padR) * i / 10;
+    ctx.beginPath();
+    ctx.moveTo(xL, yGround + 4 + ((i*7)%6));
+    ctx.lineTo(xL + 12, yGround + 8 + ((i*5)%6));
+    ctx.stroke();
+  }
+
+  // 挡板（右侧竖直）
+  ctx.fillStyle = '#5d4d3a';
+  ctx.fillRect(xWall, yGround - 60, 8, 60);
+  ctx.fillStyle = '#3a2d20';
+  ctx.fillRect(xWall, yGround - 60, 8, 4);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('挡板', xWall - 6, yGround - 66);
+
+  // 运动员（简笔小人）— 头 + 身体 + 腿
+  const personY = yGround - 30;
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(personPx, personY - 14, 6, 0, Math.PI*2); ctx.fill();      // 头
+  ctx.fillRect(personPx - 4, personY - 8, 8, 18);     // 身体
+  ctx.fillRect(personPx - 5, personY + 10, 4, 8);     // 左腿
+  ctx.fillRect(personPx + 1, personY + 10, 4, 8);     // 右腿
+  // 标签
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('运动员 M', personPx - 22, personY - 26);
+
+  // 物块
+  const blockY = yGround - 12;
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(blockPx - 8, blockY - 8, 16, 16);
+  ctx.strokeStyle = '#7a2918'; ctx.lineWidth = 1.2; ctx.strokeRect(blockPx - 8, blockY - 8, 16, 16);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('m', blockPx - 5, blockY + 22);
+
+  // 速度矢量
+  const vScale = 8;
+  if(Math.abs(state.vPerson) > 0.05){
+    PPath.arrow(ctx, personPx, personY - 6,
+                personPx - state.vPerson * vScale, personY - 6,
+                '#16613f', 1.8);
+  }
+  if(Math.abs(state.vBlock) > 0.05){
+    PPath.arrow(ctx, blockPx, blockY,
+                blockPx - state.vBlock * vScale, blockY,
+                '#b4442e', 1.8);
+  }
+
+  // 阶段标
+  const phaseLabel = state.phase === 1 ? '阶段 ① 第 1 次推 · 动量守恒'
+                    : state.phase === 2 ? '阶段 ② 物块碰挡板 → 弹回'
+                    : state.phase === 3 ? '阶段 ③ 追上 → 第 2 次推'
+                    : state.phase === 4 ? '阶段 ④ 第 3..N 次推（速度条同步）'
+                    : '阶段 ⑤ V₈ > v · 物块追不上 · 推 8 次终止';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-26);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(
+    `已推 ${state.pushCount} 次 · V_${state.pushCount} ≈ ${state.vPerson.toFixed(2)} m/s · v_block = ${state.vBlock.toFixed(1)} m/s`,
+    panelX+12, panelY+panelH-10
+  );
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('递推 V_n = (2n-1)·m·v / M (M=53 演示)', panelX+12, panelY+18);
+
+  // V_n 速度条（始终绘制框架，按 pushCount 渐进填充）
+  const barX0 = panelX + 38;
+  const barY0 = panelY + 50;
+  const barW = panelW - 60;
+  const barH = 16;
+  const barGap = 6;
+
+  // v=5 阈值线（虚线）
+  const xThresh = barX0 + (v / 6.5) * barW;     // 用 6.5 m/s 作为坐标轴最大刻度
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(xThresh, barY0 - 4);
+  ctx.lineTo(xThresh, barY0 + 8 * (barH + barGap) + 4);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('v = 5', xThresh - 4, barY0 - 6);
+
+  for(let n=1; n<=8; n++){
+    const yy = barY0 + (n-1) * (barH + barGap);
+    // 标签 V_n
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '700 10.5px "Cambria Math",serif';
+    ctx.fillText(`V_${n}`, panelX + 12, yy + 12);
+
+    // 框
+    ctx.strokeStyle = '#d8d0bd'; ctx.lineWidth = 1;
+    ctx.strokeRect(barX0, yy, barW, barH);
+
+    // 已展示的条（pushCount 控制；阶段 5 全展示）
+    const reveal = state.pushCount >= n;
+    if(reveal){
+      const Vn_val = V_LIST[n-1];
+      const fill = Math.min(1, Vn_val / 6.5);
+      ctx.fillStyle = Vn_val < v ? '#16613f' : '#b4442e';
+      ctx.fillRect(barX0+1, yy+1, fill * (barW-2), barH-2);
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '600 10px ui-monospace,monospace';
+      ctx.fillText(Vn_val.toFixed(2), barX0 + fill*(barW-2) + 4, yy + 12);
+    }
+  }
+
+  // 条件分析（阶段 5 才显示）
+  if(state.showVerdict){
+    let yy = barY0 + 8*(barH+barGap) + 18;
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('条件:  V_7 < v 且 V_8 ≥ v', panelX + 12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('V_7 = 13·m·v/M < v  →  M > 13m = 52 kg', panelX + 12, yy); yy += 14;
+    ctx.fillText('V_8 = 15·m·v/M ≥ v  →  M ≤ 15m = 60 kg', panelX + 12, yy); yy += 14;
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('范围: 52 kg < M ≤ 60 kg', panelX + 12, yy); yy += 22;
+
+    // 4 选项
+    const opts = [
+      { tag:'A. 48', ok:false },
+      { tag:'B. 53', ok:true  },
+      { tag:'C. 58', ok:true  },
+      { tag:'D. 63', ok:false }
+    ];
+    opts.forEach((o, i) => {
+      const xx = panelX + 12 + (i % 2) * 90;
+      const yyy = yy + Math.floor(i / 2) * 18;
+      ctx.fillStyle = o.ok ? '#16613f' : '#b4442e';
+      ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(`${o.tag} kg ${o.ok ? '✓' : '✗'}`, xx, yyy);
+    });
+    yy += 40;
+
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-130, panelY+panelH-40, 118, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BC', panelX+panelW-110, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2020 新课标Ⅱ卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '滑冰运动员推物块 · 8 次反弹 · 质量范围',
+  subtitle: '冰面无摩擦 · 物块 m=4kg, 推后 v=5m/s · 8 次推后物块追不上 · 求 M',
+  deliv: {
+    title: '动量守恒递推 + 临界条件',
+    sub: 'V_n = (2n-1)·m·v / M · V_7 &lt; v · V_8 ≥ v · 求 M 范围'
+  },
+  originalProblem: {
+    meta: '2020 新课标Ⅱ卷 · 多选 · 第 8 题 · 6 分',
+    text: `水平冰面上有一固定的竖直挡板。一滑冰运动员面对挡板静止在冰面上，他把一质量为 4.0 kg 的静止物块以大小为 5.0 m/s 的速度沿与挡板垂直的方向推向挡板，运动员获得退行速度；物块与挡板弹性碰撞，速度反向，追上运动员时，运动员又把物块推向挡板，使其再一次以大小为 5.0 m/s 的速度与挡板弹性碰撞。总共经过 8 次这样推物块后，运动员退行速度的大小大于 5.0 m/s，反弹的物块不能再追上运动员。不计冰面的摩擦力，该运动员的质量可能为（    ）`,
+    image: '../../source/images/image40.png',
+    subQuestions: [
+      'A. 48 kg',
+      'B. 53 kg',
+      'C. 58 kg',
+      'D. 63 kg'
+    ],
+    officialAnswer: 'BC · 取离开挡板方向为正。第 1 次推：动量守恒 0 = M·V₁ - m·v → V₁ = mv/M。第 n 次推：M·V_{n-1} + m·v = M·V_n - m·v → V_n = V_{n-1} + 2mv/M。通项 V_n = (2n-1)·mv/M。条件：n=7 时仍能追上 V_7 &lt; v → M &gt; 13m = 52 kg；n=8 时不能追上 V_8 ≥ v → M ≤ 15m = 60 kg。故 52 kg &lt; M ≤ 60 kg。选项中 B(53) 与 C(58) 在范围内 → 答案 BC（A 48 错、D 63 错）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 第 1 次推', label_short:'第 1 推',
+     formula_tex: String.raw`0 = M\,V_1 - m\,v \;\Rightarrow\; V_1 = \dfrac{m\,v}{M}`,
+     note:'运动员静止 + 物块静止 → 推后动量守恒。运动员获得退行速度 V₁，物块以 -v 推向挡板。'},
+    {label:'阶段 ② 物块碰挡板弹回', label_short:'弹回',
+     formula_tex: String.raw`\text{弹性碰撞 } v_{\text{block}}\colon -v \to +v`,
+     note:'物块与挡板弹性碰撞，速度方向反向，大小不变 → +v 朝运动员追去。'},
+    {label:'阶段 ③ 第 2 次推', label_short:'第 2 推',
+     formula_tex: String.raw`M\,V_1 + m\,v = M\,V_2 - m\,v \;\Rightarrow\; V_2 = V_1 + \dfrac{2\,m\,v}{M}`,
+     note:'物块追上后再次被推向挡板。动量守恒 → V_2 = V_1 + 2mv/M。'},
+    {label:'阶段 ④ 递推到第 8 次', label_short:'递推',
+     formula_tex: String.raw`V_n = \dfrac{(2n-1)\,m\,v}{M}`,
+     note:'每次推使运动员速度增加 2mv/M。通项 V_n = (2n-1)·mv/M。速度条同步可视化 V_1..V_8 与阈值 v 比较。'},
+    {label:'阶段 ⑤ 临界条件 + 4 项判断', label_short:'判断',
+     formula_tex: String.raw`V_7 < v \Rightarrow M > 13m = 52,\quad V_8 \geq v \Rightarrow M \leq 15m = 60`,
+     note:'第 7 次后还能追上 → V_7 < v；第 8 次后追不上 → V_8 ≥ v。解出 52 < M ≤ 60 kg。'}
+  ],
+  stats: [
+    {label:'物块质量 m',     fmt:()=>m.toFixed(1)+' kg'},
+    {label:'推后速度 v',     fmt:()=>v.toFixed(1)+' m/s'},
+    {label:'演示 M',         fmt:()=>M_demo+' kg'},
+    {label:'当前推次',       fmt:s=>String(s.pushCount)+' / 8'},
+    {label:'V_n 通项',       fmt:s=>s.phase>=4?'(2n-1)·mv/M':'?'},
+    {label:'V_7 (M=53)',     fmt:s=>s.showBars?V_LIST[6].toFixed(2)+' m/s':'?'},
+    {label:'V_8 (M=53)',     fmt:s=>s.showBars?V_LIST[7].toFixed(2)+' m/s':'?'},
+    {label:'M 下界',         fmt:s=>s.showVerdict?'13m = 52 kg':'?'},
+    {label:'M 上界',         fmt:s=>s.showVerdict?'15m = 60 kg':'?'},
+    {label:'M 范围',         fmt:s=>s.showVerdict?'52 < M ≤ 60':'?'}
+  ],
+  conclusions: [
+    {label_text:'V_n 通项',  value_text:'?（动画揭示）',     note:'递推关系'},
+    {label_text:'M 下界',    value_text:'?（动画揭示）',     note:'V_7 < v 临界'},
+    {label_text:'M 上界',    value_text:'?（动画揭示）',     note:'V_8 ≥ v 临界'},
+    {label_text:'答案',      value_text:'?（动画完毕揭晓）', note:'多选 4 项'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'运动员（向左退行）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'物块 m=4kg'},
+    {swatch:{bg:'#5d4d3a',border:'#5d4d3a',type:'rect'}, text:'挡板（右）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'阈值 v=5 m/s'},
+    {swatch:{bg:'#e8f0f5',border:'#a8c0d0',type:'rect'}, text:'冰面（无摩擦）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2020新课标II-Q8-滑冰推物块8次'
+});
+</script>
+</body>
+</html>
