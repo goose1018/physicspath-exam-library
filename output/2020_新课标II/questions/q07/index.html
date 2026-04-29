@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2020 新课标Ⅱ · 第 7 题 · 圆环异种电荷 4 点场强电势</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 竖直绝缘圆环：上半 +Q（均匀），下半 -Q（均匀）。
+// 4 点：a (水平右)，b (水平左)，c (竖直上)，d (竖直下)，到圆心 O 距离均为 r₀。
+//
+// 论证 1 (a/b)：圆环对竖直直径对称。任取 +q 在 (x,y)，对应镜像 +q 在 (-x,y)；
+//   它们在 a=(r₀,0) 与 b=(-r₀,0) 产生的合电场只有竖直分量（水平分量互消）。
+//   再与下半 -Q 合并仍是竖直方向。故 E_a = E_b（大小+方向均相同，竖直向下）。
+//   ab 连线是等势线 → V_a = V_b。 → A 对、B 对
+//
+// 论证 2 (c/d)：圆环对水平直径"反对称"（charge inversion + horizontal flip 不变）。
+//   上半 +Q 关于竖直直径对称的两个 +q，在 c 上产生 E 竖直向下（水平分量抵消）。
+//   下半 -Q 关于竖直直径对称的两个 -q，在 d 上产生 E 也竖直向下（吸引方向）。
+//   合并 4 个点电荷至全部 +/-：在 c 和 d 处的 E 都竖直向下。
+//   反对称变换（水平翻转 + 电荷反号）：c ↔ d、E 方向不变 → |E_c| = |E_d|。
+//   故 E_c = E_d（大小+方向均相同，竖直向下）→ C 对
+//
+// 论证 3 (V_c vs V_d)：沿电场方向（竖直向下）电势降低。c 在 d 上方，
+//   从 c 出发顺着 E 一直走可到达 d，过程中电势单调降低 → V_c > V_d → D 错
+//
+// 答案：ABC（多选）
+// ─────────────────────────────────────────────────────────────────────
+
+const N_RING = 60;          // 离散圆环的电荷数（每半圆 30 个）
+const R_RING = 1.0;          // 圆环半径（归一化）
+const R_INNER = 0.45;        // a/b/c/d 距圆心
+const Q_UNIT = 1.0;          // 单位电荷量
+
+// 离散电荷：上半 +q, 下半 -q
+function buildCharges(){
+  const arr = [];
+  // 上半圆：θ ∈ (0, π)（不含端点避开水平直径上的点）
+  for(let i=0; i<N_RING/2; i++){
+    const theta = (i + 0.5) / (N_RING/2) * Math.PI;        // 0..π
+    arr.push({ x: R_RING*Math.cos(theta), y: R_RING*Math.sin(theta), q: +Q_UNIT });
+  }
+  // 下半圆：θ ∈ (π, 2π) → y < 0
+  for(let i=0; i<N_RING/2; i++){
+    const theta = Math.PI + (i + 0.5) / (N_RING/2) * Math.PI;
+    arr.push({ x: R_RING*Math.cos(theta), y: R_RING*Math.sin(theta), q: -Q_UNIT });
+  }
+  return arr;
+}
+const charges = buildCharges();
+
+// 计算某点 (px, py) 处的 E 矢量（k=1 归一化，物理 y 向上）
+function fieldAt(px, py){
+  let Ex = 0, Ey = 0;
+  for(const c of charges){
+    const dx = px - c.x;
+    const dy = py - c.y;
+    const r2 = dx*dx + dy*dy + 1e-6;
+    const r = Math.sqrt(r2);
+    const factor = c.q / (r2 * r);     // E = q·r̂/r² → q·(dx,dy)/r³
+    Ex += factor * dx;
+    Ey += factor * dy;
+  }
+  return { Ex, Ey, mag: Math.sqrt(Ex*Ex + Ey*Ey) };
+}
+
+// 4 点位置（物理坐标，y 向上为正）
+const POINTS = {
+  a: { x: +R_INNER, y: 0,         label: 'a' },
+  b: { x: -R_INNER, y: 0,         label: 'b' },
+  c: { x: 0,        y: +R_INNER,  label: 'c' },
+  d: { x: 0,        y: -R_INNER,  label: 'd' }
+};
+
+// 预计算 4 点 E（用于显示）
+const E_AT = {};
+for(const k of ['a','b','c','d']){
+  E_AT[k] = fieldAt(POINTS[k].x, POINTS[k].y);
+}
+
+const T_total = 9.0;
+// 阶段：① 引入装置（u 0-0.20）② a/b 对称对 + E 矢量（u 0.20-0.50）
+//      ③ c/d 对称对 + E 矢量（u 0.50-0.80）④ 总结 4 个判断（u 0.80-1.00）
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.20){ phase = 1; prog = u/0.20; }
+  else if(u < 0.50){ phase = 2; prog = (u-0.20)/0.30; }
+  else if(u < 0.80){ phase = 3; prog = (u-0.50)/0.30; }
+  else { phase = 4; prog = (u-0.80)/0.20; }
+  return {
+    phase, prog, u, t,
+    showAB: phase >= 2,
+    showCD: phase >= 3,
+    showVerdict: phase >= 4,
+    showABRays: phase === 2 ? prog : (phase >= 3 ? 1 : 0),     // a/b 配对动画进度
+    showCDRays: phase === 3 ? prog : (phase >= 4 ? 1 : 0)      // c/d 配对动画进度
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawRing(ctx, 14, 14, W*0.58 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.58 + 7, 14, W*0.42 - 21, H - 28, state);
+}
+
+function drawRing(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('竖直圆环 · 上半 +Q · 下半 -Q', panelX+12, panelY+18);
+
+  // 中心 O
+  const cx = panelX + panelW/2;
+  const cy = panelY + panelH/2 + 4;
+  // 物理 → 像素：取 panel 短边的 0.36 作为半径
+  const scale = Math.min(panelW, panelH) * 0.36;
+  const toPx = (x, y) => ({ x: cx + x*scale, y: cy - y*scale });    // y 物理向上 → canvas y 向下
+  const A = toPx(POINTS.a.x, POINTS.a.y);
+  const B = toPx(POINTS.b.x, POINTS.b.y);
+  const C = toPx(POINTS.c.x, POINTS.c.y);
+  const D = toPx(POINTS.d.x, POINTS.d.y);
+
+  // 圆环主体（上半 + 红色，下半 - 蓝色）
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.strokeStyle = '#b4442e';
+  ctx.arc(cx, cy, scale*R_RING, Math.PI, 2*Math.PI);     // 上半（canvas y 向下，π→2π 对应物理上半）
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.strokeStyle = '#3f6f8f';
+  ctx.arc(cx, cy, scale*R_RING, 0, Math.PI);             // 下半（0→π 对应物理下半）
+  ctx.stroke();
+
+  // 上半 + 标记 / 下半 - 标记
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('+Q', cx - 14, cy - scale*R_RING - 8);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillText('-Q', cx - 12, cy + scale*R_RING + 18);
+
+  // 离散电荷点（始终显示，淡色）
+  for(const c of charges){
+    const p = toPx(c.x, c.y);
+    ctx.fillStyle = c.q > 0 ? 'rgba(180,68,46,0.7)' : 'rgba(63,111,143,0.7)';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.4, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // 水平/竖直直径虚线
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(cx - scale*R_RING, cy); ctx.lineTo(cx + scale*R_RING, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - scale*R_RING); ctx.lineTo(cx, cy + scale*R_RING); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 中心 O
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+  ctx.font = '800 12px Georgia,serif';
+  ctx.fillText('O', cx + 6, cy + 12);
+
+  // 4 点（始终显示）
+  const drawPt = (P, color, label) => {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(P.x, P.y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '900 13px Georgia,serif';
+    ctx.fillText(label, P.x + 7, P.y - 6);
+  };
+  drawPt(A, '#16613f', 'a');
+  drawPt(B, '#16613f', 'b');
+  drawPt(C, '#c2611f', 'c');
+  drawPt(D, '#c2611f', 'd');
+
+  // 阶段 ② a/b 对称对动画（取若干对关于竖直直径对称的电荷，画连线 + 在 a/b 处的合 E）
+  if(state.phase === 2){
+    const K = Math.floor(state.showABRays * 8) + 1;       // 逐步引入 1..9 对
+    for(let i=0; i<K && i<10; i++){
+      const idx = 2 + i*3;        // 取上半中分散的几个 +q
+      if(idx >= N_RING/2) break;
+      const cP = charges[idx];
+      const cM = { x: -cP.x, y: cP.y, q: cP.q };
+      const pP = toPx(cP.x, cP.y);
+      const pM = toPx(cM.x, cM.y);
+      // 高亮该对
+      ctx.fillStyle = '#c2611f';
+      ctx.beginPath(); ctx.arc(pP.x, pP.y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(pM.x, pM.y, 4, 0, Math.PI*2); ctx.fill();
+      // 连线（虚线表示"对称对"概念）
+      ctx.strokeStyle = 'rgba(194,97,31,0.45)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pP.x, pP.y); ctx.lineTo(pM.x, pM.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // 阶段 ③ c/d 对称对动画 — 前半段画上半 +Q 对（论证 E_c ↓），后半段同时叠加下半 -Q 对（论证 E_d ↓）
+  if(state.phase === 3){
+    const showUp = Math.min(1, state.showCDRays * 2);          // u∈[0,0.5] 时 1 完成上半
+    const showDown = Math.max(0, state.showCDRays * 2 - 1);    // u∈[0.5,1] 时 0→1 推入下半
+    const K_up = Math.floor(showUp * 8) + 1;
+    const K_down = Math.floor(showDown * 8) + (showDown > 0 ? 1 : 0);
+    // 上半 +Q 对（红色）→ 解释 E_c ↓
+    for(let i=0; i<K_up && i<10; i++){
+      const idx = 2 + i*3;
+      if(idx >= N_RING/2) break;
+      const cP = charges[idx];                                  // 上半 +q
+      const cM = { x: -cP.x, y: cP.y, q: cP.q };               // 关于竖直直径镜像
+      const pP = toPx(cP.x, cP.y);
+      const pM = toPx(cM.x, cM.y);
+      ctx.fillStyle = '#b4442e';
+      ctx.beginPath(); ctx.arc(pP.x, pP.y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(pM.x, pM.y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(180,68,46,0.45)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pP.x, pP.y); ctx.lineTo(pM.x, pM.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // 下半 -Q 对（蓝色）→ 解释 E_d ↓
+    for(let i=0; i<K_down && i<10; i++){
+      const idx = N_RING/2 + 2 + i*3;                          // 取下半 charges
+      if(idx >= N_RING) break;
+      const cP = charges[idx];                                  // 下半 -q
+      const cM = { x: -cP.x, y: cP.y, q: cP.q };               // 关于竖直直径镜像
+      const pP = toPx(cP.x, cP.y);
+      const pM = toPx(cM.x, cM.y);
+      ctx.fillStyle = '#3f6f8f';
+      ctx.beginPath(); ctx.arc(pP.x, pP.y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(pM.x, pM.y, 4, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(63,111,143,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pP.x, pP.y); ctx.lineTo(pM.x, pM.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // E 矢量：a/b 在阶段 ② 揭示，c/d 在阶段 ③ 揭示
+  const drawE = (P, E, color) => {
+    const eScale = 28;        // 视觉缩放
+    const ex = P.x + E.Ex * eScale;
+    const ey = P.y - E.Ey * eScale;             // 物理 +y 向上 → canvas 取负
+    PPath.arrow(ctx, P.x, P.y, ex, ey, color, 2.2);
+    ctx.fillStyle = color;
+    ctx.font = 'italic 700 11.5px "Cambria Math",serif';
+  };
+  if(state.showAB){
+    drawE(A, E_AT.a, '#16613f');
+    drawE(B, E_AT.b, '#16613f');
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 700 11px "Cambria Math",serif';
+    ctx.fillText('E_a', A.x + 18, A.y + 22);
+    ctx.fillText('E_b', B.x - 32, B.y + 22);
+  }
+  if(state.showCD){
+    drawE(C, E_AT.c, '#c2611f');
+    drawE(D, E_AT.d, '#c2611f');
+    ctx.fillStyle = '#c2611f';
+    ctx.font = 'italic 700 11px "Cambria Math",serif';
+    ctx.fillText('E_c', C.x + 8, C.y + 16);
+    ctx.fillText('E_d', D.x + 8, D.y - 8);
+  }
+
+  // 阶段标
+  const phaseLabel = state.phase === 1 ? '阶段 ① 装置 · 上半 +Q / 下半 -Q'
+                    : state.phase === 2 ? '阶段 ② 关于竖直直径对称对 → E_a = E_b'
+                    : state.phase === 3 ? '阶段 ③ 关于竖直直径对称对 → E_c = E_d'
+                    : '阶段 ④ 4 项判断 + 电势比较';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-10);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('对称性论证 · 4 项判断', panelX+12, panelY+18);
+
+  let yy = panelY + 44;
+
+  // 论证 1：a/b
+  if(state.showAB){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('论证 ① a / b（水平直径）', panelX+12, yy); yy += 18;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('整体对竖直直径对称', panelX+18, yy); yy += 14;
+    ctx.fillText('对称对在 a, b 处水平分量互消', panelX+18, yy); yy += 14;
+    ctx.fillText('合 E 仅竖直 → E_a = E_b', panelX+18, yy); yy += 14;
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 11.5px "Cambria Math",serif';
+    ctx.fillText('A 对 · B 对（ab 等势线）', panelX+18, yy); yy += 22;
+  } else { yy += 100; }
+
+  // 论证 2：c/d
+  if(state.showCD){
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('论证 ② c / d（竖直直径）', panelX+12, yy); yy += 18;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('上半 +Q 对竖直对称对 → E_c ↓', panelX+18, yy); yy += 14;
+    ctx.fillText('下半 -Q 对竖直对称对 → E_d ↓', panelX+18, yy); yy += 14;
+    ctx.fillText('水平翻转+电荷反号不变 → |E_c|=|E_d|', panelX+18, yy); yy += 14;
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11.5px "Cambria Math",serif';
+    ctx.fillText('C 对 · D 错（沿 E 方向 V 降）', panelX+18, yy); yy += 22;
+  } else { yy += 100; }
+
+  // 4 项判断（最终阶段揭示完整答案）
+  if(state.showVerdict){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('4 选项总结', panelX+12, yy); yy += 18;
+    const items = [
+      { tag:'A', verdict:'对', desc:'E_a = E_b（向下）' },
+      { tag:'B', verdict:'对', desc:'V_a = V_b（ab 等势线）' },
+      { tag:'C', verdict:'对', desc:'E_c = E_d（向下）' },
+      { tag:'D', verdict:'错', desc:'V_c > V_d（沿 E 方向降）' }
+    ];
+    items.forEach(it => {
+      ctx.fillStyle = it.verdict === '对' ? '#16613f' : '#b4442e';
+      ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(`${it.tag} · ${it.verdict}`, panelX+18, yy);
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '600 10.5px ui-monospace,monospace';
+      ctx.fillText(it.desc, panelX+62, yy);
+      yy += 16;
+    });
+    yy += 4;
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-130, panelY+panelH-40, 118, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 ABC', panelX+panelW-110, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2020 新课标Ⅱ卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '圆环异种电荷 · 4 点场强电势比较',
+  subtitle: '上半 +Q 下半 -Q · a/b 水平 · c/d 竖直 · 等距 r₀ · 判 4 选项',
+  deliv: {
+    title: '对称性论证 · 4 项判断',
+    sub: 'E_a / E_b · V_a / V_b · E_c / E_d · V_c / V_d 之间关系'
+  },
+  originalProblem: {
+    meta: '2020 新课标Ⅱ卷 · 多选 · 第 7 题 · 6 分',
+    text: `如图，竖直面内一绝缘圆环的上、下半圆分别均匀分布着等量异种电荷。a、b 为圆环水平直径上的两个点，c、d 为竖直直径上的两个点，它们与圆心的距离均相等。则（    ）`,
+    image: '../../source/images/image47.png',
+    subQuestions: [
+      'A. a、b 两点的场强相等',
+      'B. a、b 两点的电势相等',
+      'C. c、d 两点的场强相等',
+      'D. c、d 两点的电势相等'
+    ],
+    officialAnswer: 'ABC · 将带电圆环看作若干点电荷。整体对竖直直径对称：取关于竖直直径对称的两个点电荷在 a、b 两点产生的场强水平分量互消，合电场只有竖直分量；上半与下半合并仍然如此 → E_a = E_b（大小+方向均相同），且 ab 是等势线 → V_a = V_b。故 A、B 正确。同理，关于竖直直径对称的两个点电荷（先取上半 +Q 对，再取下半 -Q 对）在 c、d 处合电场也都竖直向下；c、d 关于水平直径反对称（水平翻转+电荷反号不变）→ |E_c| = |E_d|，方向相同 → E_c = E_d。故 C 正确。沿电场方向（向下）电势降低，c 在 d 上方 → V_c > V_d，故 D 错误。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置', label_short:'装置',
+     formula_tex: String.raw`\text{上半 } +Q,\;\; \text{下半 } -Q,\;\; |Oa|=|Ob|=|Oc|=|Od|=r_{0}`,
+     note:'上半圆均匀分布正电荷 +Q，下半圆均匀分布等量负电荷 -Q。a、b 在水平直径，c、d 在竖直直径，到圆心 O 距离相等。'},
+    {label:'阶段 ② a / b 对称对', label_short:'a-b',
+     formula_tex: String.raw`\text{对竖直直径对称} \;\Rightarrow\; \mathbf{E}_a = \mathbf{E}_b\;\text{（水平分量互消）}`,
+     note:'整个圆环对竖直直径对称（上半每一段 +q 都有镜像 +q，下半每一段 -q 都有镜像 -q）。在 a、b 处合电场水平分量互消，仅余竖直分量。'},
+    {label:'阶段 ③ c / d 对称对', label_short:'c-d',
+     formula_tex: String.raw`\text{水平翻转 + 电荷反号不变} \;\Rightarrow\; |\mathbf{E}_c| = |\mathbf{E}_d|`,
+     note:'上半 +Q 关于竖直直径的对称对在 c 处贡献竖直向下；下半 -Q 关于竖直直径的对称对在 d 处也贡献竖直向下。整体水平翻转 + 电荷反号变换不变 → E_c = E_d。'},
+    {label:'阶段 ④ 4 项判断 · 电势比较', label_short:'判断',
+     formula_tex: String.raw`V_a = V_b,\;\; V_c > V_d \;\text{（沿 } \mathbf{E}\text{ 方向 } V \text{ 降）}`,
+     note:'A 对（E_a = E_b）；B 对（ab 是等势线）；C 对（E_c = E_d）；D 错（沿电场方向电势降低，c 在 d 上方且电场向下 → V_c > V_d）。'}
+  ],
+  stats: [
+    {label:'圆环半径',         fmt:()=>'R'},
+    {label:'4 点距 O',         fmt:()=>'r₀ = 0.45R'},
+    {label:'离散电荷数',       fmt:()=>String(N_RING)},
+    {label:'当前阶段',          fmt:s=>'①②③④'[s.phase-1]+' '+(['装置','a/b 对','c/d 对','判断'][s.phase-1])},
+    {label:'E_a 方向',         fmt:s=>s.showAB?'竖直向下':'?'},
+    {label:'E_b 方向',         fmt:s=>s.showAB?'竖直向下':'?'},
+    {label:'E_c 方向',         fmt:s=>s.showCD?'竖直向下':'?'},
+    {label:'E_d 方向',         fmt:s=>s.showCD?'竖直向下':'?'},
+    {label:'V_a vs V_b',       fmt:s=>s.showVerdict?'相等':'?'},
+    {label:'V_c vs V_d',       fmt:s=>s.showVerdict?'V_c > V_d':'?'}
+  ],
+  conclusions: [
+    {label_text:'A',          value_text:'?（动画揭示）',     note:'a / b 场强'},
+    {label_text:'B',          value_text:'?（动画揭示）',     note:'a / b 电势'},
+    {label_text:'C',          value_text:'?（动画揭示）',     note:'c / d 场强'},
+    {label_text:'D',          value_text:'?（动画揭示）',     note:'c / d 电势'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'上半 +Q'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'下半 -Q'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'a / b 点（水平直径）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'},  text:'c / d 点（竖直直径）'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'对称对连线（虚线）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2020新课标II-Q7-圆环异种电荷'
+});
+</script>
+</body>
+</html>

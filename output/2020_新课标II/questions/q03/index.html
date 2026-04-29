@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2020 新课标Ⅱ · 第 3 题 · 摩托车越野跨坑</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 摩托车沿水平路面到 a 点离开时为水平方向（平抛初速 v0，水平向右）。
+// 坑：水平宽 3h，左缘 a，右缘 b 比 a 低 0.5h。
+//
+// 情况 1 (动能 E1)：落入坑内 c 点；c 与 a 水平距离 = h，高度差 = h（c 在 a 下方 h）
+//   水平 h = v01·t1                  …①
+//   垂直 h = (1/2)·g·t1²             …② → t1 = √(2h/g)
+//   ① 代 ②：v01 = h/t1 = √(g·h / 2)
+//   E1 = (1/2)·m·v01² = m·g·h / 4
+//
+// 情况 2 (动能 E2)：恰能到 b 点；b 与 a 水平距离 = 3h，高度差 = 0.5h
+//   3h = v02·t2                       …③
+//   0.5h = (1/2)·g·t2²                …④ → t2 = √(h/g)
+//   ③ 代 ④：v02 = 3h/t2 = 3·√(g·h)
+//   E2 = (1/2)·m·v02² = (9/2)·m·g·h
+//
+// 比值：E2 / E1 = (9/2)·m·g·h / (m·g·h / 4) = 18  → 答案 B
+// ─────────────────────────────────────────────────────────────────────
+
+const g = 9.8;
+const h = 1.0;        // 几何尺度（米），比值与 h 无关
+
+const t1 = Math.sqrt(2*h/g);
+const v01 = h/t1;
+const E1 = 0.5*v01*v01;     // 取 m=1 归一化
+
+const t2 = Math.sqrt(h/g);
+const v02 = 3*h/t2;
+const E2 = 0.5*v02*v02;
+
+const ratio = E2/E1;        // = 18
+
+const T_total = 7.0;         // 动画总时长（秒）
+
+// 阶段时间分配（动画时间 t ∈ [0, T_total]）
+//   [0, 2.6]   阶段 ① E1 动画：摩托车从 a 抛出 → 落到 c
+//   [2.6, 3.4] 静止：E1 推导显示
+//   [3.4, 6.2] 阶段 ② E2 动画：摩托车从 a 抛出 → 恰到 b
+//   [6.2, 7.0] 静止：比值 18 揭晓
+const T1_END = 2.6, T_GAP1 = 3.4, T2_END = 6.2;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* scrub backward 不重置 */ }
+  lastT = t;
+
+  let phase, prog, motoX, motoY, vMag, showE1=false, showE2=false, showRatio=false;
+  if(t <= T1_END){
+    phase = 1;
+    prog = t / T1_END;
+    const tt = prog * t1;
+    motoX = v01 * tt;                  // 物理坐标（m）：a 为原点，x 向右，y 向下为正
+    motoY = 0.5 * g * tt * tt;
+    vMag = Math.sqrt(v01*v01 + (g*tt)*(g*tt));
+    showE1 = prog > 0.95;
+  } else if(t <= T_GAP1){
+    phase = 1;
+    prog = 1;
+    motoX = h; motoY = h;
+    vMag = Math.sqrt(v01*v01 + (g*t1)*(g*t1));
+    showE1 = true;
+  } else if(t <= T2_END){
+    phase = 2;
+    prog = (t - T_GAP1) / (T2_END - T_GAP1);
+    const tt = prog * t2;
+    motoX = v02 * tt;
+    motoY = 0.5 * g * tt * tt;
+    vMag = Math.sqrt(v02*v02 + (g*tt)*(g*tt));
+    showE1 = true;
+    showE2 = prog > 0.95;
+  } else {
+    phase = 2;
+    prog = 1;
+    motoX = 3*h; motoY = 0.5*h;
+    vMag = Math.sqrt(v02*v02 + (g*t2)*(g*t2));
+    showE1 = true; showE2 = true; showRatio = true;
+  }
+  return {phase, prog, motoX, motoY, vMag, showE1, showE2, showRatio, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawTerrain(ctx, 14, 14, W*0.58 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.58 + 7, 14, W*0.42 - 21, H - 28, state);
+}
+
+// ─── 左面板：地形 + 摩托车轨迹 ────────────────────────────────────────
+function drawTerrain(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('坑形几何 + 平抛轨迹', panelX+12, panelY+18);
+
+  // 坐标系：a 在左上，x 向右，y 向下。物理 → 像素映射
+  const pxPerM_x = (panelW - 80) / (3.6*h);    // 横轴留余量
+  const pxPerM_y = (panelH - 110) / (1.6*h);    // 纵轴留余量
+  const aX = panelX + 50;
+  const aY = panelY + 60;
+  const toPx = (mx, my) => ({ x: aX + mx*pxPerM_x, y: aY + my*pxPerM_y });
+
+  const aP = toPx(0, 0);
+  const bP = toPx(3*h, 0.5*h);
+  const cP = toPx(h, h);
+
+  // 地面 / 坑形 — 以 a 平面为参考。
+  // 路面：a 左侧水平延伸；坑底（c 所在）在最深处；右侧从 b 起水平延伸
+  const leftGroundY = aP.y;
+  const rightGroundY = bP.y;
+  const pitBottomY = cP.y + 8;     // 坑底略低于 c
+
+  // 沥青路（左 + 右）
+  ctx.fillStyle = '#4a4d52';
+  ctx.fillRect(panelX+12, leftGroundY, aP.x - panelX - 12, 14);
+  ctx.fillRect(bP.x, rightGroundY, panelX+panelW-12 - bP.x, 14);
+
+  // 坑（梯形：a 顶 → 坑底 → b 顶）
+  ctx.fillStyle = '#9c8d72';
+  ctx.beginPath();
+  ctx.moveTo(aP.x, leftGroundY);
+  ctx.lineTo(aP.x + 8, pitBottomY);
+  ctx.lineTo(bP.x - 8, pitBottomY);
+  ctx.lineTo(bP.x, rightGroundY);
+  ctx.closePath();
+  ctx.fill();
+  // 坑壁阴影
+  ctx.strokeStyle = '#6c5d44'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(aP.x, leftGroundY); ctx.lineTo(aP.x + 8, pitBottomY);
+  ctx.moveTo(bP.x - 8, pitBottomY); ctx.lineTo(bP.x, rightGroundY);
+  ctx.stroke();
+
+  // 标注 a / b 点（c 点等到 E₁ 摩托车接近落点时才出现，避免剧透落点）
+  const dot = (p, color) => {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+  };
+  dot(aP, '#1d1d1f'); dot(bP, '#1d1d1f');
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '800 13px Georgia,serif';
+  ctx.fillText('a', aP.x - 12, aP.y - 6);
+  ctx.fillText('b', bP.x + 6, bP.y - 6);
+  // c 点仅在 E₁ 接近完成或之后显示
+  if(state.showE1){
+    dot(cP, '#b4442e');
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '800 13px Georgia,serif';
+    ctx.fillText('c', cP.x + 6, cP.y + 14);
+  }
+
+  // 几何尺寸虚线 — 阶段 ① 仅显示 h 横+h 竖（c 相关），阶段 ② 才追加 3h+0.5h（b 相关）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  // h 竖（a 到 c 高度差）— 阶段 ① 即可显示，因为是题目已知量
+  ctx.beginPath();
+  ctx.moveTo(aP.x - 22, aP.y); ctx.lineTo(aP.x - 22, cP.y);
+  ctx.stroke();
+  // h 横（a 到 c 水平距离）
+  ctx.beginPath();
+  ctx.moveTo(aP.x, cP.y + 18); ctx.lineTo(cP.x, cP.y + 18);
+  ctx.stroke();
+  if(state.phase >= 2){
+    // 3h 横向（a → b）
+    ctx.beginPath();
+    ctx.moveTo(aP.x, aP.y - 26); ctx.lineTo(bP.x, aP.y - 26);
+    ctx.stroke();
+    // 0.5h 竖向（a 平面到 b）
+    ctx.beginPath();
+    ctx.moveTo(bP.x + 22, aP.y); ctx.lineTo(bP.x + 22, bP.y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('h', aP.x - 36, (aP.y+cP.y)/2 + 4);
+  ctx.fillText('h', (aP.x+cP.x)/2 - 4, cP.y + 30);
+  if(state.phase >= 2){
+    ctx.fillText('3h', (aP.x+bP.x)/2 - 8, aP.y - 30);
+    ctx.fillText('0.5h', bP.x + 26, (aP.y+bP.y)/2 + 4);
+  }
+
+  // 已绘轨迹（淡虚线 — 表示"假设情况"，与实物轨迹区分）
+  const drawTraj = (v0, tEnd, color, dashed) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    if(dashed) ctx.setLineDash([5,4]);
+    ctx.beginPath();
+    const N = 60;
+    for(let k=0; k<=N; k++){
+      const tt = k/N * tEnd;
+      const mx = v0 * tt;
+      const my = 0.5*g*tt*tt;
+      const p = toPx(mx, my);
+      if(k===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  // E1 完成后保留：阶段 ② 进行中显示为虚线（"已发生的假设"），避免与正在进行的实线 E2 视觉打架
+  if(state.phase === 2){
+    drawTraj(v01, t1, 'rgba(180,68,46,0.55)', true);
+  }
+  // E2 完成后保留虚线（用于最终比较）
+  if(state.showRatio){
+    drawTraj(v02, t2, 'rgba(63,111,143,0.55)', true);
+  }
+
+  // 当前活动轨迹（实线，绘到当前进度）
+  const v0Cur = state.phase === 1 ? v01 : v02;
+  const tEndCur = state.phase === 1 ? t1 : t2;
+  const colorCur = state.phase === 1 ? '#b4442e' : '#3f6f8f';
+  const tNow = state.prog * tEndCur;
+  ctx.strokeStyle = colorCur; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  const N = 60;
+  for(let k=0; k<=N; k++){
+    const tt = k/N * tNow;
+    const mx = v0Cur * tt;
+    const my = 0.5*g*tt*tt;
+    const p = toPx(mx, my);
+    if(k===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+
+  // 摩托车（小三角 + 速度矢量）
+  const motoP = toPx(state.motoX, state.motoY);
+  ctx.fillStyle = colorCur;
+  ctx.beginPath();
+  ctx.arc(motoP.x, motoP.y, 8, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 速度矢量（水平 v0Cur + 竖直 g·tNow）
+  const vyNow = g * tNow;
+  const vScale = 6;
+  PPath.arrow(ctx, motoP.x, motoP.y, motoP.x + v0Cur*vScale*0.4, motoP.y + vyNow*vScale*0.4, '#16613f', 1.8);
+
+  // 阶段标
+  ctx.fillStyle = colorCur;
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  const phaseLabel = state.phase === 1
+    ? '阶段 ① 动能 E₁ → 落入坑内 c 点'
+    : '阶段 ② 动能 E₂ → 恰到达 b 点';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-22);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(
+    `x = ${state.motoX.toFixed(2)} m · y = ${state.motoY.toFixed(2)} m · |v| = ${state.vMag.toFixed(2)} m/s`,
+    panelX+12, panelY+panelH-6
+  );
+}
+
+// ─── 右面板：推导分析（按阶段守卫，未到阶段不绘制，避免 alpha 灰化剧透）─
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  // 阶段标题：随推导进度变化
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  const headTitle = state.showRatio
+    ? '联立比值'
+    : state.showE2
+      ? '情况 ② 推导中…'
+      : state.showE1
+        ? '情况 ① 已完成 · 等待情况 ②'
+        : '情况 ① 推导中…';
+  ctx.fillText(headTitle, panelX+12, panelY+18);
+
+  let yy = panelY + 44;
+
+  // E1 推导 — 仅在 showE1 触发后绘制
+  if(state.showE1){
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('情况 ① E₁ → 落到 c', panelX+12, yy);
+    yy += 18;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('水平 h = v₀₁ · t₁', panelX+18, yy); yy += 15;
+    ctx.fillText('垂直 h = ½ g · t₁²  →  t₁ = √(2h/g)', panelX+18, yy); yy += 15;
+    ctx.fillText('v₀₁ = h / t₁ = √(gh / 2)', panelX+18, yy); yy += 15;
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '900 11.5px "Cambria Math",serif';
+    ctx.fillText('E₁ = ½ m v₀₁² = m·g·h / 4', panelX+18, yy); yy += 24;
+  } else {
+    yy += 110;       // 占位，保持后续 layout 稳定
+  }
+
+  // E2 推导 — 仅在 showE2 触发后绘制
+  if(state.showE2){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('情况 ② E₂ → 恰到 b', panelX+12, yy);
+    yy += 18;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('水平 3h = v₀₂ · t₂', panelX+18, yy); yy += 15;
+    ctx.fillText('垂直 0.5h = ½ g · t₂²  →  t₂ = √(h/g)', panelX+18, yy); yy += 15;
+    ctx.fillText('v₀₂ = 3h / t₂ = 3·√(gh)', panelX+18, yy); yy += 15;
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '900 11.5px "Cambria Math",serif';
+    ctx.fillText('E₂ = ½ m v₀₂² = (9/2) m·g·h', panelX+18, yy); yy += 24;
+  } else {
+    yy += 110;
+  }
+
+  // 比值 — 仅在 showRatio 触发后绘制
+  if(state.showRatio){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('E₂ / E₁ = (9/2)/(1/4) = 18', panelX+12, yy);
+
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-130, panelY+panelH-40, 118, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · 18', panelX+panelW-115, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2020 新课标Ⅱ卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '摩托车越野 · 跨坑平抛 · E₂/E₁',
+  subtitle: '坑宽 3h · 左缘 a 高于右缘 b 0.5h · E₁ 落到坑内 c · E₂ 恰到 b · 求 E₂/E₁',
+  deliv: {
+    title: '两次平抛 · 联立比值',
+    sub: '情况 ① E₁ → c · 情况 ② E₂ → b · 求 E₂/E₁ = ?'
+  },
+  originalProblem: {
+    meta: '2020 新课标Ⅱ卷 · 单选 · 第 3 题 · 6 分',
+    text: `如图，在摩托车越野赛途中的水平路段前方有一个坑，该坑沿摩托车前进方向的水平宽度为 3h，其左边缘 a 点比右边缘 b 点高 0.5h。若摩托车经过 a 点时的动能为 E₁，它会落到坑内 c 点，c 与 a 的水平距离和高度差均为 h；若经过 a 点时的动能为 E₂，该摩托车恰能越过坑到达 b 点。E₂/E₁ 等于（    ）`,
+    image: '../../source/images/image10.png',
+    subQuestions: [
+      'A. 20',
+      'B. 18',
+      'C. 9.0',
+      'D. 3.0'
+    ],
+    officialAnswer: 'B · 摩托车经 a 点时速度水平，离开后做平抛。设 g 为重力加速度。情况 ①（E₁）：水平位移 h = v₀₁·t₁、垂直位移 h = ½g·t₁²，解得 t₁ = √(2h/g)、v₀₁ = √(gh/2)，所以 E₁ = ½m·v₀₁² = mgh/4。情况 ②（E₂）：水平 3h = v₀₂·t₂、垂直 0.5h = ½g·t₂²，解得 t₂ = √(h/g)、v₀₂ = 3√(gh)，所以 E₂ = ½m·v₀₂² = 9mgh/2。比值 E₂/E₁ = (9mgh/2)/(mgh/4) = 18。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① E₁ → c', label_short:'E₁',
+     formula_tex: String.raw`h = v_{01} t_1,\quad h = \tfrac{1}{2} g t_1^{2} \;\Rightarrow\; t_1 = \sqrt{\tfrac{2h}{g}},\;\; v_{01} = \sqrt{\tfrac{g h}{2}}`,
+     note:'摩托车以 v₀₁ 水平离开 a，做平抛运动。水平位移 h、垂直下落 h（c 与 a 水平距离和高度差均为 h）。'},
+    {label:'阶段 ② E₂ → b', label_short:'E₂',
+     formula_tex: String.raw`3h = v_{02} t_2,\quad 0.5h = \tfrac{1}{2} g t_2^{2} \;\Rightarrow\; t_2 = \sqrt{\tfrac{h}{g}},\;\; v_{02} = 3\sqrt{g h}`,
+     note:'摩托车以 v₀₂ 水平离开 a，恰好到达 b（水平 3h，下落 0.5h）。'}
+  ],
+  stats: [
+    {label:'坑宽',           fmt:()=>'3h'},
+    {label:'a-b 高差',       fmt:()=>'0.5h'},
+    {label:'a-c 水平=高差',  fmt:()=>'h'},
+    {label:'t₁',             fmt:s=>s.showE1?'√(2h/g)':'?'},
+    {label:'t₂',             fmt:s=>s.showE2?'√(h/g)':'?'},
+    {label:'v₀₁',            fmt:s=>s.showE1?'√(gh/2)':'?'},
+    {label:'v₀₂',            fmt:s=>s.showE2?'3√(gh)':'?'},
+    {label:'当前 |v|',       fmt:s=>s.vMag.toFixed(2)+' m/s'},
+    {label:'当前阶段',       fmt:s=>s.phase===1?'① E₁':'② E₂'}
+  ],
+  conclusions: [
+    {label_text:'E₁',         value_text:'见动画揭示',           note:'情况 ① · 落到 c'},
+    {label_text:'E₂',         value_text:'见动画揭示',           note:'情况 ② · 到 b'},
+    {label_text:'E₂ / E₁',    value_text:'?（动画完毕揭晓）',    note:'两情况联立'},
+    {label_text:'关键',       value_text:'两次水平 + 两次垂直独立联立', note:'平抛运动 x、y 解耦'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'},  text:'摩托车（情况 ①, E₁）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'},  text:'摩托车（情况 ②, E₂）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'当前速度矢量'},
+    {swatch:{bg:'#9c8d72',border:'#6c5d44',type:'rect'}, text:'坑（梯形）'},
+    {swatch:{bg:'#4a4d52',border:'#4a4d52',type:'rect'}, text:'地面'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2020新课标II-Q3-摩托车越野跨坑'
+});
+</script>
+</body>
+</html>
