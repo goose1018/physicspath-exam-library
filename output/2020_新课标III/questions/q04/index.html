@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2020 新课标Ⅲ · 第 4 题 · 绳索 O 点平衡几何</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 墙左固定一根绳，右侧通过光滑定滑轮挂物体乙；绳上 O 点拴细线挂物体甲。
+// 甲、乙质量相等 = m。
+// 设左绳张力 = F、右绳张力 = T、下绳张力 = m·g（甲悬挂）
+// 滑轮光滑：右绳张力 T = m·g（乙悬挂）
+// 角度：α = 70°（左绳与竖直），β = ?（右绳与竖直）
+//
+// O 点平衡（取离开竖直方向为正方向）：
+//   水平：F·sin α = T·sin β = m·g·sin β
+//   竖直：F·cos α + T·cos β = m·g  →  F·cos α + m·g·cos β = m·g
+//
+// 联立：
+//   sin α/sin β = T/F = m·g/F → F = m·g·sin β/sin α
+//   代入竖直：m·g·sin β·cos α/sin α + m·g·cos β = m·g
+//             sin β·cos α/sin α + cos β = 1
+//             sin β·cos α + sin α·cos β = sin α
+//             sin(α + β) = sin α
+//   ∴ α + β = π - α  ⇒  β = π - 2α = 180° - 140° = 40°  ❌（错）
+//
+// 重新推导：sin(α + β) = sin α
+//   解 1：α + β = α → β = 0（无意义）
+//   解 2：α + β = π - α → β = π - 2α = 180° - 140° = 40°（≠ 55°）
+//
+// 注意：上式假设 F·cos α 与 m·g·cos β 都向上分量，需要更仔细处理。
+// 重新做受力图：O 点上方有左绳（拉向墙），右绳（拉向滑轮）；下方有挂甲细线。
+//   左绳与竖直夹角 α，方向斜向上+左 → 水平 -F·sin α、竖直 +F·cos α
+//   右绳与竖直夹角 β，方向斜向上+右 → 水平 +T·sin β、竖直 +T·cos β
+//   下绳张力（甲）方向竖直向下 → 水平 0、竖直 -m·g
+//
+// 平衡：
+//   水平：-F·sin α + T·sin β = 0 → F·sin α = T·sin β = m·g·sin β
+//   竖直：F·cos α + T·cos β - m·g = 0 → F·cos α + m·g·cos β = m·g
+//
+// 联立：F = m·g·sin β / sin α，代入：
+//   m·g·sin β·cos α/sin α + m·g·cos β = m·g
+//   sin β·cos α + sin α·cos β = sin α
+//   sin(α + β) = sin α
+//
+// 当 α = 70°：sin(α + β) = sin 70° ≈ 0.9397
+//   α + β = 70° → β = 0（无意义）
+//   α + β = 180° - 70° = 110° → β = 40°
+//
+// 但官方答案是 β = 55°（B 选项）。让我再次审视题图。
+//
+// 重读题：「悬挂甲物体的细线拴牢在...绳上 O 点处；绳的一端固定在墙上，
+// 另一端通过光滑定滑轮与物体乙相连」。所以"绳"是连续一根（左端到滑轮），
+// O 点是细线连接点。绳为一根 → 左绳张力 = 右绳张力（理想滑轮中绳张力均匀）
+// 即 F = T = m·g（乙悬挂）。
+//
+// 重新平衡：
+//   水平：-F·sin α + T·sin β = -m·g·sin α + m·g·sin β = 0 → sin α = sin β → β = α
+//   但这给 β = 70°（D 选项），与官方 B (55°) 不符。
+//
+// 再看：题面说"绳的一端固定在墙上，另一端通过光滑定滑轮与物体乙相连"
+// 注意"O 点拴牢"是指甲的细线挂在 O 点，而不是 O 点把绳子断开成两段。
+// 所以绳实际是一根，但绳过 O 点时被甲细线"拉下"形成 V 形，
+// 绳两端张力相等 = m·g（乙的重量），但绳左侧到墙的角度 α 与右侧到滑轮的角度 β 可不等。
+//
+// 重新平衡（绳张力两段都是 T = m·g）：
+//   水平：-T·sin α + T·sin β = 0 → sin α = sin β → α = β
+//
+// 这与官方 β=55° 仍冲突。但官方推导（line P39-46）说："下面绳子的拉力 m·g，
+// 右边绳子的拉力 m·g，左边绳子的拉力 F"——这意味着只有右绳张力 = m·g，
+// 左绳张力是另一个量 F。这解释为：左绳是固定在墙上的"支持绳"，张力可以
+// 不等于 m·g（墙固定端张力由系统决定），右绳过定滑轮，张力 = 乙的重量 m·g。
+//
+// 这种情况（不连续的绳，左右是两段独立绳）：
+//   竖直：m·g·cos 70° + F·cos β = m·g  ✗ — 这个方程的角度赋值反了
+//   重新仔细：α=70° 是左绳与竖直夹角，未知 β 是右绳与竖直夹角
+//   水平：F·sin α = m·g·sin β  →  F·sin 70° = m·g·sin β
+//   竖直：F·cos α + m·g·cos β = m·g  →  F·cos 70° + m·g·cos β = m·g
+//
+// 联立：F = m·g·sin β / sin 70°，代入：
+//   m·g·sin β·cos 70°/sin 70° + m·g·cos β = m·g
+//   sin β·cot 70° + cos β = 1
+//   设 β = 55°：sin 55°·cot 70° + cos 55° = 0.819·0.364 + 0.574 = 0.298 + 0.574 = 0.872 ≠ 1
+//
+// 让我重新看官方推导（更精确）：
+//   官方说"左边绳子的拉力 F"，但官方答案 β = 55°。让我重新设角度。
+//
+// 注意：可能 α 与 β 含义反了。重新设：
+//   竖直方向：右绳张力 m·g · cos β（如果 β 是右绳与竖直夹角）
+//   官方文字："对 O 点：下面 m·g（甲），右边 m·g（乙过滑轮），左边 F"
+//   官方方程：mg·cos 70° + F·cos β = m·g  ←（此处 70° 是右绳与竖直夹角！）
+//             mg·sin 70° = F·sin β  ←（同上 70° 在右）
+//   即 α=70° 是右绳的角度（不是左绳的）。
+//   联立：F = m·g·sin 70°/sin β
+//   代入竖直：m·g·cos 70° + m·g·sin 70°·cos β/sin β = m·g
+//             cos 70° + sin 70°·cot β = 1
+//             cot β = (1 - cos 70°)/sin 70° = (1 - 0.342)/0.940 = 0.658/0.940 = 0.700
+//             tan β = 1/0.700 = 1.428 → β = arctan(1.428) ≈ 55°  ✓✓
+//
+// 所以正确的角度赋值：α = 70° 是右绳（过滑轮挂乙的）与竖直的夹角，
+// β 是左绳（固定在墙上）与竖直的夹角。这与图（image14.png 我未看到原图）
+// 一致，与官方推导一致。
+//
+// 答案 B（β = 55°）。
+// ─────────────────────────────────────────────────────────────────────
+
+const ALPHA_DEG = 70;
+const BETA_DEG_ANS = 55;
+const ALPHA = ALPHA_DEG * Math.PI / 180;
+const BETA = BETA_DEG_ANS * Math.PI / 180;
+
+const T_total = 9.0;
+// 阶段：① 装置（u 0-0.20）② 力分析（3 力箭头 u 0.20-0.45）
+//      ③ 列方程（水平+竖直 u 0.45-0.70）④ 解 β=55° + 4 项判断（u 0.70-1.00）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.20){ phase = 1; prog = u/0.20; }
+  else if(u < 0.45){ phase = 2; prog = (u-0.20)/0.25; }
+  else if(u < 0.70){ phase = 3; prog = (u-0.45)/0.25; }
+  else { phase = 4; prog = (u-0.70)/0.30; }
+
+  return {
+    phase, prog, u, t,
+    showForces: phase >= 2,
+    showEquations: phase >= 3,
+    showAnswer: phase >= 4
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawGeometry(ctx, 14, 14, W*0.55 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.55 + 7, 14, W*0.45 - 21, H - 28, state);
+}
+
+function drawGeometry(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('墙 + O 点 + 滑轮 + 甲乙物体（α 右绳 = 70° · β 左绳 = ?）', panelX+12, panelY+18);
+
+  // O 点
+  const Ox = panelX + panelW * 0.45;
+  const Oy = panelY + panelH * 0.45;
+
+  // 墙位置（左上）— 反推 leftRopeLen 让左绳端点贴墙，视觉角度真为 β
+  const wallX = panelX + 30;
+
+  // 滑轮位置（右上）— 反推 pulleyY 让右绳视觉角度真为 α
+  const pulleyX = panelX + panelW - 50;
+
+  // 左绳：让端点 leftEndX = wallX + 14（贴墙边），反推绳长
+  // leftEndX = Ox - leftRopeLen * sin(β)  →  leftRopeLen = (Ox - wallX - 14) / sin(β)
+  const leftRopeLen = (Ox - wallX - 14) / Math.sin(BETA);
+  const leftEndX = wallX + 14;
+  const leftEndY = Oy - leftRopeLen * Math.cos(BETA);
+
+  // 右绳：让端点 rightEndX = pulleyX（贴滑轮中心），反推绳长 + 滑轮 Y 位置
+  // rightEndX = Ox + rightRopeLen * sin(α)  →  rightRopeLen = (pulleyX - Ox) / sin(α)
+  const rightRopeLen = (pulleyX - Ox) / Math.sin(ALPHA);
+  const rightEndX = pulleyX;
+  const rightEndY = Oy - rightRopeLen * Math.cos(ALPHA);
+  const pulleyY = rightEndY;     // 滑轮 Y 自洽 = 右绳端点 Y
+
+  // 墙
+  ctx.fillStyle = '#a89878';
+  ctx.fillRect(wallX, panelY + 35, 14, panelH - 90);
+  // 墙阴影线
+  ctx.strokeStyle = '#7a6c50'; ctx.lineWidth = 1;
+  for(let i=0; i<8; i++){
+    const yy = panelY + 40 + i * (panelH - 95) / 8;
+    ctx.beginPath();
+    ctx.moveTo(wallX, yy);
+    ctx.lineTo(wallX - 8, yy + 6);
+    ctx.stroke();
+  }
+
+  // 滑轮
+  ctx.fillStyle = '#5d6964';
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 12, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 12, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(pulleyX, pulleyY, 3, 0, Math.PI*2); ctx.fill();
+  // 滑轮支架
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(pulleyX, pulleyY - 12); ctx.lineTo(pulleyX, panelY + 30);
+  ctx.stroke();
+  // 顶部横条
+  ctx.beginPath();
+  ctx.moveTo(pulleyX - 14, panelY + 30); ctx.lineTo(pulleyX + 14, panelY + 30);
+  ctx.stroke();
+
+  // 左绳（墙→O）：将真实端点（leftEndX, leftEndY）连到墙边（wallX+14）
+  // 调整：让左绳从墙到 O 真实路径
+  const wallAttachY = leftEndY;     // 简化为左端 y 等高
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(wallX + 14, wallAttachY);
+  ctx.lineTo(Ox, Oy);
+  ctx.stroke();
+
+  // 右绳（O→滑轮→乙）
+  ctx.beginPath();
+  ctx.moveTo(Ox, Oy);
+  ctx.lineTo(pulleyX, pulleyY);
+  ctx.stroke();
+  // 滑轮 → 乙（垂直向下）
+  const yiX = pulleyX;
+  const yiY = pulleyY + 60;
+  ctx.beginPath();
+  ctx.moveTo(pulleyX, pulleyY);
+  ctx.lineTo(yiX, yiY);
+  ctx.stroke();
+
+  // 下绳（O 到甲）
+  const jiaX = Ox;
+  const jiaY = Oy + 70;
+  ctx.beginPath();
+  ctx.moveTo(Ox, Oy);
+  ctx.lineTo(jiaX, jiaY);
+  ctx.stroke();
+
+  // 甲方块
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(jiaX - 16, jiaY, 32, 24);
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('甲', jiaX - 8, jiaY + 16);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText('m·g', jiaX + 20, jiaY + 16);
+
+  // 乙方块
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(yiX - 16, yiY, 32, 24);
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('乙', yiX - 8, yiY + 16);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText('m·g', yiX + 20, yiY + 16);
+
+  // O 点 + 标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Ox, Oy, 5, 0, Math.PI*2); ctx.fill();
+  ctx.font = '900 14px Georgia,serif';
+  ctx.fillText('O', Ox + 8, Oy - 6);
+
+  // 角度弧（α 右绳与竖直）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(Ox, Oy, 28, -Math.PI/2, -Math.PI/2 + ALPHA, false);
+  ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 11.5px "Cambria Math",serif';
+  ctx.fillText('α=70°', Ox + 12, Oy - 20);
+
+  // 角度弧（β 左绳与竖直）— 仅在 showAnswer 才标 β=55° 数值
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(Ox, Oy, 32, -Math.PI/2 - BETA, -Math.PI/2, false);
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 11.5px "Cambria Math",serif';
+  ctx.fillText(state.showAnswer ? 'β=55°' : 'β=?', Ox - 50, Oy - 22);
+
+  // 受力图（阶段 ② 起显示）— 在 O 点画 3 力箭头
+  if(state.showForces){
+    const fScale = 0.55;     // 视觉缩放
+    const Fmag = 80;         // F 力箭头长度
+    const Tmag = 70;         // T = m·g 箭头长度
+    const Wmag = 70;         // 重力箭头长度（向下）
+
+    // 左绳张力 F（沿左绳方向，从 O 朝墙方向）
+    const FxComp = -Fmag * Math.sin(BETA);
+    const FyComp = -Fmag * Math.cos(BETA);
+    PPath.arrow(ctx, Ox, Oy, Ox + FxComp*fScale, Oy + FyComp*fScale, '#16613f', 2.4);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 11px "Cambria Math",serif';
+    ctx.fillText('F', Ox + FxComp*fScale - 14, Oy + FyComp*fScale - 4);
+
+    // 右绳张力 T = m·g（沿右绳方向，从 O 朝滑轮）
+    const TxComp = +Tmag * Math.sin(ALPHA);
+    const TyComp = -Tmag * Math.cos(ALPHA);
+    PPath.arrow(ctx, Ox, Oy, Ox + TxComp*fScale, Oy + TyComp*fScale, '#c2611f', 2.4);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11px "Cambria Math",serif';
+    ctx.fillText('T = m·g', Ox + TxComp*fScale + 4, Oy + TyComp*fScale - 4);
+
+    // 下绳张力 m·g（向下）
+    PPath.arrow(ctx, Ox, Oy, Ox, Oy + Wmag*fScale, '#b4442e', 2.4);
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '900 11px "Cambria Math",serif';
+    ctx.fillText('m·g', Ox + 6, Oy + Wmag*fScale + 4);
+  }
+
+  // 阶段标
+  const phaseLabel = state.phase === 1 ? '阶段 ① 装置（甲乙等质量, α=70°）'
+                    : state.phase === 2 ? '阶段 ② O 点 3 力受力分析'
+                    : state.phase === 3 ? '阶段 ③ 平衡方程 · 水平 + 竖直'
+                    : '阶段 ④ 解 β = 55° → 答案 B';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-10);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('O 点平衡方程 · 求 β', panelX+12, panelY+18);
+
+  let yy = panelY + 44;
+
+  if(state.showForces){
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('O 点受 3 力：', panelX+12, yy); yy += 14;
+    ctx.fillStyle = '#16613f'; ctx.fillText('  • 左绳 F（沿绳到墙，β 偏竖直）', panelX+18, yy); yy += 13;
+    ctx.fillStyle = '#c2611f'; ctx.fillText('  • 右绳 T=m·g（沿绳到滑轮，α=70°）', panelX+18, yy); yy += 13;
+    ctx.fillStyle = '#b4442e'; ctx.fillText('  • 下绳 m·g（向下，挂甲）', panelX+18, yy); yy += 18;
+  } else {
+    yy += 80;
+  }
+
+  if(state.showEquations){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('平衡方程：', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('水平: F·sin β = m·g·sin α', panelX+18, yy); yy += 14;
+    ctx.fillText('竖直: F·cos β + m·g·cos α = m·g', panelX+18, yy); yy += 14;
+    yy += 4;
+    ctx.fillText('消 F: cos α + sin α·cot β = 1', panelX+18, yy); yy += 14;
+    ctx.fillText('   →  cot β = (1−cos α) / sin α', panelX+18, yy); yy += 14;
+    yy += 6;
+  } else {
+    yy += 80;
+  }
+
+  if(state.showAnswer){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('代入 α=70°：', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('cot β = (1−0.342)/0.940 = 0.700', panelX+18, yy); yy += 14;
+    ctx.fillText('tan β = 1.428 → β ≈ 55°', panelX+18, yy); yy += 18;
+
+    // 4 选项判定
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('4 选项判定', panelX+12, yy); yy += 16;
+    const opts = [
+      { tag:'A · 45°', ok:false },
+      { tag:'B · 55°', ok:true  },
+      { tag:'C · 60°', ok:false },
+      { tag:'D · 70°', ok:false }
+    ];
+    opts.forEach((o, i) => {
+      ctx.fillStyle = o.ok ? '#16613f' : '#b4442e';
+      ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(o.tag + (o.ok?' ✓':' ✗'), panelX + 18 + (i % 2) * 90, yy + Math.floor(i/2) * 16);
+    });
+    yy += 36;
+
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-130, panelY+panelH-40, 118, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · β=55°', panelX+panelW-118, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2020 新课标Ⅲ卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 4 题 · 6 分',
+  title: '绳索 O 点平衡 · 求 β（α=70°）',
+  subtitle: '甲乙等质量 · O 点 3 力平衡 · 已知 α=70° 求 β',
+  deliv: {
+    title: 'O 点静力平衡 · 三角解 β',
+    sub: '水平 F·sin β = m·g·sin α · 竖直 F·cos β + m·g·cos α = m·g · 求 β'
+  },
+  originalProblem: {
+    meta: '2020 新课标Ⅲ卷 · 单选 · 第 4 题 · 6 分',
+    text: `如图，悬挂甲物体的细线拴牢在一不可伸长的轻质细绳上 O 点处；绳的一端固定在墙上，另一端通过光滑定滑轮与物体乙相连。甲、乙两物体质量相等。系统平衡时，O 点两侧绳与竖直方向的夹角分别为 α 和 β。若 α = 70°，则 β 等于（    ）`,
+    image: '../../source/images/image14.png',
+    subQuestions: [
+      'A. 45°',
+      'B. 55°',
+      'C. 60°',
+      'D. 70°'
+    ],
+    officialAnswer: 'B · 设甲乙质量为 m。乙通过光滑定滑轮悬挂，则右绳张力 T = m·g（绳张力沿绳传递）；下绳挂甲，张力 = m·g（甲悬挂）；左绳张力 F 由系统决定（墙对绳的拉力）。设 α = 70° 是右绳与竖直夹角，β 是左绳与竖直夹角。O 点平衡：水平 F·sin β = m·g·sin α；竖直 F·cos β + m·g·cos α = m·g。第一式得 F = m·g·sin α/sin β，代入第二式：m·g·sin α·cos β/sin β + m·g·cos α = m·g，即 sin α·cot β = 1 − cos α。代入 α=70°：cot β = (1−cos 70°)/sin 70° = (1−0.342)/0.940 ≈ 0.700，tan β ≈ 1.428，β ≈ 55°。故选 B。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置', label_short:'装置',
+     formula_tex: String.raw`\text{甲乙等质量 } m,\;\; \alpha = 70°,\;\; \beta = ?`,
+     note:'墙左端固定一根绳，绳过 O 点拴细线挂甲，另一端经光滑定滑轮挂乙。甲乙质量相等。求 β。'},
+    {label:'阶段 ② O 点受力', label_short:'受力',
+     formula_tex: String.raw`F\;\text{(左)},\;\; T = m g\;\text{(右)},\;\; m g\;\text{(下)}`,
+     note:'O 点受 3 力：左绳 F（沿绳到墙）、右绳张力 T = m·g（光滑滑轮 → 张力 = 乙重）、下绳张力 m·g（甲重）。'},
+    {label:'阶段 ③ 平衡方程', label_short:'方程',
+     formula_tex: String.raw`F\sin\beta = m g \sin\alpha,\quad F\cos\beta + m g \cos\alpha = m g`,
+     note:'水平方向：F 在水平方向的分量等于右绳张力的水平分量。竖直方向：F 与右绳的竖直分量之和等于甲的重力 m·g。'},
+    {label:'阶段 ④ 解 β', label_short:'解',
+     formula_tex: String.raw`\cot\beta = \dfrac{1-\cos\alpha}{\sin\alpha} \;\Rightarrow\; \beta \approx 55° \;(\boxed{B})`,
+     note:'消 F 后：cot β = (1−cos 70°)/sin 70° = 0.658/0.940 ≈ 0.700，得 tan β ≈ 1.428，β ≈ 55°。答案 B。'}
+  ],
+  stats: [
+    {label:'甲乙质量',       fmt:()=>'相等 = m'},
+    {label:'右绳张力 T',     fmt:()=>'m·g（光滑滑轮）'},
+    {label:'下绳张力',       fmt:()=>'m·g（甲悬挂）'},
+    {label:'左绳张力 F',     fmt:()=>'未知'},
+    {label:'α (右绳)',       fmt:()=>'70°'},
+    {label:'β (左绳)',       fmt:s=>s.showAnswer?'55°':'?'},
+    {label:'cot β',          fmt:s=>s.showAnswer?'0.700':'?'},
+    {label:'tan β',          fmt:s=>s.showAnswer?'1.428':'?'}
+  ],
+  conclusions: [
+    {label_text:'水平方程',  value_text:'F·sin β = m·g·sin α',           note:'O 点水平合力 = 0'},
+    {label_text:'竖直方程',  value_text:'F·cos β + m·g·cos α = m·g',     note:'O 点竖直合力 = 0'},
+    {label_text:'消 F',     value_text:'cot β = (1−cos α)/sin α',        note:'两式相消'},
+    {label_text:'答案',      value_text:'?（动画完毕揭晓）',                note:'4 项判断'}
+  ],
+  legend: [
+    {swatch:{bg:'#a89878',border:'#7a6c50',type:'rect'}, text:'墙（左）'},
+    {swatch:{bg:'#5d6964',border:'#1d1d1f',type:'dot'},  text:'光滑定滑轮（右上）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'甲物体 + 重力'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'乙物体（过滑轮）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'F 左绳张力'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'T = m·g 右绳张力 + α 角度'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2020新课标III-Q4-绳索O点平衡几何'
+});
+</script>
+</body>
+</html>

@@ -184,14 +184,23 @@ const REAL_PROBLEMS = [
   { id:'2021-gk1-q05', year:2021, paper:'gk1', no:'5',  module:'天体力学', tplId:null, title:'天问一号停泊轨道远火点',                          summary:'GM=gR²；开普勒 a³=GM·T²/(4π²)→a≈3.27×10⁷；2a=r_min+r_max→r_max≈6.16×10⁷；h_max=r_max−R≈5.82×10⁷。答案 C 量级 6×10⁷ m。', diff:'中', heat:128, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q05/index.html' },
   { id:'2021-gk1-q06', year:2021, paper:'gk1', no:'6',  module:'电磁学',  tplId:null, title:'等势面 abcde 5 点电场判定',                       summary:'φ_a=3 φ_b=5 φ_c=6 φ_d=7 φ_e=5 V；A 错 W=0；B 对 e⁻ a→d W=4eV；C 错 E 向左；D 对 b 处等势线最密 E 最大。答案 BD。', diff:'中', heat:135, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q06/index.html' },
   { id:'2021-gk1-q07', year:2021, paper:'gk1', no:'7',  module:'力学',    tplId:null, title:'斜面物块上滑下滑 · E₁=3E₂',                        summary:'a_up=g(sinθ+μcosθ), a_down=g(sinθ−μcosθ)；θ=45° 且 E₁/E₂=3 → μ=0.5；B 对 a_down=2g sinθ E₂/(E₁+E₂)；D 错 t_上<t_下=1/√3。答案 BC。', diff:'中', heat:140, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q07/index.html' },
+  { id:'2021-gk1-q08', year:2021, paper:'gk1', no:'8',  module:'电磁学',  tplId:null, title:'双线圈下落进磁场 · 加速度与匝数无关',              summary:'消去 N·A 后 F=B²lvm/(16ρ_m ρ_e)、a=g−B²lv/(16ρ_m ρ_e) 与匝数 N 无关。甲乙加速度恒等：F<mg 都加速 / F>mg 都减速 / F=mg 都匀速。C/D 不可能。答案 AB。', diff:'中', heat:135, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q08/index.html' },
+  { id:'2021-gk1-q11', year:2021, paper:'gk1', no:'11', module:'力学',    tplId:null, title:'50 减速带斜面 · 平均能量损失对比',                summary:'(1) ΔE₂=mgd sinθ；(2) ΔE₁=m[g sinθ(L+29d)−μgs]/30；(3) ΔE₁>ΔE₂ → L>d+μs/sinθ。', diff:'难', heat:160, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q11/index.html', paid:true },
   // ── 2020 新课标 II 卷 ──
   { id:'2020-xkbII-q03', year:2020, paper:'xkbII', no:'3',  module:'力学',    tplId:null, title:'摩托车越野跨坑 · 平抛 E₂/E₁',                      summary:'坑宽 3h, a 比 b 高 0.5h；E₁ 落 c (h, h)：t₁=√(2h/g), v₀₁=√(gh/2), E₁=mgh/4；E₂ 到 b (3h, 0.5h)：t₂=√(h/g), v₀₂=3√(gh), E₂=9mgh/2；比值 18。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2020_新课标II/questions/q03/index.html' },
   { id:'2020-xkbII-q07', year:2020, paper:'xkbII', no:'7',  module:'电磁学',  tplId:null, title:'圆环异种电荷 4 点 · 场强电势比较',               summary:'上半 +Q 下半 -Q；4 点 a/b/c/d 等距 r₀；y 轴对称 → E_a=E_b（向下）+ V_a=V_b；水平翻转+电荷反号反对称 → E_c=E_d（向下）；沿 E 方向 V 降 → V_c>V_d。答案 ABC。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标II/questions/q07/index.html' },
   { id:'2020-xkbII-q08', year:2020, paper:'xkbII', no:'8',  module:'力学',    tplId:null, title:'滑冰运动员推物块 8 次反弹 · 质量范围',           summary:'冰面无摩擦 + 挡板。m=4kg 物块，推后 v=5m/s。动量守恒递推 V_n=(2n-1)mv/M。第 7 次后能追上 V_7<v → M>52；第 8 次后追不上 V_8≥v → M≤60。范围 52<M≤60。答案 BC。', diff:'中', heat:135, hasAnim:true, htmlPath:'2020_新课标II/questions/q08/index.html' },
+  // ── 2020 新课标 III 卷 ──
+  { id:'2020-xkbIII-q01', year:2020, paper:'xkbIII', no:'1', module:'电磁学',  tplId:null, title:'玻璃棒线圈 + 金属圆环 · 楞次定律',                summary:'光滑玻璃棒左端线圈右端金属圆环。开关接通瞬间，I_线圈从 0 增大 → B↑ → Φ_环↑ → 楞次"增则斥" → 圆环受斥力远离线圈（向右）。M/N 端结果相同。答案 B。', diff:'易', heat:120, hasAnim:true, htmlPath:'2020_新课标III/questions/q01/index.html' },
+  { id:'2020-xkbIII-q04', year:2020, paper:'xkbIII', no:'4', module:'力学',    tplId:null, title:'绳索 O 点平衡几何 · 求 β',                       summary:'墙左固定绳过 O 点接细线挂甲，另一端经光滑滑轮挂乙。甲乙等质量，α=70° 求 β。O 点 3 力平衡 → cot β=(1-cos α)/sin α=(1-cos 70°)/sin 70°≈0.700 → β≈55°。答案 B。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标III/questions/q04/index.html' },
   { id:'2023-xgk1-q07', year:2023, paper:'xgk1', no:'7',  module:'力学',    tplId:null, title:'W-x 图分段拉力 · 动能/功率/动量',                  summary:'½mv²=W−f·x，f=4N；F₁=6 加速 / F₂=3<f 减速；x=4 KE=2J；W_f(0→2)=8J；v_max=2√2 在 x=2m。答案 BC。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_新课标卷/questions/q07/index.html' },
   { id:'2023-xgk1-q08', year:2023, paper:'xgk1', no:'8',  module:'热学',    tplId:null, title:'三段绝热汽缸 + 弹簧 + 加热 f',                       summary:'加热 f → P₁ 推 g、弹簧推 P₂ 推 h；P₁ 平衡 P_f=P_g+F/A，P₂ 平衡 P_h=P_g+F/A → P_f=P_h；h 绝热被做正功 ΔU_h>0。答案 AD。', diff:'中', heat:135, hasAnim:true, htmlPath:'2023_新课标卷/questions/q08/index.html' },
   { id:'2023-xgk1-q11', year:2023, paper:'xgk1', no:'11', module:'力学',    tplId:null, title:'打水漂 · 最小水平抛速度',                            summary:'平抛 v_y=√(2gh)；落水夹角 tan α=v_y/v₀；α≤θ 临界条件 → v₀≥√(2gh)/tan θ；v₀_min=√(2gh)/tan θ。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_新课标卷/questions/q11/index.html' },
   { id:'2023-xgk1-q12', year:2023, paper:'xgk1', no:'12', module:'电磁学',  tplId:null, title:'密立根油滴 · 质量比+电荷正负与比',                  summary:'匀速 mg=krv → m∝v^(3/2)；v₀:v₀\'=4:1 → m_a:m_b=8:1；加电 a 减速→负、b 加速→正；q_a:q_b=4:1。', diff:'难', heat:140, hasAnim:true, paid:true, htmlPath:'2023_新课标卷/questions/q12/index.html' },
+  // ── 2022 全国甲卷 ──
+  { id:'2022-gk1-q01', year:2022, paper:'gk1',  no:'1',  module:'力学',    tplId:null, title:'圆弧雪道最小半径（动能定理+向心力）',              summary:'a→c 动能定理 v²=2gh；最低点 F_N−mg=mv²/r → F_N=mg(1+2h/r)；F_N≤k·mg → r_min=2h/(k−1)。答案 D。', diff:'中', heat:120, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q01/index.html' },
+  { id:'2022-gk1-q02', year:2022, paper:'gk1',  no:'2',  module:'运动学',  tplId:null, title:'高速列车通过隧道最少时间',                          summary:'三阶段：减速 t₁=(v₀−v)/(2a)；隧道内匀速 t₂=(L+l)/v；加速 t₃=(v₀−v)/a；总和 t=3(v₀−v)/(2a)+(L+l)/v。答案 C。', diff:'中', heat:115, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q02/index.html' },
+  { id:'2022-gk1-q03', year:2022, paper:'gk1',  no:'3',  module:'电磁学',  tplId:null, title:'三种线框感应电流比较',                              summary:'同导线 R∝L=8r:2πr:6r；面积 S=4r²:πr²:(3√3/2)r²；I=ε/R=S/L·(dB/dt) → 比 2:2:√3 → I₁=I₂>I₃。答案 C。', diff:'中', heat:110, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q03/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -302,14 +311,26 @@ const PROBLEM_META = {
   '2021-gk1-q05': { type:'choice-single', answer:'C' },
   '2021-gk1-q06': { type:'choice-multi',  answer:'BD' },
   '2021-gk1-q07': { type:'choice-multi',  answer:'BC' },
+  '2021-gk1-q08': { type:'choice-multi',  answer:'AB' },
+  '2021-gk1-q11': { type:'calc', answer:[
+    {sub:'(1) ΔE₂', val:'mgd·sinθ'},
+    {sub:'(2) ΔE₁', val:'m[g sinθ(L+29d) − μgs]/30'},
+    {sub:'(3) L 条件', val:'L > d + μs/sinθ'}
+  ]},
   // 2020 新课标 II 卷
   '2020-xkbII-q03': { type:'choice-single', answer:'B' },
   '2020-xkbII-q07': { type:'choice-multi',  answer:'ABC' },
   '2020-xkbII-q08': { type:'choice-multi',  answer:'BC' },
+  // 2020 新课标 III 卷
+  '2020-xkbIII-q01': { type:'choice-single', answer:'B' },
+  '2020-xkbIII-q04': { type:'choice-single', answer:'B' },
   '2023-xgk1-q07': { type:'choice-multi',  answer:'BC' },
   '2023-xgk1-q08': { type:'choice-multi',  answer:'AD' },
   '2023-xgk1-q11': { type:'calc',          answer:[{sub:'v₀_min',val:'√(2gh)/tan θ'}] },
   '2023-xgk1-q12': { type:'calc',          answer:[{sub:'(1) m_a:m_b',val:'8:1'},{sub:'(2) 极性',val:'a 负 / b 正'},{sub:'(2) |q_a|:|q_b|',val:'4:1'}] },
+  '2022-gk1-q01':  { type:'choice-single', answer:'D' },
+  '2022-gk1-q02':  { type:'choice-single', answer:'C' },
+  '2022-gk1-q03':  { type:'choice-single', answer:'C' },
 };
 
 // 按 year×paper 计数

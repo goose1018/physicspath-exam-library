@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2020 新课标Ⅲ · 第 1 题 · 玻璃棒线圈金属环（楞次定律）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 水平绝缘玻璃棒，左端绕线圈（多匝），右端套金属圆环（光滑可滑动）。
+// 开关 S 由"断开"拨至连接到 M 或 N，电路接通瞬间：
+//   - 不论拨 M 或 N，线圈中都会产生增大的电流（从 0 → 某值）
+//   - 右手螺旋定则：线圈中电流增大 → 螺线管轴向磁场强度增大
+//   - 圆环穿过的磁通量 Φ 随之增大
+//   - 楞次定律："增则斥" → 圆环感应电流方向使其磁通反向，
+//     等效为圆环上有反向磁矩，与线圈磁场互斥
+//   - 圆环受斥力 → 远离线圈 → 向右移动
+//
+// 答案 B（不论 M 或 N，都向右）。AC、CD 错。
+// ─────────────────────────────────────────────────────────────────────
+
+const T_total = 9.0;
+// 阶段：① 装置介绍（u 0-0.20）② 拨至 M：B↑ 圆环受斥右移（u 0.20-0.55）
+//      ③ 拨至 N：同样 B↑ 圆环右移（u 0.55-0.85）④ 总结答案（u 0.85-1.00）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.20){ phase = 1; prog = u/0.20; }
+  else if(u < 0.55){ phase = 2; prog = (u-0.20)/0.35; }
+  else if(u < 0.85){ phase = 3; prog = (u-0.55)/0.30; }
+  else { phase = 4; prog = (u-0.85)/0.15; }
+
+  // 圆环位置：向右最多移 1.0 单位（屏幕坐标，pxPerM 在 drawIce 中映射）
+  let ringX = 0;       // 0 = 初始位置, > 0 朝右
+  let switchPos = 0;   // 0 = 断开, 1 = M, -1 = N
+  let currentMag = 0;  // 0 = 无电流, 1 = 满电流
+  if(phase === 1){
+    ringX = 0;
+    switchPos = 0;
+    currentMag = 0;
+  } else if(phase === 2){
+    switchPos = 1;            // 拨至 M
+    currentMag = Math.min(1, prog * 1.5);     // 电流从 0 增大
+    ringX = prog * 1.0;        // 圆环逐渐右移
+  } else if(phase === 3){
+    switchPos = -1;           // 拨至 N
+    currentMag = Math.min(1, prog * 1.5);
+    ringX = prog * 1.0;
+  } else {
+    // 阶段 4：总结，圆环停在右侧位置
+    switchPos = -1;
+    currentMag = 1;
+    ringX = 1.0;
+  }
+
+  return {
+    phase, prog, u, t,
+    ringX, switchPos, currentMag,
+    showAnalysis: phase >= 2,
+    showVerdict: phase >= 4
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawApparatus(ctx, 14, 14, W*0.58 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.58 + 7, 14, W*0.42 - 21, H - 28, state);
+}
+
+function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('玻璃棒 · 左端线圈 · 右端金属圆环', panelX+12, panelY+18);
+
+  // 玻璃棒（水平横）
+  const cy = panelY + panelH * 0.45;
+  const rodLen = panelW - 80;
+  const rodLeft = panelX + 40;
+  const rodRight = rodLeft + rodLen;
+  const rodH = 14;
+
+  // 玻璃棒主体（淡蓝半透明）
+  ctx.fillStyle = 'rgba(180,210,230,0.5)';
+  ctx.fillRect(rodLeft, cy - rodH/2, rodLen, rodH);
+  ctx.strokeStyle = '#7a9fb8'; ctx.lineWidth = 1;
+  ctx.strokeRect(rodLeft, cy - rodH/2, rodLen, rodH);
+
+  // 左端线圈（绘 8 圈）
+  const coilX0 = rodLeft + 10;
+  const coilX1 = rodLeft + 130;
+  const coilCount = 8;
+  for(let i=0; i<coilCount; i++){
+    const x = coilX0 + i * (coilX1 - coilX0) / coilCount;
+    ctx.strokeStyle = state.currentMag > 0.05 ? '#b4442e' : '#5d4a3a';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.ellipse(x, cy, 4, 22, 0, 0, Math.PI*2);
+    ctx.stroke();
+  }
+  // 线圈电流箭头（仅在通电时显示）
+  if(state.currentMag > 0.10){
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '900 12px "Cambria Math",serif';
+    ctx.fillText('I_线圈', coilX0 + 30, cy - 32);
+    // 箭头沿线圈走向（右）
+    PPath.arrow(ctx, coilX0 + 30, cy - 26, coilX0 + 70, cy - 26, '#b4442e', 1.6);
+  }
+
+  // 右端金属圆环
+  const ringX0_init = coilX1 + 100;     // 初始位置
+  const ringX0 = ringX0_init + state.ringX * 60;     // 随 state.ringX 移动
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.ellipse(ringX0, cy, 6, 28, 0, 0, Math.PI*2);
+  ctx.stroke();
+  // 圆环阴影/质感
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(ringX0, cy, 5, 26, 0, 0, Math.PI*2);
+  ctx.stroke();
+  // 圆环标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('金属圆环', ringX0 - 25, cy + 50);
+
+  // 圆环上感应电流（楞次定律方向：与线圈电流反向）
+  if(state.currentMag > 0.10){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '900 11px "Cambria Math",serif';
+    ctx.fillText('I_环', ringX0 + 12, cy - 30);
+    PPath.arrow(ctx, ringX0 + 18, cy - 24, ringX0 - 18, cy - 24, '#3f6f8f', 1.5);
+  }
+
+  // 移动方向箭头（圆环受斥力向右）
+  if(state.currentMag > 0.20){
+    PPath.arrow(ctx, ringX0 + 12, cy + 16, ringX0 + 50, cy + 16, '#16613f', 2.5);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('受斥力 → 右', ringX0 + 14, cy + 32);
+  }
+
+  // 开关 S + M / N
+  const switchY = panelY + panelH - 80;
+  const switchCenter = panelX + panelW * 0.45;
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('S', switchCenter - 4, switchY + 28);
+  // 接线点
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(switchCenter, switchY, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(switchCenter - 30, switchY - 18, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(switchCenter + 30, switchY - 18, 4, 0, Math.PI*2); ctx.fill();
+  // M / N 标
+  ctx.fillStyle = '#5d6964';
+  ctx.fillText('M', switchCenter - 38, switchY - 22);
+  ctx.fillText('N', switchCenter + 32, switchY - 22);
+  // 开关刀片
+  ctx.strokeStyle = state.switchPos !== 0 ? '#16613f' : '#5d6964';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(switchCenter, switchY);
+  if(state.switchPos === 1){          // M
+    ctx.lineTo(switchCenter - 30, switchY - 18);
+  } else if(state.switchPos === -1){  // N
+    ctx.lineTo(switchCenter + 30, switchY - 18);
+  } else {                             // 断开 — 倾斜抬起
+    ctx.lineTo(switchCenter + 25, switchY - 28);
+  }
+  ctx.stroke();
+
+  // 阶段标
+  const phaseLabel = state.phase === 1 ? '阶段 ① 装置（开关 S 断开）'
+                    : state.phase === 2 ? '阶段 ② 拨至 M：电流增 → B↑ → 圆环右移'
+                    : state.phase === 3 ? '阶段 ③ 拨至 N：电流增 → B↑ → 圆环右移'
+                    : '阶段 ④ 两情况均右移 → 答案 B';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-22);
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(
+    `开关: ${state.switchPos === 0 ? '断开' : (state.switchPos === 1 ? 'M' : 'N')} · 电流: ${(state.currentMag*100).toFixed(0)}% · 圆环位移: ${state.ringX.toFixed(2)} 单位`,
+    panelX+12, panelY+panelH-6
+  );
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('楞次定律 · 4 选项判定', panelX+12, panelY+18);
+
+  let yy = panelY + 44;
+
+  if(state.showAnalysis){
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('① 接通瞬间：I_线圈 从 0 增大', panelX+12, yy); yy += 16;
+    ctx.fillText('② 右手螺旋定则：B 沿轴增', panelX+12, yy); yy += 16;
+    ctx.fillText('③ 圆环 Φ ↑ → 楞次"增则斥"', panelX+12, yy); yy += 16;
+    ctx.fillText('④ 圆环受斥力 → 远离线圈', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('⇒ 不论 M 或 N，圆环都右移', panelX+12, yy); yy += 28;
+  } else {
+    yy += 110;
+  }
+
+  // 4 选项判定
+  if(state.showVerdict){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('4 选项总结', panelX+12, yy); yy += 18;
+    const items = [
+      { tag:'A', verdict:'错', desc:'M/N 均向左 — 与楞次斥力相反' },
+      { tag:'B', verdict:'对', desc:'M/N 均向右 ✓ 楞次定律斥力' },
+      { tag:'C', verdict:'错', desc:'M 左 N 右 — 不论 M/N 电流方向都增' },
+      { tag:'D', verdict:'错', desc:'M 右 N 左 — 同 C 错' }
+    ];
+    items.forEach(it => {
+      ctx.fillStyle = it.verdict === '对' ? '#16613f' : '#b4442e';
+      ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(`${it.tag} · ${it.verdict}`, panelX+18, yy);
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '600 10px "Noto Sans SC",sans-serif';
+      ctx.fillText(it.desc, panelX+62, yy);
+      yy += 16;
+    });
+    yy += 6;
+
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-130, panelY+panelH-40, 118, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · 都右移', panelX+panelW-118, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2020 新课标Ⅲ卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '玻璃棒线圈 + 金属圆环 · 楞次定律',
+  subtitle: '开关 S 拨至 M 或 N · 电路接通瞬间 · 圆环移动方向',
+  deliv: {
+    title: '楞次定律 · 增则斥',
+    sub: 'I_线圈 ↑ → B ↑ → Φ_环 ↑ → 感应电流抵抗 → 受斥力 → ?'
+  },
+  originalProblem: {
+    meta: '2020 新课标Ⅲ卷 · 单选 · 第 1 题 · 6 分',
+    text: `如图，水平放置的圆柱形光滑玻璃棒左边绕有一线圈，右边套有一金属圆环。圆环初始时静止。将图中开关 S 由断开状态拨至连接状态，电路接通的瞬间，可观察到（    ）`,
+    image: '../../source/images/image1.png',
+    subQuestions: [
+      'A. 拨至 M 端或 N 端，圆环都向左运动',
+      'B. 拨至 M 端或 N 端，圆环都向右运动',
+      'C. 拨至 M 端时圆环向左运动，拨至 N 端时向右运动',
+      'D. 拨至 M 端时圆环向右运动，拨至 N 端时向左运动'
+    ],
+    officialAnswer: 'B · 不论开关拨至 M 端或 N 端，电路接通瞬间，线圈中的电流都从 0 开始增大。根据右手螺旋定则，通电螺线管沿轴产生的磁场强度逐渐增大，穿过金属圆环的磁通量 Φ 随之增大。由楞次定律，圆环中产生的感应电流方向使其磁通量反向，等效为圆环对线圈呈"互斥"状态——增则斥。圆环受到沿玻璃棒向远离线圈方向（即向右）的安培力，故向右移动。M 或 N 仅决定线圈电流方向，不影响"电流从 0 增大"这一事实，因此两种情况结果相同，均为向右。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置介绍', label_short:'装置',
+     formula_tex: String.raw`\text{S 断开} \;\Rightarrow\; I=0,\;\; B=0,\;\; \Phi_{环}=0`,
+     note:'水平玻璃棒左端绕线圈，右端套金属圆环。开关 S 初始断开，电路无电流，圆环静止。'},
+    {label:'阶段 ② 拨至 M', label_short:'M',
+     formula_tex: String.raw`I \uparrow \;\Rightarrow\; B \uparrow \;\Rightarrow\; \Phi_{环} \uparrow \;\Rightarrow\; \text{楞次"增则斥"}`,
+     note:'开关拨至 M 端，电流从 0 增大，线圈轴向磁场增强，圆环磁通增大，受斥力远离线圈（向右）。'},
+    {label:'阶段 ③ 拨至 N', label_short:'N',
+     formula_tex: String.raw`I \uparrow \;(\text{反向}) \;\Rightarrow\; |B| \uparrow \;\Rightarrow\; \Phi_{环} \uparrow \;\Rightarrow\; \text{同样斥}`,
+     note:'拨至 N 端电流方向反，但仍是从 0 开始增大。磁通量幅度增大，楞次定律仍给出排斥关系，圆环依然向右移。'},
+    {label:'阶段 ④ 4 项判断', label_short:'判断',
+     formula_tex: String.raw`\text{两端均右移} \;\Rightarrow\; \boxed{B}`,
+     note:'A 错（不会都向左）/ B 对（都向右）/ C 错（M 端不会向左）/ D 错（M/N 端结果相同，不会一左一右）。'}
+  ],
+  stats: [
+    {label:'装置',           fmt:()=>'光滑玻璃棒'},
+    {label:'左侧',            fmt:()=>'多匝线圈'},
+    {label:'右侧',            fmt:()=>'金属圆环'},
+    {label:'开关 S',          fmt:s=>s.switchPos===0?'断开':(s.switchPos===1?'M 端':'N 端')},
+    {label:'线圈电流',        fmt:s=>s.currentMag>0.05?(s.currentMag*100).toFixed(0)+'%':'0'},
+    {label:'圆环 Φ',         fmt:s=>s.currentMag>0.05?'增':'0'},
+    {label:'圆环受力',        fmt:s=>s.currentMag>0.20?'斥力 → 右':'?'},
+    {label:'圆环位移',        fmt:s=>s.ringX.toFixed(2)+' 单位'}
+  ],
+  conclusions: [
+    {label_text:'电流变化',  value_text:'从 0 增大',                note:'电路接通瞬间'},
+    {label_text:'磁通变化',  value_text:'Φ_环 增大',                note:'右手螺旋定则'},
+    {label_text:'楞次定律',  value_text:'增则斥',                    note:'感应电流方向抗变'},
+    {label_text:'答案',      value_text:'?（动画完毕揭晓）',          note:'4 项判断'}
+  ],
+  legend: [
+    {swatch:{bg:'#7a9fb8',border:'#7a9fb8',type:'rect'}, text:'光滑玻璃棒'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'线圈 + I_线圈（红）'},
+    {swatch:{bg:'#888888',border:'#888888',type:'rect'}, text:'金属圆环'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'感应电流（蓝）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'受斥力方向（绿）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2020新课标III-Q1-玻璃棒线圈圆环楞次'
+});
+</script>
+</body>
+</html>
