@@ -164,6 +164,7 @@ const REAL_PROBLEMS = [
   { id:'2023-gk2-q05', year:2023, paper:'gk2', no:'5',  module:'电磁学',   tplId:null, title:'带电粒子磁场+电场（速度选择器）· 比荷',  summary:'r=2a 几何 / v=2aqB/m 圆周 / v=E/B 速度选择器 / q/m = E/(2aB²)。答案 A。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q05/index.html', paid:true },
   { id:'2023-gk2-q06', year:2023, paper:'gk2', no:'6',  module:'电磁学',   tplId:null, title:'正电荷+负电小球 · 重力+库仑力轨迹（多选）',     summary:'电势能符号 W=qφ<0；A 错（先减后增）/ B 对（OP>ON→W_P>W_N）/ C 对（OM=ON→机械能等）/ D 错。答案 BC。', diff:'中', heat:110, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q06/index.html' },
   { id:'2023-gk2-q08', year:2023, paper:'gk2', no:'8',  module:'力学',     tplId:null, title:'木板+物块滑动摩擦 · 动能与摩擦热（多选）',       summary:'光滑桌面，相对位移 Δs=l；摩擦热 Q=fl；木板 E_M=f·s_M<fl（B 对）；物块 (1/2)mv₁²<(1/2)mv₀²-fl（D 对）。答案 BD。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q08/index.html' },
+  { id:'2023-gk2-q11', year:2023, paper:'gk2', no:'11', module:'电磁学',   tplId:null, title:'等边三角形 · 3 点电荷电场叠加（计算）',           summary:'M 处场向下→C 正；A、B 水平相抵→|q_B|=q；N 处场向上 E_x=0→q_C=(3-√3)q/3。', diff:'难', heat:160, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q11/index.html', paid:true },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -258,6 +259,7 @@ const PROBLEM_META = {
   '2023-gk2-q05': { type:'choice-single', answer:'A' },
   '2023-gk2-q06': { type:'choice-multi',  answer:'BC' },
   '2023-gk2-q08': { type:'choice-multi',  answer:'BD' },
+  '2023-gk2-q11': { type:'calc',          answer:[{sub:'(1) |q_B|',val:'q'},{sub:'(1) 正负',val:'A、B、C 均为正电荷'},{sub:'(2) q_C',val:'(3 − √3)q / 3'}] },
 };
 
 // 按 year×paper 计数

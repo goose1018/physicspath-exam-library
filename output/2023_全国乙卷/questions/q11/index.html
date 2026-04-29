@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 11 题 · 等边三角形 3 点电荷（计算）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：竖直面内等边三角形 ABC，AB 水平、C 在上方
+// 3 点电荷在 A/B/C 三顶点
+// M = AB 中点 → 场强方向竖直向下
+// N = BC 中点 → 场强方向竖直向上
+// |q_A| = q
+//
+// (1) M 处分析：
+//   - M 与 A、B 等距，A、B 在 M 的场水平方向，若同号同量则相抵
+//   - C 在 M 正上方，C 在 M 处的场沿 ±y 方向
+//   - 总场向下 → C 在 M 提供向下分量 → C 是正电荷（场指向远离 C，C 在 M 上方→场向下）
+//   - A、B 必须水平相抵 → |q_B| = q 且与 A 同号
+//   - N 处分析进一步确定 A、B 都是正（解析 P175）
+//   - 答 (1)：|q_B| = q，A/B/C 均为正
+//
+// (2) N 处分析：
+//   - N = BC 中点
+//   - A 在 N 的场沿 AN 方向（向右上，垂直 BC）
+//   - B 在 N 的场沿 BC 方向（B→N 沿 BC）
+//   - C 在 N 的场沿 CB 方向（C→N 沿 CB）
+//   - 总场要沿竖直 +y → 沿 BC 方向分量为零 → 解出 q_C
+//   - q_C = (3 - √3)q/3
+
+// 几何（无量纲，AB 半边长 = 1）
+const a_half = 1.0;
+const A_pos = {x: -a_half, y: 0};
+const B_pos = {x:  a_half, y: 0};
+const C_pos = {x: 0, y: Math.sqrt(3) * a_half};
+const M_pos = {x: 0, y: 0};                     // AB 中点
+const N_pos = {x: a_half/2, y: Math.sqrt(3)*a_half/2};     // BC 中点
+
+const q_unit = 1.0;
+const q_A = q_unit, q_B = q_unit;
+const q_C = (3 - Math.sqrt(3)) / 3 * q_unit;     // ≈ 0.4226
+
+// 阶段：u<0.4 显 M 分析；0.4-0.7 显 N 分析；>0.7 显答案
+const T_total = 8;
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  const stage = u < 0.4 ? 1 : (u < 0.7 ? 2 : 3);
+  return {u, stage, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawGeometry(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawAnalysis(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawGeometry(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('等边三角形 · 3 点电荷 · M / N 中点场', panelX+12, panelY+18);
+
+  // 投影：物理 (x, y) → canvas
+  const xMin = -1.4, xMax = 1.4, yMin = -0.5, yMax = 2.0;
+  const padX = 28, padY = 32;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - 2*padY) / (yMax - yMin);
+  const s = Math.min(sx, sy);
+  const offX = panelX + padX + (-xMin)*s + (panelW - 2*padX - (xMax-xMin)*s)/2;
+  const offY = panelY + padY + yMax*s + (panelH - 2*padY - (yMax-yMin)*s)/2;
+  const px = x => offX + x*s;
+  const py = y => offY - y*s;     // canvas y 反向
+
+  // 三角形 ABC（实线）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(px(A_pos.x), py(A_pos.y));
+  ctx.lineTo(px(B_pos.x), py(B_pos.y));
+  ctx.lineTo(px(C_pos.x), py(C_pos.y));
+  ctx.closePath();
+  ctx.stroke();
+
+  // 顶点 + 电荷 +
+  function drawCharge(p, label, q_val){
+    const cx = px(p.x), cy = py(p.y);
+    const r = state.u > 0.75 ? (10 + q_val * 4) : 12;     // C2 修复：阶段 ④ 揭晓后才用半径反映 q 大小，否则统一 r=12 不剧透 q_C<q
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px Georgia,serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('+', cx, cy+5);
+    ctx.textAlign = 'start';
+    // 标签
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 800 13px Georgia,serif';
+    const dx = label === 'A' ? -22 : (label === 'B' ? 14 : 0);
+    const dy = label === 'C' ? -18 : 0;
+    ctx.fillText(label, cx+dx, cy+dy);
+  }
+  drawCharge(A_pos, 'A', q_A);
+  drawCharge(B_pos, 'B', q_B);
+  drawCharge(C_pos, 'C', q_C);
+
+  // M, N 中点（小灰点）
+  function drawMid(p, label, dy_label){
+    const cx = px(p.x), cy = py(p.y);
+    ctx.fillStyle = '#3a3a3c';
+    ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 700 12px Georgia,serif';
+    ctx.fillText(label, cx-4, cy + dy_label);
+  }
+  drawMid(M_pos, 'M', 16);
+  drawMid(N_pos, 'N', -8);
+
+  // 场矢量：根据 stage 显示
+  // M 处场（向下，Stage 1+）
+  if(state.stage >= 1){
+    const eScale = 0.45 * s;
+    PPath.arrow(ctx, px(M_pos.x), py(M_pos.y), px(M_pos.x), py(M_pos.y) + eScale, '#3f6f8f', 2.4);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = 'italic 800 12px Georgia,serif';
+    ctx.fillText('E_M ↓', px(M_pos.x)+8, py(M_pos.y)+eScale-4);
+
+    // C 在 M 处场（沿 -y 方向 = canvas +y）
+    // 因为 y 反向，A、B 在 M 处场水平方向相抵
+    if(state.u > 0.15){
+      // A 在 M 场（指向 -x，即 A 推 M 处正测试电荷）
+      ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,2]);
+      // 实际上 A 正电荷在 M 的场指向远离 A 即 +x 方向
+      PPath.arrow(ctx, px(M_pos.x)-4, py(M_pos.y), px(M_pos.x) + 18, py(M_pos.y), '#94a09b', 1.2);
+      PPath.arrow(ctx, px(M_pos.x)+4, py(M_pos.y), px(M_pos.x) - 18, py(M_pos.y), '#94a09b', 1.2);
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#94a09b';
+      ctx.font = '600 9px "Cambria Math",serif';
+      ctx.fillText('A,B 抵消', px(M_pos.x)-22, py(M_pos.y)+24);
+    }
+  }
+  // N 处场（向上，Stage 2+）
+  if(state.stage >= 2){
+    const eScale = 0.45 * s;
+    PPath.arrow(ctx, px(N_pos.x), py(N_pos.y), px(N_pos.x), py(N_pos.y) - eScale, '#16613f', 2.4);
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 800 12px Georgia,serif';
+    ctx.fillText('E_N ↑', px(N_pos.x)+8, py(N_pos.y)-eScale+4);
+  }
+
+  // C 在 M 的场（向下，垂直）— Stage 1 显示
+  if(state.u > 0.05){
+    ctx.strokeStyle = '#7d4f9c'; ctx.lineWidth = 1.4; ctx.setLineDash([4,2]);
+    ctx.beginPath();
+    ctx.moveTo(px(C_pos.x), py(C_pos.y));
+    ctx.lineTo(px(M_pos.x), py(M_pos.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#7d4f9c';
+    ctx.font = '500 9.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('CM (C 在 M 场沿此线)', px((C_pos.x+M_pos.x)/2)-30, py((C_pos.y+M_pos.y)/2));
+  }
+
+  // AN 连线（Stage 2）
+  if(state.stage >= 2){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.4; ctx.setLineDash([4,2]);
+    ctx.beginPath();
+    ctx.moveTo(px(A_pos.x), py(A_pos.y));
+    ctx.lineTo(px(N_pos.x), py(N_pos.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '500 9.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('AN ⊥ BC', px((A_pos.x+N_pos.x)/2)-15, py((A_pos.y+N_pos.y)/2)+12);
+  }
+
+  // 阶段提示
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageText = state.stage === 1 ? '阶段 ① M 处分析（推 |q_B|=q + 正负）' :
+                    state.stage === 2 ? '阶段 ② N 处分析（求 q_C）' :
+                                         '阶段 ③ 结论 q_C = (3-√3)q/3';
+  ctx.fillText(stageText, panelX+12, panelY+panelH-8);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('推导步骤（按阶段揭晓）', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10){
+    lines.push({c:'#3f6f8f', t:'M 处场向下（题给）'});
+  }
+  if(state.u >= 0.20){
+    lines.push({c:'#7d4f9c', t:'C 在 M 处场沿 CM 方向'});
+    lines.push({c:'#7d4f9c', t:'C 正 → 场远离 C → 在 M 向下 ✓'});
+  }
+  if(state.u >= 0.30){
+    lines.push({c:'#3a3a3c', t:'A、B 在 M 处场水平方向（沿 ±x）'});
+    lines.push({c:'#3a3a3c', t:'要相抵 → |q_B| = q'});
+  }
+  if(state.u >= 0.40){
+    lines.push({c:'#16613f', t:'(1) |q_B| = q，A/B/C 均为正电荷'});
+  }
+  if(state.u >= 0.50){
+    lines.push({c:'#c2611f', t:'阶段 ② N 处分析'});
+  }
+  if(state.u >= 0.55){
+    lines.push({c:'#c2611f', t:'A 在 N 场沿 AN（垂直 BC，向右上）'});
+    lines.push({c:'#c2611f', t:'B、C 在 N 场都沿 BC 方向'});
+  }
+  if(state.u >= 0.65){
+    lines.push({c:'#5d6964', t:'总场沿 +y → 沿 BC 分量为零'});
+    lines.push({c:'#5d6964', t:'解：kq·√3/(6a²) − kq/(2a²) + kq_C/(2a²) = 0'});
+  }
+  if(state.u >= 0.75){
+    lines.push({c:'#16613f', t:'(2) q_C = (3 − √3)q / 3 ≈ 0.423q'});
+  }
+
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 18;
+  });
+
+  // 答案徽章
+  if(state.u > 0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-50, panelW-24, 38, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案：', panelX+22, panelY+panelH-32);
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText('(1) |q_B|=q，A/B/C 均正电', panelX+22, panelY+panelH-18);
+    ctx.fillText('(2) q_C = (3−√3)q / 3', panelX+22, panelY+panelH-4);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 11 题 · 12 分',
+  title: '等边三角形 · 3 点电荷电场叠加',
+  subtitle: '等边三角形 ABC（AB 水平、C 上方），M=AB 中点场向下、N=BC 中点场向上；|q_A|=q。求 |q_B| 与正负，求 q_C。',
+  deliv: {
+    title: '电场叠加 · 对称分析',
+    sub: '|q_B|=q（A/B/C 均正）/ q_C=(3−√3)q/3'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 计算 · 第 11 题 · 12 分',
+    image: '../../source/images/image77.png',
+    text: `如图，等边三角形位于竖直平面内，AB 边水平，顶点 C 在 AB 边上方，3 个点电荷分别固定在三角形的三个顶点上。已知 AB 边中点 M 处的电场强度方向竖直向下，BC 边中点 N 处的电场强度方向竖直向上，A 点处点电荷的电荷量的绝对值为 q，求`,
+    subQuestions: [
+      '（1）B 点处点电荷的电荷量的绝对值并判断 3 个点电荷的正负；',
+      '（2）C 点处点电荷的电荷量。'
+    ],
+    officialAnswer: '（1）M 处场向下：C 在 M 上方，若 C 是正电荷，则 C 在 M 处的场沿 CM 远离 C 即向下，与题给一致 → C 正。A、B 在 M 处的场沿 ±x 水平，若同号同量则水平相抵，使总场仅由 C 决定（向下）→ |q_B|=q 且与 A 同号。再由 N 处场向上分析（A 在 N 场沿 AN 即垂直 BC 向右上）可推 A 也为正 → A、B、C 均为正电荷。\n（2）N 处：A 在 N 场沿 AN 方向（垂直 BC，AN=√3·a，强度 kq/(3a²)）；B 在 N 场沿 BN 即沿 BC 方向（BN=a，强度 kq/a²）；C 在 N 场沿 CN 即沿 CB 方向（CN=a，强度 kq_C/a²）。总场沿 +y 要求沿 BC 方向分量为零：kq·√3/(6a²) − kq/(2a²) + kq_C/(2a²) = 0，解得 q_C = (3 − √3)q/3。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① M 处场向下 → C 正', label_short:'C 正',
+     formula_tex: String.raw`E_M \downarrow,\;\; C\,\text{在}\,M\,\text{上方}\;\Rightarrow\; C\,\text{为正电荷}`,
+     note:'C 正 → 场远离 C → 在 M 处指向下方，与题意一致。'},
+    {label:'阶段 ② A、B 水平相抵 → |q_B|=q', label_short:'|q_B|',
+     formula_tex: String.raw`E_{A\to M} + E_{B\to M} = 0\,(\hat{x}) \;\Rightarrow\; |q_B| = q`,
+     note:'A、B 在 M 处场沿 ±x，要相抵则 q_B 与 q_A 同号同量。'},
+    {label:'阶段 ③ N 处场向上 → q_C 求解', label_short:'q_C',
+     formula_tex: String.raw`E_x = 0:\; \dfrac{kq\sqrt{3}}{6a^2} - \dfrac{kq}{2a^2} + \dfrac{kq_C}{2a^2} = 0`,
+     note:'A 在 N 场沿 AN（垂直 BC）；B、C 在 N 场都沿 BC 方向。沿 BC 的合力分量为零。'},
+    {label:'阶段 ④ 解出 q_C', label_short:'(2) 解',
+     formula_tex: String.raw`q_C = \dfrac{(3-\sqrt{3})\,q}{3} \approx 0.423\,q`,
+     note:'代入并解。q_C 为正（C 是正电荷与阶段 ① 一致）。'}
+  ],
+  stats: [
+    {label:'|q_A|',     fmt:()=>'q'},
+    {label:'|q_B|',     fmt:()=>'q'},
+    {label:'q_C',       fmt:()=>'(3−√3)q/3 ≈ 0.423 q'},
+    {label:'M 处场',    fmt:()=>'向下（由 C 提供）'},
+    {label:'N 处场',    fmt:()=>'向上（A、B、C 合成）'},
+    {label:'AN 方向',   fmt:()=>'垂直 BC'},
+    {label:'当前阶段',  fmt:s=>'阶段 '+s.stage}
+  ],
+  conclusions: [
+    {label_text:'(1) |q_B|',    value_text:'q',                  note:'A、B 同号同量 → 水平抵'},
+    {label_text:'(1) 正负',     value_text:'A、B、C 均为正电荷', note:'M 处 + N 处分析'},
+    {label_text:'(2) q_C',      value_text:'(3 − √3)q / 3',      note:'≈ 0.423 q'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'正电荷（A/B/C）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'M 处场（向下）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'N 处场（向上）'},
+    {swatch:{bg:'#7d4f9c',border:'#7d4f9c',type:'rect'}, text:'CM 连线（C 在 M 场方向）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'AN 连线（垂直 BC）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:true, guide:true},
+  fileName: '2023全国乙-Q11-三点电荷'
+});
+</script>
+</body>
+</html>
