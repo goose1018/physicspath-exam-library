@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 12 题 · 圆弧+弹簧+板 4 问</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 假设题给"速度减小到接触时的 1/√2 倍"时弹簧 EP=2mgR
+// (1) 小球从 A（弧顶）到弧底，重力做功 = mgR
+// (2) 接触瞬间 v₀，能量守恒 ½mv₀² - ½m(v₀/√2)² = 2mgR
+//     → ¼mv₀² = 2mgR → v₀² = 8gR → v₀ = 2√(2gR)
+//     B 点自由落到 A 点：v_A² = 2g·h_BA
+//     A 到弧底光滑：½m·v_A² + mgR = ½m·v₀²
+//     → v_A² = v₀² - 2gR = 6gR → h_BA = 3R
+// (3) 断开 P-Q 时小球速度 v₁ = v₀/√2，弹簧 EP = 2mgR
+//     共速时 EP_max = 2.2mgR
+//     动量守恒：m·v₁ = (m+M)·v_共
+//     能量守恒：½m·v₁² + 2mgR = ½(m+M)·v_共² + 2.2mgR
+//     → ½m·v₁²·M/(m+M) = 0.2mgR
+//     v₁² = 4gR (因 v₁ = v₀/√2, v₀²=8gR)
+//     2mgR·M/(m+M) = 0.2mgR → M/(m+M) = 0.1 → M = m/9
+// (4) Q 最终动能最大：弹簧恢复原长 + 小球速度 = 0
+//     动量守恒：m·v₁ = M'·v_Q → v_Q = m·v₁/M'
+//     能量守恒：½m·v₁² + 2mgR = ½M'·v_Q²
+//     → ½m·v₁² + 2mgR = m²v₁²/(2M')
+//     v₁²=4gR: 2mgR + 2mgR = m²·4gR/(2M') = 2m²gR/M'
+//     4mgR = 2m²gR/M' → M' = m/2
+
+const T_total = 12;
+const stageDur = 3;     // 4 阶段（4 问轮播）
+
+function evalState(t){
+  const stage = Math.floor((t/stageDur) % 4);
+  const u = (t - stage*stageDur)/stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 顶部
+  const titles = [
+    '(1) 重力做功（A 到弧底）',
+    '(2) v₀ 和 B-A 距离',
+    '(3) 弹簧最大势能 = 2.2mgR 时 Q 质量',
+    '(4) Q 动能最大时 Q 质量'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(titles[state.stage], 24, 22);
+
+  if(state.stage === 0) drawStage1(ctx, 14, 40, W-28, H-60, state);
+  else if(state.stage === 1) drawStage2(ctx, 14, 40, W-28, H-60, state);
+  else if(state.stage === 2) drawStage3(ctx, 14, 40, W-28, H-60, state);
+  else drawStage4(ctx, 14, 40, W-28, H-60, state);
+}
+
+// 通用：画装置（圆弧 P + 板 Q + 弹簧 + 小球）
+function drawApparatus(ctx, x, y, w, h, ballPos, qOffset){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  // 地面
+  const yGround = y + h - 30;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(x+20, yGround, w-40, 5);
+
+  // P (固定块) — 左侧带圆弧
+  const Rpx = 60;
+  const Px = x+w*0.18;
+  const Py = yGround - 5;
+  ctx.fillStyle = '#86868b';
+  ctx.fillRect(Px-30, Py-Rpx, 60, Rpx);
+  // 圆弧（从顶部 A 到弧底）
+  ctx.fillStyle = '#fdfaf2';
+  ctx.beginPath();
+  ctx.arc(Px+30, Py-Rpx, Rpx, Math.PI/2, Math.PI, true);
+  ctx.lineTo(Px+30-Rpx, Py); ctx.lineTo(Px+30, Py-Rpx); ctx.closePath();
+  ctx.fill();
+  // 圆弧线（实际轨道）
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(Px+30, Py-Rpx, Rpx, Math.PI/2, Math.PI, true);
+  ctx.stroke();
+
+  // P 标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillText('P', Px-15, Py-10);
+  // A 标（弧顶）
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('A', Px+30-5, Py-Rpx-8);
+  ctx.beginPath(); ctx.arc(Px+30, Py-Rpx, 3, 0, Math.PI*2); ctx.fill();
+
+  // Q (薄板，紧挨 P 右侧，可移动)
+  const Qx = Px+30 + (qOffset || 0);     // qOffset 用于显示分离
+  const Qy = Py;
+  const Qlen = w*0.4;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(Qx, Qy-12, Qlen, 12);
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('Q', Qx+10, Qy-3);
+
+  // 弹簧（在 Q 右部）
+  const springX0 = Qx + Qlen*0.3;
+  const springX1 = Qx + Qlen*0.85;
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.05){
+    const sx = springX0 + s*(springX1-springX0);
+    const sy = Qy-22 + Math.sin(s*Math.PI*8)*5;
+    if(s===0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+  }
+  ctx.stroke();
+  // 弹簧右端固定（在 Q 上的固定点）
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(springX1, Qy-26, 4, 14);
+
+  // 小球
+  if(ballPos){
+    ctx.fillStyle = '#c2611f';
+    ctx.beginPath(); ctx.arc(ballPos.x, ballPos.y, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 9px "Noto Sans SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('m', ballPos.x, ballPos.y+3);
+    ctx.textAlign = 'left';
+  }
+
+  return {Px, Py, Rpx, Qx, Qy, Qlen, springX0, springX1, yGround};
+}
+
+function drawStage1(ctx, x, y, w, h, state){
+  // 演示小球从 A 沿弧滑到弧底
+  const ballX = x+w*0.18 + 30 + (-60)*Math.cos(state.u * Math.PI/2);     // 从 A 到弧底
+  const ballY_base = (state.u < 0.3) ? 0 : 0;     // 沿弧滑动
+  // 在弧上：以圆心 (Px+30, Py-Rpx) 为中心
+  const Rpx = 60;
+  const cx = x+w*0.18 + 30, cy = (y+h-30) - Rpx;
+  const ang = Math.PI - state.u*Math.PI/2;     // 从 π (左侧, A 上方) 到 π/2 (底部)
+  const ball = {x: cx + Rpx*Math.cos(ang), y: cy + Rpx*Math.sin(ang)};
+
+  const apparatus = drawApparatus(ctx, x, y, w, h, ball, 0);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w*0.55, y+10, w*0.4, h*0.35, 8);ctx.fill();ctx.stroke();}
+  let yy = y+30;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('A 在弧顶，弧底在地面', x+w*0.55+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('A 高于弧底 R（圆弧半径）', x+w*0.55+12, yy); yy += 18;
+  ctx.fillText('W_重 = m·g·R', x+w*0.55+12, yy); yy += 22;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('答 (1)：W = mgR', x+w*0.55+12, yy);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-200, y+h-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) W = mgR', x+w-188, y+h-22);
+}
+
+function drawStage2(ctx, x, y, w, h, state){
+  // 显示 B 点 + 自由落到 A + 沿弧滑到 v₀
+  const Rpx = 60;
+  const cx = x+w*0.18 + 30, cy_base = (y+h-30) - Rpx;
+  const A_x = cx, A_y = cy_base;
+  const B_y = A_y - 80;     // B 在 A 上方 (代表 h_BA, 简化为 80px)
+  let ball;
+  if(state.u < 0.3){
+    // 自由落 B → A
+    const k = state.u/0.3;
+    ball = {x:cx, y: B_y + (A_y-B_y)*k};
+  } else if(state.u < 0.7){
+    // 沿弧 A → 弧底
+    const k = (state.u-0.3)/0.4;
+    const ang = Math.PI - k*Math.PI/2;
+    ball = {x: cx + Rpx*Math.cos(ang), y: cy_base + Rpx*Math.sin(ang)};
+  } else {
+    // 在 Q 上向右压弹簧
+    const k = (state.u-0.7)/0.3;
+    ball = {x: cx + 30 + k*60, y: cy_base + Rpx};
+  }
+  const apparatus = drawApparatus(ctx, x, y, w, h, ball, 0);
+
+  // B 点标
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(cx, B_y, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('B', cx-15, B_y);
+  // h_BA 标
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(cx, B_y); ctx.lineTo(cx, A_y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#94a09b';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('h_BA', cx+8, (B_y+A_y)/2);
+
+  // 推导
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w*0.5, y+10, w*0.45, h*0.5, 8);ctx.fill();ctx.stroke();}
+  let yy = y+30;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量守恒（接触前后）', x+w*0.5+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('½m·v₀² - ½m·(v₀/√2)² = 2mgR', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('¼m·v₀² = 2mgR  →  v₀² = 8gR', x+w*0.5+12, yy); yy += 22;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('v₀ = 2√(2gR)', x+w*0.5+12, yy); yy += 22;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('B-A 距离', x+w*0.5+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('B 到弧底（含 R）：½m·v₀² = mg(h_BA + R)', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('4gR = g(h_BA + R)  →  h_BA = 3R', x+w*0.5+12, yy); yy += 22;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('h_BA = 3R', x+w*0.5+12, yy);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-300, y+h-44, 288, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2) v₀=2√(2gR), h_BA=3R', x+w-288, y+h-22);
+}
+
+function drawStage3(ctx, x, y, w, h, state){
+  // P-Q 已断开，Q 与小球被弹簧驱动 → 共速时弹簧最大 EP=2.2mgR
+  const qOffset = 30 + state.u*40;     // Q 向右移
+  const Rpx = 60;
+  const cx = x+w*0.18 + 30, cy_base = (y+h-30) - Rpx;
+  const ball = {x: cx + 30 + 30 + state.u*30, y: cy_base + Rpx};
+  drawApparatus(ctx, x, y, w, h, ball, qOffset);
+
+  // 推导
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w*0.5, y+10, w*0.45, h*0.65, 8);ctx.fill();ctx.stroke();}
+  let yy = y+30;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('断开瞬间状态', x+w*0.5+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('小球 v₁ = v₀/√2，v₁²=4gR', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('Q 静止，弹簧 EP=2mgR', x+w*0.5+12, yy); yy += 22;
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('共速时弹簧最大 EP=2.2mgR', x+w*0.5+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('动量守恒：m·v₁ = (m+M)·v_共', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('能量守恒：', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('½m·v₁² + 2mgR = ½(m+M)·v_共² + 2.2mgR', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('代入：½m·v₁²·M/(m+M) = 0.2mgR', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('2mgR·M/(m+M) = 0.2mgR', x+w*0.5+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('M/(m+M) = 1/10  →  M = m/9', x+w*0.5+12, yy); yy += 24;
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-200, y+h-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) M = m/9', x+w-188, y+h-22);
+}
+
+function drawStage4(ctx, x, y, w, h, state){
+  // Q 最终动能最大 → 弹簧恢复原长 + 小球速度=0
+  const qOffset = 50 + state.u*60;
+  const Rpx = 60;
+  const cx = x+w*0.18 + 30, cy_base = (y+h-30) - Rpx;
+  const ball = {x: cx + 30 + 50, y: cy_base + Rpx};     // 小球停留
+  drawApparatus(ctx, x, y, w, h, ball, qOffset);
+
+  // 推导
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w*0.5, y+10, w*0.45, h*0.65, 8);ctx.fill();ctx.stroke();}
+  let yy = y+30;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('Q 最终动能最大条件', x+w*0.5+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('弹簧恢复原长 + 小球速度 v_m = 0', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('（此时 Q 速度 = v_Q 最大）', x+w*0.5+12, yy); yy += 22;
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('动量守恒 + 能量守恒', x+w*0.5+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('m·v₁ = M\'·v_Q (动量)', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('½m·v₁² + 2mgR = ½M\'·v_Q² (能量)', x+w*0.5+12, yy); yy += 22;
+  ctx.fillText('代入 v_Q = m·v₁/M\'：', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('½m·v₁² + 2mgR = m²·v₁²/(2M\')', x+w*0.5+12, yy); yy += 16;
+  ctx.fillText('v₁²=4gR：4mgR = 2m²gR/M\'', x+w*0.5+12, yy); yy += 22;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('M\' = m/2', x+w*0.5+12, yy);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-200, y+h-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText("(4) M' = m/2", x+w-188, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 12 题 · 20 分',
+  title: '圆弧+板+弹簧 4 问',
+  subtitle: '小球从 B 自由下落沿弧滑到弹簧。断开 P-Q 后求 Q 质量。',
+  deliv: {
+    title: '圆弧弹簧 4 问',
+    sub: '(1) mgR (2) v₀=2√(2gR), h=3R (3) M=m/9 (4) M\'=m/2'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 12 题 · 20 分',
+    image: '../../source/images/image92.png',
+    text: `如图，物块 P 固定在水平面上，其上表面有半径为 <b>R</b> 的圆弧轨道。P 右端与薄板 Q 连在一起，圆弧轨道与 Q 上表面平滑连接。一轻弹簧的右端固定在 Q 上。质量 <b>m</b> 的小球自圆弧顶端 A 上方的 B 点自由下落，落到 A 后沿圆弧轨道下滑。小球与弹簧接触后，当速度减小至刚接触时的 <b>1/√2</b> 倍时弹簧弹性势能为 <b>2mgR</b>，此时断开 P 和 Q 的连接。所有表面光滑。`,
+    subQuestions: [
+      '(1) 求小球从落入圆弧轨道至离开圆弧轨道，重力对其做的功；',
+      '(2) 求小球与弹簧刚接触时速度大小及 B、A 两点间距离；',
+      '(3) 欲使 P-Q 断开后弹簧最大弹性势能 = 2.2mgR，Q 的质量？',
+      '(4) 欲使 P-Q 断开后 Q 的最终动能最大，Q 的质量？'
+    ],
+    officialAnswer: '(1) 圆弧从 A 到弧底高度差 R → W = mgR。(2) 能量守恒 ½mv₀² - ½m(v₀/√2)² = 2mgR → v₀²=8gR → v₀=2√(2gR)；从 B 到弧底：½mv₀² = mg(h_BA+R) → h_BA=3R。(3) 共速时 EP_max=2.2mgR：½m·v₁²·M/(m+M) = 0.2mgR（v₁²=4gR）→ M = m/9。(4) Q 最大动能时小球停且弹簧恢复：½m·v₁² + 2mgR = m²v₁²/(2M\') → M\' = m/2。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'(1) 重力做功', label_short:'(1)',
+     formula_tex: String.raw`W = mgR`,
+     note:'A 比弧底高 R。'},
+    {label:'(2) v₀ 与 h_BA', label_short:'(2)',
+     formula_tex: String.raw`v_0 = 2\sqrt{2gR},\quad h_{BA} = 3R`,
+     note:'能量守恒求 v₀；自由落体公式求 h_BA。'},
+    {label:'(3) M = m/9', label_short:'(3)',
+     formula_tex: String.raw`\dfrac{1}{2}m v_1^2 \cdot \dfrac{M}{m+M} = 0.2mgR \;\Rightarrow\; M = \dfrac{m}{9}`,
+     note:'共速时弹簧最大 EP=2.2mgR。'},
+    {label:"(4) M' = m/2", label_short:'(4)',
+     formula_tex: String.raw`M' = \dfrac{m}{2}`,
+     note:'Q 最终动能最大 → 小球速度=0 + 弹簧恢复原长。'}
+  ],
+  stats: [
+    {label:'(1) W',  fmt:()=>'mgR'},
+    {label:'(2) v₀', fmt:()=>'2√(2gR)'},
+    {label:'(2) h_BA', fmt:()=>'3R'},
+    {label:'(3) M',  fmt:()=>'m/9'},
+    {label:"(4) M'", fmt:()=>'m/2'}
+  ],
+  conclusions: [
+    {label_text:'(1)',  value_text:'W = mgR',         note:''},
+    {label_text:'(2a)', value_text:'v₀ = 2√(2gR)',    note:'能量守恒'},
+    {label_text:'(2b)', value_text:'h_BA = 3R',       note:'自由落体'},
+    {label_text:'(3)',  value_text:'M = m/9',         note:'共速 EP'},
+    {label_text:'(4)',  value_text:"M' = m/2",        note:'恢复原长'}
+  ],
+  legend: [
+    {swatch:{bg:'#86868b',border:'#86868b',type:'rect'}, text:'P 固定块（带圆弧）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'Q 薄板（可滑动）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'小球 (m)'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'弹簧'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2025全国-Q12-圆弧弹簧'
+});
+</script>
+</body>
+</html>

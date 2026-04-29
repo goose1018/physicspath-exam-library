@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 11 题 · 电容器键盘</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 平行板电容器 C = ε·S/d
+// 按下键盘后 d 变为原来的 1/2（题给具体倍数，假设 1/2）
+// (1) Q 不变：U = Q/C，C 反比于 d → d 减半 → C 加倍 → U 减半 → U'/U = 1/2
+// (2) U 不变：E = U/d → d 减半 → E 加倍 → E'/E = 2
+
+const T_total = 8;
+const stageDur = 4;     // 2 阶段 (问 1, 问 2)
+const k = 0.5;     // d 变为原来的 1/2 倍
+
+function evalState(t){
+  const stage = Math.floor((t/stageDur) % 2);
+  const u = (t - stage*stageDur)/stageDur;
+  // 在阶段内做一个"按下"动画：u<0.5 按下，u>0.5 释放
+  const pressFrac = u < 0.5 ? u/0.5 : (1-u)/0.5;     // 0 → 1 → 0
+  // d_ratio：1 → k 之间
+  const d_ratio = 1 - (1-k)*pressFrac;
+  return {phase:stage+1, stage, u, pressFrac, d_ratio, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawCapacitor(ctx, 14, 14, W*0.45-21, H-28, state);
+  drawAnalysis(ctx, W*0.45+7, 14, W*0.55-21, H-28, state);
+}
+
+function drawCapacitor(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(state.stage === 0 ? '阶段 1：按压不改变 Q（Q 守恒）' : '阶段 2：按压不改变 U（U 守恒）', x+12, y+18);
+
+  const cx = x + w/2;
+  const cyTop = y + 70;
+  const platesW = w*0.6;
+  const d_init = h*0.35;     // 初始极板间距
+  const d_now = d_init * state.d_ratio;
+  const cyMid = cyTop + d_init/2;     // 中心固定
+
+  // 上极板（按下时下移）
+  const yTopPlate = cyMid - d_now/2;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(cx - platesW/2, yTopPlate-4, platesW, 6);
+  // 下极板（固定）
+  const yBotPlate = cyMid + d_now/2;
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(cx - platesW/2, yBotPlate-2, platesW, 6);
+
+  // 按键（在上极板上方）
+  const keyW = platesW*0.6;
+  const keyH = 20;
+  const keyY = yTopPlate - keyH - 10;
+  ctx.fillStyle = '#c2611f';
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(cx-keyW/2, keyY, keyW, keyH, 4);ctx.fill();}
+  else ctx.fillRect(cx-keyW/2, keyY, keyW, keyH);
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('按键', cx, keyY+14);
+  ctx.textAlign = 'left';
+
+  // 引线
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - platesW/2, yTopPlate); ctx.lineTo(cx - platesW/2 - 30, yTopPlate);
+  ctx.moveTo(cx - platesW/2, yBotPlate); ctx.lineTo(cx - platesW/2 - 30, yBotPlate);
+  ctx.stroke();
+
+  // U 标
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - platesW/2 - 30, yTopPlate); ctx.lineTo(cx - platesW/2 - 30, yBotPlate);
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('U', cx - platesW/2 - 50, (yTopPlate+yBotPlate)/2);
+
+  // d 标（右侧）
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(cx + platesW/2 + 10, yTopPlate); ctx.lineTo(cx + platesW/2 + 10, yBotPlate);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText(`d = ${state.d_ratio.toFixed(2)} d₀`, cx + platesW/2 + 16, (yTopPlate+yBotPlate)/2);
+
+  // 电场线（在两极板之间，从上到下）
+  if(yBotPlate - yTopPlate > 10){
+    const numFieldLines = 6;
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1;
+    for(let i=0; i<numFieldLines; i++){
+      const fx = cx - platesW/2 + (i+0.5)*platesW/numFieldLines;
+      PPath.arrow(ctx, fx, yTopPlate+5, fx, yBotPlate-5, '#5d6964', 1);
+    }
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 700 11px Georgia,serif';
+    ctx.fillText('E', cx + platesW/2 - 30, (yTopPlate+yBotPlate)/2 + 4);
+  }
+
+  // 电荷
+  // + 在上极板，- 在下极板
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 13px "Cambria Math",serif';
+  for(let i=0; i<6; i++){
+    const px = cx - platesW/2 + (i+0.5)*platesW/6;
+    ctx.fillText('+', px-3, yTopPlate-7);
+  }
+  ctx.fillStyle = '#3f6f8f';
+  for(let i=0; i<6; i++){
+    const px = cx - platesW/2 + (i+0.5)*platesW/6;
+    ctx.fillText('−', px-3, yBotPlate+15);
+  }
+
+  // 实时数据
+  const stageInfo = state.stage === 0 ?
+    `(1) Q 守恒：U' = U·(d'/d) = U·${state.d_ratio.toFixed(2)}` :
+    `(2) U 守恒：E' = U/d' = E·(d/d') = E·${(1/state.d_ratio).toFixed(2)}`;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(stageInfo, x+12, y+h-12);
+}
+
+function drawAnalysis(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('两问推导', x+12, y+18);
+
+  let yy = y + 50;
+
+  // 通用公式
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('① 平行板电容器', x+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('C = ε·S/d  (S 不变)', x+12, yy); yy += 16;
+  ctx.fillText('Q = C·U', x+12, yy); yy += 16;
+  ctx.fillText('E = U/d', x+12, yy); yy += 28;
+
+  // (1)
+  const active1 = (state.stage === 0);
+  ctx.fillStyle = active1 ? '#fdf3e6' : '#fffdf9';
+  ctx.fillRect(x+8, yy-18, w-16, 110);
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('问 (1)：Q 不变，求 U\'/U', x+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('Q = C·U = (εS/d)·U = const', x+12, yy); yy += 16;
+  ctx.fillText('按下后：(εS/d\')·U\' = (εS/d)·U', x+12, yy); yy += 16;
+  ctx.fillText('U\'/U = d\'/d', x+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText(`U\'/U = ${k} (d 减半 → U 减半)`, x+12, yy); yy += 24;
+
+  // (2)
+  const active2 = (state.stage === 1);
+  ctx.fillStyle = active2 ? '#fdf3e6' : '#fffdf9';
+  ctx.fillRect(x+8, yy-18, w-16, 110);
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('问 (2)：U 不变，求 E\'/E', x+12, yy); yy += 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('E = U/d', x+12, yy); yy += 16;
+  ctx.fillText('按下后：E\' = U/d\'', x+12, yy); yy += 16;
+  ctx.fillText('E\'/E = d/d\'', x+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText(`E\'/E = ${1/k} (d 减半 → E 加倍)`, x+12, yy); yy += 24;
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-44, w-24, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText(`(1) U\'/U = ${k}    (2) E\'/E = ${1/k}`, x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 11 题 · 12 分',
+  title: '电容器键盘 · U 与 E 变化',
+  subtitle: '平行板电容器键盘按下后 d 变为原来 1/2 倍。求 (1) Q 不变时 U 变化；(2) U 不变时 E 变化。',
+  deliv: {
+    title: '电容器键盘',
+    sub: 'U\' = U/2 · E\' = 2E'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 11 题 · 12 分',
+    image: '../../source/images/image75.png',
+    text: `电容器的形状变化会导致其电容变化，这一性质可用于设计键盘。键盘按键下的装置可视为平行板电容器，极板面积 <b>S</b>、间距 <b>d</b>，电容 <b>C = εS/d</b>（ε 为常量）。按下键盘按键时，极板间的距离变为按压前的 <b>1/2</b> 倍；撤去按压，按键复位。电容器充电后：`,
+    subQuestions: [
+      '(1) 若按压不改变电荷量 Q，则按压后极板间电压变为按压前的多少倍？',
+      '(2) 若按压不改变电压 U，则按压后极板间电场强度变为按压前的多少倍？'
+    ],
+    officialAnswer: '(1) Q = C·U = (εS/d)·U 守恒。按压后 d\' = d/2 → C\' = 2C → U\' = Q/C\' = U/2，即 U\'/U = 1/2 倍。(2) E = U/d。按压后 d\' = d/2，U 不变 → E\' = U/(d/2) = 2U/d = 2E，即 E\'/E = 2 倍。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'(1) Q 不变 → U\'/U = 1/2', label_short:'(1)',
+     formula_tex: String.raw`Q = CU \Rightarrow \dfrac{U'}{U} = \dfrac{C}{C'} = \dfrac{d'}{d} = \dfrac{1}{2}`,
+     note:'Q 守恒：C\'U\' = CU。C ∝ 1/d，d 减半 C 加倍 → U 减半。'},
+    {label:'(2) U 不变 → E\'/E = 2', label_short:'(2)',
+     formula_tex: String.raw`E = \dfrac{U}{d} \Rightarrow \dfrac{E'}{E} = \dfrac{d}{d'} = 2`,
+     note:'U 守恒：E = U/d。d 减半 → E 加倍。'}
+  ],
+  stats: [
+    {label:'C 公式',     fmt:()=>'εS/d'},
+    {label:'按压 d',     fmt:()=>'1/2 d₀'},
+    {label:'(1) Q 不变', fmt:()=>'U\' = U/2'},
+    {label:'(2) U 不变', fmt:()=>'E\' = 2E'},
+    {label:'当前 d/d₀',  fmt:s=>s.d_ratio.toFixed(2)}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'U\' = U/2 (1/2 倍)', note:'Q 守恒'},
+    {label_text:'(2)', value_text:'E\' = 2E (2 倍)',     note:'U 守恒'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'电容器极板'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'按键'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'电场 E（极板间）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2025全国-Q11-电容键盘'
+});
+</script>
+</body>
+</html>

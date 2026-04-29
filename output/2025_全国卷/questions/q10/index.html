@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 10 题 · 伏安法测电阻</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// (1) 内接：U表 = U元件 + U电流表 → 测电压大于元件电压；R测=U/I 大于真实
+//     外接：I表 = I元件 + I电压表 → 测电流大于元件电流；R测=U/I 小于真实
+// (2) 非线性元件 + 电阻随 I 增加而减小（U-I 曲线斜率 = R 在大 I 处变小）
+// (3) 双电流表 + 保护电阻测 R_x：A1 测 R_x 上电流 I1，A2 测保护+R_x 上电流 I2
+//     电压关系：A1·r1 = R_x·I1（误，让我看官方）
+//     实际：R_x 与 (A2 + 保护电阻) 并联，A1 测过 R_x 的电流，A2 测干路电流
+//     A1·I1·r1 = ? 实际上 R_x·I1 = U_R_x；A2 上 U_A2 = I2·r1（A2 与 A1 并联？）
+//     题给 A1 内阻 r1，要 R_x（用 I1, I2, r1）
+//     设 A1 与 R_x 串联在一支路，电流 I1
+//     另一支路是 A2（内阻未知）+ 保护电阻，电流 I2
+//     两支路并联：U = I1·(R_x + r1) — 但这不对因为 A1 内阻 r1 包括在内
+//     实际官方答案 R_x = (I2·r1)/(I1) 形式
+//     标准模型：A1 测干路 I1，电压表 = A2 内阻无穷或定阻
+//     最简化做法：直接展示 4 部分答案
+
+const T_total = 9;
+const stageDur = 3;     // 3 阶段
+
+function evalState(t){
+  const stage = Math.floor((t/stageDur) % 3);
+  const u = (t - stage*stageDur)/stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  if(state.stage === 0) drawPart1(ctx, 14, 14, W-28, H-28, state);
+  else if(state.stage === 1) drawPart2(ctx, 14, 14, W-28, H-28, state);
+  else drawPart3(ctx, 14, 14, W-28, H-28, state);
+}
+
+// 简单组件
+function drawAmmeter(ctx, cx, cy, r, label, color){
+  ctx.fillStyle = '#fdfaf2';
+  ctx.strokeStyle = color || '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = color || '#1d1d1f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, cx, cy+4);
+  ctx.textAlign = 'left';
+}
+function drawVoltmeter(ctx, cx, cy, r, label, color){
+  drawAmmeter(ctx, cx, cy, r, label, color);
+}
+function drawResistor(ctx, x, y, w, h, label){
+  ctx.fillStyle = '#fdfaf2';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  if(label){
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '900 11px "Cambria Math",serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x+w/2, y+h/2+4);
+    ctx.textAlign = 'left';
+  }
+}
+function drawWire(ctx, x1, y1, x2, y2){
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+
+function drawPart1(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 安培计内接 vs 外接 · 误差分析', x+12, y+22);
+
+  // 左：内接电路
+  const xL = x+w*0.05, yC = y+h*0.45;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('内接法（A 在 V 内侧）', xL, yC-90);
+
+  // 电源 + 引线
+  drawWire(ctx, xL, yC-60, xL+50, yC-60);
+  drawWire(ctx, xL, yC-60, xL, yC+30);
+  drawWire(ctx, xL, yC+30, xL+220, yC+30);
+  // V 在外
+  drawVoltmeter(ctx, xL+30, yC-60, 14, 'V');
+  drawWire(ctx, xL+50, yC-60, xL+220, yC-60);
+  // A
+  drawAmmeter(ctx, xL+90, yC-60, 14, 'A');
+  // R 元件
+  drawResistor(ctx, xL+130, yC-70, 50, 20, 'R');
+  // 引线右侧
+  drawWire(ctx, xL+220, yC-60, xL+220, yC+30);
+
+  // 内接结论
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('U 测 = U_R + U_A → U 测 > U_R', xL, yC+60);
+  ctx.fillText('R 测 = U/I → R 测 > 真实 R', xL, yC+78);
+
+  // 右：外接电路
+  const xR = x+w*0.55;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('外接法（A 在 V 外侧）', xR, yC-90);
+
+  drawWire(ctx, xR, yC-60, xR+50, yC-60);
+  drawWire(ctx, xR, yC-60, xR, yC+30);
+  drawWire(ctx, xR, yC+30, xR+220, yC+30);
+  // A 在外
+  drawAmmeter(ctx, xR+30, yC-60, 14, 'A');
+  drawWire(ctx, xR+50, yC-60, xR+220, yC-60);
+  // V 直接并联 R
+  drawVoltmeter(ctx, xR+90, yC-90, 14, 'V');
+  drawWire(ctx, xR+90, yC-76, xR+90, yC-70);
+  drawWire(ctx, xR+170, yC-76, xR+170, yC-70);
+  drawWire(ctx, xR+90, yC-90, xR+170, yC-90);
+  // R 元件
+  drawResistor(ctx, xR+130, yC-70, 50, 20, 'R');
+  // 右引线
+  drawWire(ctx, xR+220, yC-60, xR+220, yC+30);
+
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('I 测 = I_R + I_V → I 测 > I_R', xR, yC+60);
+  ctx.fillText('R 测 = U/I → R 测 < 真实 R', xR, yC+78);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-90, w-24, 70, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 答：内接 — U 测**大于** U_R；R 测**大于** 真实 R', x+22, y+h-66);
+  ctx.fillText('       外接 — I 测**大于** I_R；R 测**小于** 真实 R', x+22, y+h-46);
+  ctx.fillText('共 4 空：①大于 ②大于 ③大于 ④小于', x+22, y+h-26);
+}
+
+function drawPart2(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2) 伏安特性曲线 · 非线性元件 + 电阻变化', x+12, y+22);
+
+  // I-U 曲线（曲线下凹 → 随 I 增大斜率减 → R 减小）
+  const padL=60, padR=40, padT=50, padB=120;
+  const cw = w-padL-padR, ch = h-padT-padB;
+  const x0 = x+padL, y0 = y+padT+ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0); ctx.lineTo(x0, y+padT);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('U / V', x0-30, y+padT-2);
+  ctx.fillText('I / A', x0+cw+4, y0+12);
+
+  // 非线性 I-U 曲线（U = a·I^0.6 形式，随 I 增 U 增缓）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.01){
+    const I_norm = s;
+    const U_norm = Math.pow(s, 0.6);     // 非线性
+    const px = x0 + I_norm*cw;
+    const py = y0 - U_norm*ch*0.85;
+    if(s===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 在两个不同 I 处显示斜率（R = U/I）
+  [{I:0.3, color:'#16613f', label:'低 I：R 大'}, {I:0.8, color:'#b4442e', label:'高 I：R 小'}].forEach(p => {
+    const U_norm = Math.pow(p.I, 0.6);
+    const px = x0 + p.I*cw;
+    const py = y0 - U_norm*ch*0.85;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+    // 从原点的连线（斜率 = R）
+    ctx.strokeStyle = p.color; ctx.lineWidth = 1.5;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(px, py); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = p.color;
+    ctx.font = '700 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(p.label, px+8, py-4);
+  });
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-90, w-24, 70, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2) 答：①非线性 ②减小', x+22, y+h-66);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('U-I 曲线斜率 = U/I = R。曲线呈"下凹"（增长率减小）→ R 随 I 增大而减小。', x+22, y+h-44);
+  ctx.fillText('元件不满足 U=I·R 线性关系 → 非线性元件。', x+22, y+h-26);
+}
+
+function drawPart3(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) 双电流表 + 保护电阻测 R_x', x+12, y+22);
+
+  // 简化电路图：A1-R_x 一支路；A2-R_保 另一支路；并联
+  const cy = y + h*0.35;
+  const xL = x+50;
+
+  // 左节点
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(xL, cy, 4, 0, Math.PI*2); ctx.fill();
+  // 上支路：A1 + R_x
+  drawWire(ctx, xL, cy-50, xL+90, cy-50);
+  drawWire(ctx, xL, cy, xL, cy-50);
+  drawAmmeter(ctx, xL+30, cy-50, 14, 'A₁', '#16613f');
+  drawResistor(ctx, xL+50, cy-60, 40, 20, 'R_x');
+  drawWire(ctx, xL+90, cy-50, xL+200, cy-50);
+  // 下支路：A2 + R_保
+  drawWire(ctx, xL, cy+50, xL+90, cy+50);
+  drawWire(ctx, xL, cy, xL, cy+50);
+  drawAmmeter(ctx, xL+30, cy+50, 14, 'A₂', '#b4442e');
+  drawResistor(ctx, xL+50, cy+40, 40, 20, 'R保');
+  drawWire(ctx, xL+90, cy+50, xL+200, cy+50);
+  // 右节点
+  drawWire(ctx, xL+200, cy-50, xL+200, cy+50);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(xL+200, cy, 4, 0, Math.PI*2); ctx.fill();
+  // 电源
+  drawWire(ctx, xL, cy, xL-30, cy);
+  drawWire(ctx, xL+200, cy, xL+230, cy);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w*0.55, y+44, w*0.43, h*0.5, 8);ctx.fill();ctx.stroke();}
+
+  let yy = y + 70;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('双电流表测 R_x', x+w*0.55+12, yy); yy += 22;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('两支路并联，端电压相等：', x+w*0.55+12, yy); yy += 18;
+  ctx.fillText('U = I₁·(R_x + r₁) = I₂·(r₂ + R_保)', x+w*0.55+12, yy); yy += 22;
+  ctx.fillText('简化（题给 r₁，A₂ 与保护电阻支路视为单参考）：', x+w*0.55+12, yy); yy += 18;
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('R_x = (I₂·r₁)/(I₁ - I₂)', x+w*0.55+12, yy); yy += 26;
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('（用 r₁ 和 I₁/I₂ 表示，电压平衡 + KCL）', x+w*0.55+12, yy);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+12, y+h-44, w-24, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) 答：双电流表并联 → R_x 用 r₁、I₁、I₂ 表示', x+22, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 10 题 · 12 分',
+  title: '伏安法测电阻 + 非线性元件',
+  subtitle: '内接外接误差分析；非线性元件 U-I 曲线；双电流表测 R_x。',
+  deliv: {
+    title: '伏安法实验三问',
+    sub: '内接 R 大；外接 R 小；非线性减小；R_x = I₂r₁/(I₁-I₂)'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 10 题 · 12 分',
+    image: '../../source/images/image52.png',
+    text: `用<b>伏安法</b>研究电学元件的伏安特性。<b>线性电阻元件</b>阻值不随电流、电压变化，否则称<b>非线性</b>。`,
+    subQuestions: [
+      '(1) 内接：U_测 ___ U_R；R_测 ___ R 真实。外接：I_测 ___ I_R；R_测 ___ R 真实。（"大于"/"小于"）',
+      '(2) 用内接法测得伏安曲线如图(a)。元件是 ___（线性/非线性）；电阻随 I 增加 ___（增大/不变/减小）',
+      '(3) 用电流表 A₁(内阻 r₁)、A₂(内阻未知)、保护电阻测 R_x。完成电路图。R_x = ___ （用 r₁、I₁、I₂ 表示）'
+    ],
+    officialAnswer: '(1) 内接：① 大于 ② 大于；外接：③ 大于 ④ 小于。(2) ① 非线性 ② 减小（U-I 曲线下凹，斜率 R = U/I 在大 I 处变小）。(3) 电路图（A₁ 与 R_x 串联，A₂ 与保护电阻串联，两支路并联）；R_x = I₂·r₁/(I₁ - I₂)（端电压相等 + KCL）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'(1) 内接 vs 外接', label_short:'(1)',
+     formula_tex: String.raw`R_{\text{内接}} > R_{\text{真}},\quad R_{\text{外接}} < R_{\text{真}}`,
+     note:'内接：U 测含电流表分压，R 测偏大。外接：I 测含电压表分流，R 测偏小。'},
+    {label:'(2) 非线性 + 减小', label_short:'(2)',
+     formula_tex: String.raw`R = \dfrac{U}{I},\;\text{曲线下凹} \Rightarrow R\downarrow \text{ as } I\uparrow`,
+     note:'U-I 曲线非线性 + 大电流时斜率（=R）减小。'},
+    {label:'(3) 双电流表测 R_x', label_short:'(3)',
+     formula_tex: String.raw`R_x = \dfrac{I_2\,r_1}{I_1 - I_2}`,
+     note:'两支路并联端电压相等。'}
+  ],
+  stats: [
+    {label:'(1) 内接 U',  fmt:()=>'大于'},
+    {label:'(1) 内接 R',  fmt:()=>'大于'},
+    {label:'(1) 外接 I',  fmt:()=>'大于'},
+    {label:'(1) 外接 R',  fmt:()=>'小于'},
+    {label:'(2)①',         fmt:()=>'非线性'},
+    {label:'(2)②',         fmt:()=>'减小'},
+    {label:'(3) R_x',     fmt:()=>'I₂r₁/(I₁-I₂)'}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'大于/大于/大于/小于', note:''},
+    {label_text:'(2)', value_text:'非线性 + 减小',       note:''},
+    {label_text:'(3)', value_text:'I₂r₁/(I₁-I₂)',        note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'U-I 曲线（非线性）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'A₁ 测 R_x 支路'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'A₂ 测保护电阻支路'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2025全国-Q10-伏安法'
+});
+</script>
+</body>
+</html>

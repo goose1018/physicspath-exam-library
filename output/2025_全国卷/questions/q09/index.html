@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 9 题 · 橡皮筋胡克定律</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// (1) 200g 和 300g 时橡皮筋底端距离 1.90 cm（直接读图）
+// (2) Δx ∝ Δm → 胡克定律。设两组数据 (m1, x1)、(m2, x2)
+//     k·x1 = m1·g，k·x2 = m2·g → k·(x2-x1) = (m2-m1)·g
+//     以 200g 和 500g 为例，距离差 ≈ 5.7 cm（实验数据）→ k = (0.5-0.2)·10/0.057 ≈ 52 N/m
+// (3) F=1.00 N，受力分析：F水平 = 弹力·sin θ，mg = 弹力·cos θ
+//     由图(b)可推 sin θ/cos θ = F/(mg) → tan θ = F/(mg)
+//     图中 θ 满足 tan θ ≈ 1/3 → mg = 3·F = 3 N → m = 300g
+
+const T_total = 8;
+const stageDur = 8/3;     // 3 阶段
+
+function evalState(t){
+  const stage = Math.floor((t/stageDur) % 3);     // 0/1/2 对应 3 问
+  const u = (t - stage*stageDur)/stageDur;
+  return {phase:stage+1, stage, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  if(state.stage === 0) drawPart1(ctx, 14, 14, W-28, H-28, state);
+  else if(state.stage === 1) drawPart2(ctx, 14, 14, W-28, H-28, state);
+  else drawPart3(ctx, 14, 14, W-28, H-28, state);
+}
+
+function drawPart1(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 200g 与 300g 钩码下，橡皮筋底端位置距离', x+12, y+22);
+
+  // 简化坐标纸 + 7 个点（200, 250, 300, 350, 400, 450, 500g）
+  const cx = x + w*0.4;
+  const yTop = y + 60;
+  const xx_per_g = 0.038;     // cm/g（实验数据：每 50g 约 0.95 cm，但题目说 200g→300g 距离 1.90 cm 即 0.019 cm/g）
+
+  // 钩码挂点（顶部）
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(cx-30, yTop-15, 60, 5);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('图钉固定', cx-25, yTop-20);
+
+  // 7 个橡皮筋底端位置
+  const masses = [200, 250, 300, 350, 400, 450, 500];
+  const baseLen = 80;     // 200g 时基础长度（像素）
+  const dx_per_g = 0.95;     // 每 50g 拉伸 0.95 像素 (1.90/2 = 0.95)
+
+  masses.forEach((m, i) => {
+    const len = baseLen + (m - 200) * 0.019 * 50;     // 0.019 cm/g, 50 px/cm 简化
+    const dotY = yTop + len;
+    const dotX = cx;
+    const highlight = (m === 200 || m === 300);
+    ctx.fillStyle = highlight ? '#b4442e' : '#3f6f8f';
+    ctx.beginPath(); ctx.arc(dotX, dotY, highlight?6:4, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    // 标签
+    ctx.fillStyle = highlight ? '#b4442e' : '#5d6964';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText(m+'g', dotX+10, dotY+3);
+  });
+
+  // 200g 与 300g 的距离尺
+  const y200 = yTop + baseLen;
+  const y300 = yTop + baseLen + 100*0.019*50;
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx-50, y200); ctx.lineTo(cx-50, y300); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx-55, y200); ctx.lineTo(cx-45, y200);
+  ctx.moveTo(cx-55, y300); ctx.lineTo(cx-45, y300);
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 14px "Cambria Math",serif';
+  ctx.fillText('1.90 cm', cx-90, (y200+y300)/2+5);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-280, y+h-44, 268, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(1) 答：d = 1.90 cm', x+w-268, y+h-22);
+
+  // 推导
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('从图(a)中读取 200g 与 300g 钩码下底端位置间的距离 = 1.90 cm。', x+12, y+h-22);
+}
+
+function drawPart2(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2) 长度增加量 vs 钩码质量 → 胡克定律 → 求 k', x+12, y+22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20+x, y+44, w-32, 230, 8);ctx.fill();ctx.stroke();}
+
+  let yy = y + 70;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('结论：橡皮筋长度的增加量 Δx 与所挂钩码 "质量的增加量" Δm 成正比', x+30, yy); yy += 28;
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('胡克定律：F = k·x，其中 F = m·g', x+30, yy); yy += 20;
+  ctx.fillText('两组数据：k·x₁ = m₁·g，k·x₂ = m₂·g', x+30, yy); yy += 20;
+  ctx.fillText('相减：k·(x₂-x₁) = (m₂-m₁)·g  →  k = (m₂-m₁)·g / (x₂-x₁)', x+30, yy); yy += 28;
+
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('代入 200g 与 500g 数据：', x+30, yy); yy += 20;
+  ctx.fillText('Δm = 500-200 = 300g = 0.3 kg，Δx ≈ 5.7 cm = 0.057 m', x+30, yy); yy += 20;
+  ctx.fillText('k = 0.3 × 10 / 0.057 ≈ 52 N/m', x+30, yy); yy += 24;
+
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答：劲度系数 k ≈ 52 N/m', x+30, yy);
+
+  // 答案徽章
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-340, y+h-44, 328, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(2) 答：质量的增加量 + k≈52 N/m', x+w-328, y+h-22);
+}
+
+function drawPart3(ctx, x, y, w, h, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) 加水平拉力 F，橡皮筋偏离竖直 → 求 F 和钩码质量', x+12, y+22);
+
+  // 受力分析图
+  const cx = x + w*0.35, cy = y + h*0.5;
+  const ropeLen = 100;
+  const theta = Math.atan(1/3);     // tan θ = 1/3 → sin θ ≈ 0.316, cos θ ≈ 0.949
+  const endX = cx + ropeLen*Math.sin(theta);
+  const endY = cy + ropeLen*Math.cos(theta);
+
+  // 顶部固定点
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(cx-20, cy-20, 40, 4);
+
+  // 橡皮筋（虚线斜向下）
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.5;
+  ctx.setLineDash([5,3]);
+  ctx.beginPath(); ctx.moveTo(cx, cy-16); ctx.lineTo(endX, endY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 竖直参考线（虚线）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(cx, cy-16); ctx.lineTo(cx, endY+30); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // θ 角标
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy-16, 30, Math.PI/2, Math.PI/2-theta, true);
+  ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = 'italic 700 12px Georgia,serif';
+  ctx.fillText('θ', cx+12, cy+8);
+
+  // 钩码（橙色方块）
+  ctx.fillStyle = '#c2611f';
+  ctx.fillRect(endX-15, endY, 30, 30);
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(endX-15, endY, 30, 30);
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('m', endX, endY+18);
+  ctx.textAlign = 'left';
+
+  // 力箭头
+  // 重力 mg 向下
+  PPath.arrow(ctx, endX, endY+30, endX, endY+70, '#5d6068', 2);
+  ctx.fillStyle = '#5d6068';
+  ctx.font = '900 11px "Cambria Math",serif';
+  ctx.fillText('mg', endX+5, endY+55);
+
+  // 水平拉力 F（向右）
+  PPath.arrow(ctx, endX+15, endY+15, endX+60, endY+15, '#16613f', 2);
+  ctx.fillStyle = '#16613f';
+  ctx.fillText('F=1.00N', endX+62, endY+19);
+
+  // 弹力（沿橡皮筋方向，从钩码指向固定点）
+  const T_length = 50;
+  const T_x = -Math.sin(theta)*T_length;
+  const T_y = -Math.cos(theta)*T_length;
+  PPath.arrow(ctx, endX, endY, endX+T_x, endY+T_y, '#b4442e', 2);
+  ctx.fillStyle = '#b4442e';
+  ctx.fillText('T', endX+T_x-10, endY+T_y-2);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w*0.6, y+50, w*0.38, h*0.7, 8);ctx.fill();ctx.stroke();}
+
+  let yy = y + 76;
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('受力分析（平衡）', x+w*0.6+12, yy); yy += 22;
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px "Cambria Math",serif';
+  ctx.fillText('水平：F = T·sin θ', x+w*0.6+12, yy); yy += 18;
+  ctx.fillText('竖直：mg = T·cos θ', x+w*0.6+12, yy); yy += 22;
+  ctx.fillText('两式相除：F/(mg) = tan θ', x+w*0.6+12, yy); yy += 22;
+
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('从图 (b) 测得 F = 1.00 N', x+w*0.6+12, yy); yy += 18;
+  ctx.fillText('几何分析 tan θ = 1/3', x+w*0.6+12, yy); yy += 18;
+  ctx.fillText('→ mg = F/tan θ = 1.00/(1/3) = 3 N', x+w*0.6+12, yy); yy += 18;
+  ctx.fillText('→ m = 3/g = 0.3 kg = 300 g', x+w*0.6+12, yy);
+
+  // 答案徽章
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x+w-300, y+h-44, 288, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('(3) 答：F=1.00 N，m=300 g', x+w-288, y+h-22);
+}
+
+PathQuestion({
+  paperTitle: '2025 全国卷',
+  paperHref: '../../index.html',
+  eyebrow: '实验 · 第 9 题 · 14 分',
+  title: '橡皮筋胡克定律实验',
+  subtitle: '挂钩码测橡皮筋伸长，求劲度系数 k；再加水平力求质量。',
+  deliv: {
+    title: '橡皮筋实验三问',
+    sub: 'd=1.90cm · k≈52N/m · F=1.00N, m=300g'
+  },
+  originalProblem: {
+    meta: '2025 全国卷 · 第 9 题 · 14 分',
+    image: '../../source/images/image32.png',
+    text: `某探究小组利用<b>橡皮筋</b>完成实验。(1) 把粘贴有坐标纸的木板竖直放置，橡皮筋一端图钉固定，另一端挂钩码（200g、250g、…、500g）。(2) 由图(a)各点位置探究橡皮筋长度增加量与钩码质量的关系。(3) 在橡皮筋下端施水平向右力 F，测力计读数为 F，求 m。（g=10 m/s²）`,
+    subQuestions: [
+      '(1) 200g 和 300g 钩码下橡皮筋底端位置间距离 = ___ cm',
+      '(2) Δx 与所挂钩码的 ___（质量/质量增加量）成正比；劲度系数 k = ___ N/m',
+      '(3) F = ___ N；钩码质量 m = ___ g'
+    ],
+    officialAnswer: '(1) 1.90 cm（直接读图）。(2) ①质量的增加量 ②k ≈ 52 N/m（由 Δm·g = k·Δx，取 200g 与 500g 数据）。(3) F = 1.00 N；m = 300 g（受力分析：F水平 = T·sin θ，mg = T·cos θ → tan θ = F/mg。由图 (b) 几何 tan θ = 1/3 → mg = 3 N → m = 0.3 kg）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'(1) 直接读图 1.90 cm', label_short:'(1)',
+     formula_tex: String.raw`d_{200g \to 300g} = 1.90\;\text{cm}`,
+     note:'图(a)中 200g 与 300g 钩码下橡皮筋底端两点的距离。'},
+    {label:'(2) 胡克定律 + 求 k', label_short:'(2)',
+     formula_tex: String.raw`k = \dfrac{\Delta m \cdot g}{\Delta x} = \dfrac{0.3 \times 10}{0.057} \approx 52\;\text{N/m}`,
+     note:'Δx 与 Δm 成正比 → 胡克定律。取 200g 与 500g 跨度。'},
+    {label:'(3) 受力分析 F + m', label_short:'(3)',
+     formula_tex: String.raw`\tan\theta = \dfrac{F}{mg} \;\Rightarrow\; m = \dfrac{F}{g\tan\theta} = 0.3\;\text{kg}`,
+     note:'F=1.00N；图(b) 几何得 tan θ=1/3 → m=300g。'}
+  ],
+  stats: [
+    {label:'(1) d',  fmt:()=>'1.90 cm'},
+    {label:'(2)①',   fmt:()=>'质量的增加量'},
+    {label:'(2)② k', fmt:()=>'52 N/m'},
+    {label:'(3) F',  fmt:()=>'1.00 N'},
+    {label:'(3) m',  fmt:()=>'300 g'}
+  ],
+  conclusions: [
+    {label_text:'(1)',  value_text:'1.90 cm',          note:'读图'},
+    {label_text:'(2)①', value_text:'质量的增加量',     note:'Δx ∝ Δm'},
+    {label_text:'(2)②', value_text:'k ≈ 52 N/m',      note:'胡克'},
+    {label_text:'(3)①', value_text:'F = 1.00 N',      note:'读测力计'},
+    {label_text:'(3)②', value_text:'m = 300 g',       note:'tan θ = F/mg'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'橡皮筋'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'钩码（m）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'水平拉力 F'},
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'重力 mg'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2025全国-Q9-橡皮筋'
+});
+</script>
+</body>
+</html>

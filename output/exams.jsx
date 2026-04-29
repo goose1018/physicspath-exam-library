@@ -136,6 +136,20 @@ const REAL_PROBLEMS = [
   { id:'2024-bj-q20', year:2024, paper:'bj', no:'20', module:'电磁学',   tplId:null, title:'电磁枪 · 电容驱动导轨',              summary:'I₀=Q/(CR), a₀=BLQ/(mCR), v 单调增渐缓。', diff:'中', heat:95, hasAnim:true, htmlPath:'2024_北京/questions/q20/index.html' },
   { id:'2024-bj-q21', year:2024, paper:'bj', no:'21', module:'天体',     tplId:null, title:'宇宙膨胀 · 哈勃定律',               summary:'ρ ∝ 1/r³，ΔKE 由能量守恒，H 随 t 减。', diff:'难', heat:130, hasAnim:true, htmlPath:'2024_北京/questions/q21/index.html', paid:true },
   { id:'2024-bj-q22', year:2024, paper:'bj', no:'22', module:'电磁学',   tplId:null, title:'霍尔推进器 · 电场磁场综合',          summary:'a=qE/M, B\'=√(2mEd/q)/R, F=nk√(2qEdM)。', diff:'难', heat:160, hasAnim:true, htmlPath:'2024_北京/questions/q22/index.html', paid:true },
+
+  // ─── 2025 全国卷 12 题（已上线 12/14：Q1-Q12） ───
+  { id:'2025-gk1-q01', year:2025, paper:'gk1', no:'1',  module:'力学',     tplId:null, title:'CR450 动车减速',                    summary:'v₀=120 m/s 匀减速 14.4 km 停止，求 a=0.5 m/s²。', diff:'易', heat:60, hasAnim:true, htmlPath:'2025_全国卷/questions/q01/index.html' },
+  { id:'2025-gk1-q02', year:2025, paper:'gk1', no:'2',  module:'天体',     tplId:null, title:'天都一号 · 环月椭圆轨道',           summary:'开普勒第二定律：近月点速度大、引力大。', diff:'易', heat:80, hasAnim:true, htmlPath:'2025_全国卷/questions/q02/index.html' },
+  { id:'2025-gk1-q03', year:2025, paper:'gk1', no:'3',  module:'力学',     tplId:null, title:'撑杆跳高 · 能量守恒',                summary:'h = v₀²/(2g) = 5 m。', diff:'易', heat:55, hasAnim:true, htmlPath:'2025_全国卷/questions/q03/index.html' },
+  { id:'2025-gk1-q04', year:2025, paper:'gk1', no:'4',  module:'电磁学',   tplId:null, title:'匀强电场 · 正电荷运动轨迹',          summary:'共线 → 直线；垂直 → 类平抛曲线。', diff:'中', heat:75, hasAnim:true, htmlPath:'2025_全国卷/questions/q04/index.html' },
+  { id:'2025-gk1-q05', year:2025, paper:'gk1', no:'5',  module:'电磁学',   tplId:null, title:'正方形磁场 · 电子轨道',              summary:'3 种 R/θ 几何分析：t₁<t₂=t₃。', diff:'中', heat:90, hasAnim:true, htmlPath:'2025_全国卷/questions/q05/index.html' },
+  { id:'2025-gk1-q06', year:2025, paper:'gk1', no:'6',  module:'热学',     tplId:null, title:'理想气体 V-T 图压强比较',           summary:'V/T 斜率 ∝ 1/p，p_c > p_b = p_a。', diff:'中', heat:70, hasAnim:true, htmlPath:'2025_全国卷/questions/q06/index.html' },
+  { id:'2025-gk1-q07', year:2025, paper:'gk1', no:'7',  module:'振动波动', tplId:null, title:'队列简谐波 · 波峰波谷距离',         summary:'(2n+1)·λ/2 = 2m, 6m, ...', diff:'中', heat:85, hasAnim:true, htmlPath:'2025_全国卷/questions/q07/index.html' },
+  { id:'2025-gk1-q08', year:2025, paper:'gk1', no:'8',  module:'电磁学',   tplId:null, title:'圆环转动磁场 · 感应电动势',          summary:'e=Bωr²[1-cos(2ωt)]，OP 平行虚线时 e 最大。', diff:'难', heat:130, hasAnim:true, htmlPath:'2025_全国卷/questions/q08/index.html', paid:true },
+  { id:'2025-gk1-q09', year:2025, paper:'gk1', no:'9',  module:'实验',     tplId:null, title:'橡皮筋胡克定律',                    summary:'(1) 1.90 cm (2) k≈52 N/m (3) F=1.00 N, m=300 g。', diff:'中', heat:95, hasAnim:true, htmlPath:'2025_全国卷/questions/q09/index.html' },
+  { id:'2025-gk1-q10', year:2025, paper:'gk1', no:'10', module:'实验',     tplId:null, title:'伏安法 + 非线性元件',                summary:'内接 R 大；外接 R 小；非线性 + 减小；R_x=I₂r₁/(I₁-I₂)。', diff:'中', heat:80, hasAnim:true, htmlPath:'2025_全国卷/questions/q10/index.html' },
+  { id:'2025-gk1-q11', year:2025, paper:'gk1', no:'11', module:'电磁学',   tplId:null, title:'电容器键盘 · U 与 E 变化',            summary:'(1) Q 守恒 U\'=U/2 (2) U 守恒 E\'=2E。', diff:'中', heat:85, hasAnim:true, htmlPath:'2025_全国卷/questions/q11/index.html' },
+  { id:'2025-gk1-q12', year:2025, paper:'gk1', no:'12', module:'力学',     tplId:null, title:'圆弧+板+弹簧 4 问',                  summary:'(1) mgR (2) v₀=2√(2gR), h=3R (3) M=m/9 (4) M\'=m/2。', diff:'难', heat:170, hasAnim:true, htmlPath:'2025_全国卷/questions/q12/index.html', paid:true },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -202,6 +216,19 @@ const PROBLEM_META = {
   '2024-bj-q20': { type:'calc',          answer:[{sub:'I₀ =',val:'Q/(CR)'},{sub:'a₀ =',val:'BLQ/(mCR)'},{sub:'v-t',val:'单调增渐缓'}] },
   '2024-bj-q21': { type:'calc',          answer:[{sub:'(1) ρ',val:'ρ₀(r₀/r)³'},{sub:'(2a) ΔKE',val:'GMm·Δ(1/r)'},{sub:'(2b) H',val:'随 t 减'}] },
   '2024-bj-q22': { type:'calc',          answer:[{sub:'(1) a',val:'qE/M'},{sub:"(2) B'",val:'√(2mEd/q)/R'},{sub:'(3) F',val:'nk√(2qEdM)'}] },
+  // 2025 全国卷
+  '2025-gk1-q01': { type:'choice-single', answer:'B' },
+  '2025-gk1-q02': { type:'choice-single', answer:'C' },
+  '2025-gk1-q03': { type:'choice-single', answer:'B' },
+  '2025-gk1-q04': { type:'choice-single', answer:'C' },
+  '2025-gk1-q05': { type:'choice-single', answer:'A' },
+  '2025-gk1-q06': { type:'choice-multi',  answer:'AD' },
+  '2025-gk1-q07': { type:'choice-multi',  answer:'BD' },
+  '2025-gk1-q08': { type:'choice-multi',  answer:'BC' },
+  '2025-gk1-q09': { type:'experiment',    answer:[{sub:'(1)',val:'1.90 cm'},{sub:'(2)',val:'质量增加量, k≈52 N/m'},{sub:'(3)',val:'F=1.00 N, m=300 g'}] },
+  '2025-gk1-q10': { type:'experiment',    answer:[{sub:'(1)',val:'大于/大于/大于/小于'},{sub:'(2)',val:'非线性, 减小'},{sub:'(3)',val:'R_x = I₂r₁/(I₁-I₂)'}] },
+  '2025-gk1-q11': { type:'calc',          answer:[{sub:'(1) U\'/U =',val:'1/2'},{sub:'(2) E\'/E =',val:'2'}] },
+  '2025-gk1-q12': { type:'calc',          answer:[{sub:'(1) W =',val:'mgR'},{sub:'(2) v₀ =',val:'2√(2gR)'},{sub:'(2) h_BA =',val:'3R'},{sub:'(3) M =',val:'m/9'},{sub:'(4) M\' =',val:'m/2'}] },
 };
 
 // 按 year×paper 计数
