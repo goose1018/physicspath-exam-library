@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 15 题 · 简谐横波（多选 ABE）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：
+// 波形图 (a)：t=0 波形，λ=4m，振幅 A=5cm
+//   x=0 处 y=0 上升；x=1 波峰；x=2 P 处 y=0 下降；x=3 波谷；x=4 y=0 上升；x=5 波峰
+// 振动图 (b)：P 在 x=2，t=0 时 y=0 向下，T=2s
+//
+// 选项判定：
+// A. 波速 v = λ/T = 4/2 = 2 m/s ✓
+// B. 波向左传播：P 在 t=0 向下，"上下坡"法 → 波向左 ✓
+// C. 振幅 ≠ 题目给出值（题目 C 选项数值与 5cm 不符），实际 5 cm ✗
+// D. x=3m 在 t=7s 位于平衡位置 ✗
+//    x=3 在 t=0 是波谷；t=7s = 3.5T = 3T+T/2 → 相对 3T 后回到 t=0 状态(波谷)，再 T/2 → 波峰
+// E. P 在 0~7s 路程 = 3.5T×4A = 14A = 70 cm ✓
+// 答案 ABE
+
+const A_amp = 5;       // cm
+const lambda = 4;       // m
+const T_period = 2;     // s
+const v_wave = lambda / T_period;     // 2 m/s
+const P_x = 2;          // P 位置 m
+
+// 波向左传播：y(x, t) = A·sin(2π/λ · (x + v·t))
+// 验证：t=0 在 x=0: y = A·sin(0) = 0 ✓ 上升（dy/dt = A·ω·cos(0) > 0 ✓）
+// 验证：t=0 在 P=2: y = A·sin(2π·2/4) = A·sin(π) = 0 ✓
+//   dy/dt = A·ω·cos(π) = -A·ω < 0 → P 向下 ✓
+function y_wave(x, t){
+  return A_amp * Math.sin(2*Math.PI/lambda * (x + v_wave * t));
+}
+
+const T_total = 8;
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  const tReal = u * (T_period * 4);     // 4 个周期演示
+  return {u, tReal, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawWaveform(ctx, 14, 14, W*0.5-21, H*0.55-28, state);
+  drawPVibration(ctx, W*0.5+7, 14, W*0.5-21, H*0.55-28, state);
+  drawAnalysis(ctx, 14, H*0.55+4, W-28, H*0.45-14, state);
+}
+
+function drawWaveform(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('波形图 y(x) · 当前 t = ' + state.tReal.toFixed(2) + ' s', panelX+12, panelY+18);
+
+  const padL = 36, padR = 18, padT = 30, padB = 30;
+  const cw = panelW - padL - padR, ch = panelH - padT - padB;
+  const x0 = panelX + padL, y0 = panelY + padT + ch/2;
+  const xMax = 6, yMax = 6;
+  const sx = cw / xMax;
+  const sy = (ch/2) / yMax;
+  const px = x => x0 + x*sx;
+  const py = y => y0 - y*sy;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, panelY+padT); ctx.lineTo(x0, panelY+padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('y/cm', x0-8, panelY+padT-4);
+  ctx.fillText('x/m', x0+cw+2, y0+12);
+  // 刻度
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '500 9px ui-monospace,monospace';
+  for(let xi = 0; xi <= 6; xi += 1){
+    ctx.fillText(xi+'', px(xi)-3, y0+12);
+    if(xi > 0) { ctx.beginPath(); ctx.moveTo(px(xi), y0-2); ctx.lineTo(px(xi), y0+2); ctx.stroke(); }
+  }
+  ctx.fillText('5', x0-12, py(5)+3);
+  ctx.fillText('-5', x0-14, py(-5)+3);
+
+  // 当前波形
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let xi = 0; xi <= 6; xi += 0.05){
+    const yy = y_wave(xi, state.tReal);
+    if(xi === 0) ctx.moveTo(px(xi), py(yy));
+    else ctx.lineTo(px(xi), py(yy));
+  }
+  ctx.stroke();
+
+  // P 点 (x=2)
+  const yP = y_wave(P_x, state.tReal);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px(P_x), py(yP), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 800 12px Georgia,serif';
+  ctx.fillText('P', px(P_x)+8, py(yP)-4);
+
+  // 波传播方向箭头（C2 修复：u>=0.35 才显示，避免 t=0 剧透 B 答案）
+  if(state.u >= 0.35){
+    PPath.arrow(ctx, x0+cw*0.7, panelY+padT+10, x0+cw*0.7-30, panelY+padT+10, '#16613f', 2);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10px "Noto Sans SC",sans-serif';
+    ctx.fillText('波 ←', x0+cw*0.7-26, panelY+padT+24);
+  }
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`λ=4m, A=5cm`, panelX+12, panelY+panelH-8);
+}
+
+function drawPVibration(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('P 振动图 y(t) · T = 2 s', panelX+12, panelY+18);
+
+  const padL = 36, padR = 18, padT = 30, padB = 30;
+  const cw = panelW - padL - padR, ch = panelH - padT - padB;
+  const x0 = panelX + padL, y0 = panelY + padT + ch/2;
+  const tMax = 8, yMax = 6;
+  const sx = cw / tMax;
+  const sy = (ch/2) / yMax;
+  const px = tt => x0 + tt*sx;
+  const py = y => y0 - y*sy;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, panelY+padT); ctx.lineTo(x0, panelY+padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 11px Georgia,serif';
+  ctx.fillText('y/cm', x0-8, panelY+padT-4);
+  ctx.fillText('t/s', x0+cw+2, y0+12);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '500 9px ui-monospace,monospace';
+  for(let ti = 0; ti <= 8; ti += 1){
+    ctx.fillText(ti+'', px(ti)-3, y0+12);
+    if(ti > 0) { ctx.beginPath(); ctx.moveTo(px(ti), y0-2); ctx.lineTo(px(ti), y0+2); ctx.stroke(); }
+  }
+  ctx.fillText('5', x0-12, py(5)+3);
+  ctx.fillText('-5', x0-14, py(-5)+3);
+
+  // P 振动曲线（已发生的部分）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let ti = 0; ti <= state.tReal; ti += 0.05){
+    const yy = y_wave(P_x, ti);
+    if(ti === 0) ctx.moveTo(px(ti), py(yy));
+    else ctx.lineTo(px(ti), py(yy));
+  }
+  ctx.stroke();
+
+  // 当前点
+  const yP_now = y_wave(P_x, state.tReal);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(px(state.tReal), py(yP_now), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // 标 t=7s
+  if(state.u > 0.7){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.2; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(px(7), panelY+padT); ctx.lineTo(px(7), panelY+padT+ch);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('t=7s', px(7)-12, panelY+padT-4);
+  }
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText(`P y=${yP_now.toFixed(2)}cm`, panelX+12, panelY+panelH-8);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('5 选项判定（按阶段揭晓）', panelX+12, panelY+18);
+
+  const items = [
+    {tag:'A 对', text:'v = λ/T = 4/2 = 2 m/s', correct:true, showAt:0.20},
+    {tag:'B 对', text:'P 在 t=0 向下 + "上下坡"法 → 波向左', correct:true, showAt:0.35},
+    {tag:'C 错', text:'实际振幅 = 5 cm（与题目 C 选项数值不符）', correct:false, showAt:0.50},
+    {tag:'D 错', text:'x=3m 在 t=0 是波谷；t=7s=3.5T → 波峰，不是平衡', correct:false, showAt:0.65},
+    {tag:'E 对', text:'路程 = 3.5T × 4A = 14A = 70 cm', correct:true, showAt:0.80}
+  ];
+  let yy = panelY + 38;
+  items.forEach(it => {
+    if(state.u >= it.showAt){
+      ctx.fillStyle = it.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${it.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(it.tag, panelX+14, yy);
+      ctx.fillStyle = it.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(it.text, panelX+58, yy);
+    } else {
+      ctx.fillStyle = '#dad6c8';
+      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(it.tag.charAt(0)+' ?', panelX+14, yy);
+      ctx.fillStyle = '#94a09b';
+      ctx.font = '500 10px "Noto Sans SC",sans-serif';
+      ctx.fillText('（待推导）', panelX+58, yy);
+    }
+    yy += 22;
+  });
+
+  // 答案徽章
+  if(state.u > 0.85){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+panelW-104, panelY+8, 92, 26, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 ABE', panelX+panelW-86, panelY+25);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 15 题 · 6 分',
+  title: '简谐横波 · 波形图 + 振动图（多选）',
+  subtitle: 'λ=4m，T=2s（图 b），振幅 5cm；P 在 x=2，t=0 向下。判 5 选项。',
+  deliv: {
+    title: '波速 + 方向 + P 路程',
+    sub: 'A 对（v=2 m/s）/ B 对（向左）/ E 对（70 cm）'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 多选 · 第 15 题 · 6 分',
+    image: '../../source/images/image146.png',
+    text: `一列简谐横波沿 x 轴传播，图（a）是 t=0 时刻的波形图；P 是介质中位于 x=2m 处的质点，其振动图像如图（b）所示。下列说法正确的是（    ）`,
+    subQuestions: [
+      'A. 波速为 2 m/s',
+      'B. 波向左传播',
+      'C. 波的振幅为 [题目 .wmf 数值]（实际 5 cm，C 选项数值不符）',
+      'D. x=3m 处的质点在 t=7s 时位于平衡位置',
+      'E. 质点 P 在 0~7s 时间内运动的路程为 70 cm'
+    ],
+    officialAnswer: 'ABE · A 对：由图(a) λ=4m，图(b) T=2s → v=λ/T=2 m/s。\nB 对：图(b) t=0 时 P 向下运动；由波形图(a) P 在 x=2 处，左侧 (x∈[1,2]) 是从波峰下降到 0，由"同侧法"或"上下坡"法 → 波向左传播。\nC 错：实际振幅 5 cm（与题目选项 C 中给出的数值不符）。\nD 错：x=3m 处 t=0 时位于波谷；t=7s = 3.5T = 3T + T/2，相对 3T 后回到波谷态，再 T/2 → 波峰，不是平衡位置。\nE 对：质点 P 每 T 走过 4A，0~7s = 3.5T → 路程 = 3.5×4A = 14A = 70 cm。\n故选 ABE。'
+  },
+  totalT: T_total,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 波速 v=λ/T', label_short:'A',
+     formula_tex: String.raw`v = \dfrac{\lambda}{T} = \dfrac{4\,\text{m}}{2\,\text{s}} = 2\,\text{m/s}`,
+     note:'图(a) λ=4m，图(b) T=2s。'},
+    {label:'阶段 ② 波传播方向', label_short:'B',
+     formula_tex: String.raw`P\,\text{在}\,t=0\,\text{向下} \;+\; \text{"上下坡"法} \;\Rightarrow\; \text{波向左}`,
+     note:'P 在 x=2 处 t=0 向下；x=2 左边 (x∈[1,2]) 是波峰下降段。'},
+    {label:'阶段 ③ 振幅', label_short:'C',
+     formula_tex: String.raw`A = 5\,\text{cm}`,
+     note:'图(a) 显示 y 在 ±5 cm 之间。题目 C 选项给的数值与 5 cm 不符 → C 错。'},
+    {label:'阶段 ④ x=3m 在 t=7s 状态', label_short:'D',
+     formula_tex: String.raw`t = 7\,\text{s} = 3T + \dfrac{T}{2} \;\Rightarrow\; \text{波谷}\to\text{波峰}`,
+     note:'x=3m 在 t=0 处于波谷；3T 后回波谷；再 T/2 → 波峰，不是平衡位置。'},
+    {label:'阶段 ⑤ P 路程', label_short:'E',
+     formula_tex: String.raw`s = 3.5T \times 4A = 14A = 70\,\text{cm}`,
+     note:'每个 T 内质点走 4A 路程；3.5T 走 14A = 70 cm。'}
+  ],
+  stats: [
+    {label:'波长 λ',     fmt:()=>'4 m'},
+    {label:'周期 T',     fmt:()=>'2 s'},
+    {label:'波速 v',     fmt:()=>'2 m/s'},
+    {label:'振幅 A',     fmt:()=>'5 cm'},
+    {label:'P 位置',     fmt:()=>'x = 2 m'},
+    {label:'方向',       fmt:s=>s.u>=0.35?'向左':'?'},
+    {label:'P 0~7s 路程',fmt:()=>'70 cm'},
+    {label:'当前 t',     fmt:s=>s.tReal.toFixed(2)+' s'}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'v = 2 m/s',         note:'λ/T'},
+    {label_text:'B 对', value_text:'向左传播',          note:'P 向下 + 坡法'},
+    {label_text:'C 错', value_text:'振幅 5 cm',         note:'与题目数值不符'},
+    {label_text:'D 错', value_text:'x=3m t=7s 波峰',   note:'非平衡位置'},
+    {label_text:'E 对', value_text:'路程 70 cm',        note:'3.5T×4A'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'波形/振动曲线'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'P 质点'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'波传播方向'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'t=7s 标记'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023全国乙-Q15-横波'
+});
+</script>
+</body>
+</html>

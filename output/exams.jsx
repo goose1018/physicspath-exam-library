@@ -167,6 +167,8 @@ const REAL_PROBLEMS = [
   { id:'2023-gk2-q11', year:2023, paper:'gk2', no:'11', module:'电磁学',   tplId:null, title:'等边三角形 · 3 点电荷电场叠加（计算）',           summary:'M 处场向下→C 正；A、B 水平相抵→|q_B|=q；N 处场向上 E_x=0→q_C=(3-√3)q/3。', diff:'难', heat:160, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q11/index.html', paid:true },
   { id:'2023-gk2-q12', year:2023, paper:'gk2', no:'12', module:'力学',     tplId:null, title:'圆管+圆盘+小球弹性碰撞 · 多次递推（计算）',       summary:'m=M/3 弹碰→v₀/2；最远 d=l；盘下移 2l/4l/6l/8l 累计 13l<20l→4 次碰撞退出。', diff:'难', heat:200, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q12/index.html', paid:true },
   { id:'2023-gk2-q13', year:2023, paper:'gk2', no:'13', module:'热学',     tplId:null, title:'理想气体内能 · 5 选项过程对比（多选）',           summary:'U=nC_vT 仅由 T 决定；A 等温-等温/C 等容↓+等压↑/D 等容↑+等压↓ 可使末 T=初 T。答案 ACD。', diff:'易', heat:80, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q13/index.html' },
+  { id:'2023-gk2-q15', year:2023, paper:'gk2', no:'15', module:'振动波动', tplId:null, title:'简谐横波 · 波形+振动图（多选）',                   summary:'λ=4m, T=2s, v=2m/s 向左；P 路程 70cm；t=7s x=3 波峰。答案 ABE。', diff:'中', heat:90, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q15/index.html' },
+  { id:'2023-gk2-q16', year:2023, paper:'gk2', no:'16', module:'光学',     tplId:null, title:'等腰直角棱镜 · 折射+反射几何（计算）',           summary:'n=√2 等腰直角；i=45°→r=30°；折射光与水平 15°，反射射向 A；AM=(3−√3)/3·AB。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_全国乙卷/questions/q16/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -264,6 +266,8 @@ const PROBLEM_META = {
   '2023-gk2-q11': { type:'calc',          answer:[{sub:'(1) |q_B|',val:'q'},{sub:'(1) 正负',val:'A、B、C 均为正电荷'},{sub:'(2) q_C',val:'(3 − √3)q / 3'}] },
   '2023-gk2-q12': { type:'calc',          answer:[{sub:'(1) v_球=v_盘',val:'(1/2)√(2gl)'},{sub:'(2) d_max',val:'l'},{sub:'(3) 碰撞次数',val:'4'}] },
   '2023-gk2-q13': { type:'choice-multi',  answer:'ACD' },
+  '2023-gk2-q15': { type:'choice-multi',  answer:'ABE' },
+  '2023-gk2-q16': { type:'calc',          answer:[{sub:'AM',val:'(3−√3)/3 · AB ≈ 0.423 AB'}] },
 };
 
 // 按 year×paper 计数

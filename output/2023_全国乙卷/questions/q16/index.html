@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2023 全国乙 · 第 16 题 · 棱镜折射反射几何（计算）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：等腰直角三角形棱镜，A 直角顶（在上方），BC 是斜边（底面镀反射膜）
+// 折射率 n = √2，光垂直 BC 入射 → 经 AB 边 M 折射进棱镜 → BC 镜面反射 → 出射射向 A
+//
+// 几何（设 AB=AC=a）：
+// - 入射光垂直 BC（向下），AB 与水平夹 45° → 入射角 i = 45°
+// - sin45°/sin(r) = √2 → sin(r) = 1/2 → r = 30°
+// - 折射光与 AB 内法线夹 30°，与水平方向夹 15° (45°-30°)
+// - 折射光方向 = (sin15°, -cos15°)
+// - 折射光打到 BC 后镜面反射，反射光方向 = (sin15°, +cos15°)
+// - 反射光经 N 射向 A → 反求 M 位置
+// - 解 AM = 2a·tan15°/(1+tan15°) = a·(3-√3)/3 ≈ 0.423a
+
+const a_side = 2.0;     // AB = AC = a (无量纲)
+const A_pos = {x: 0, y: 0};
+const B_pos = {x: -a_side/Math.sqrt(2), y: -a_side/Math.sqrt(2)};
+const C_pos = {x: +a_side/Math.sqrt(2), y: -a_side/Math.sqrt(2)};
+
+const tan15 = Math.tan(15 * Math.PI/180);
+const AM = 2 * a_side * tan15 / (1 + tan15);     // (3-√3)/3 · a
+const M_pos = {x: -AM/Math.sqrt(2), y: -AM/Math.sqrt(2)};
+
+// 折射光方向 (sin15°, -cos15°)
+const sin15 = Math.sin(15 * Math.PI/180);
+const cos15 = Math.cos(15 * Math.PI/180);
+
+// N 点（折射光与 BC 的交点）
+function N_point(){
+  const dy = B_pos.y - M_pos.y;     // = -a/√2 + AM/√2 = (AM-a)/√2 < 0
+  const t = -dy / cos15;     // t·(-cos15°) = dy → t = -dy/cos15°
+  return {x: M_pos.x + t * sin15, y: B_pos.y};
+}
+const N_pos = N_point();
+
+// 入射光起点（在 M 上方）
+const incident_start = {x: M_pos.x, y: 0.6};
+
+const T_total = 9;
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.20 入射光下降到 M
+  // 0.20-0.45 折射光从 M 到 N
+  // 0.45-0.55 BC 反射
+  // 0.55-0.85 反射光从 N 到 A
+  // 0.85-1.00 静态展示 + 答案
+  let lightX = incident_start.x, lightY = incident_start.y;
+  let stage = 0;
+  if(u < 0.20){
+    const u_p = u / 0.20;
+    lightX = incident_start.x;
+    lightY = incident_start.y + u_p * (M_pos.y - incident_start.y);
+    stage = 1;
+  } else if(u < 0.45){
+    const u_p = (u - 0.20) / 0.25;
+    lightX = M_pos.x + u_p * (N_pos.x - M_pos.x);
+    lightY = M_pos.y + u_p * (N_pos.y - M_pos.y);
+    stage = 2;
+  } else if(u < 0.55){
+    lightX = N_pos.x;
+    lightY = N_pos.y;
+    stage = 3;
+  } else if(u < 0.85){
+    const u_p = (u - 0.55) / 0.30;
+    lightX = N_pos.x + u_p * (A_pos.x - N_pos.x);
+    lightY = N_pos.y + u_p * (A_pos.y - N_pos.y);
+    stage = 4;
+  } else {
+    lightX = A_pos.x;
+    lightY = A_pos.y;
+    stage = 5;
+  }
+  return {u, stage, lightX, lightY, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawPrism(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawAnalysis(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawPrism(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('等腰直角棱镜（n=√2）· 入射→折射→反射→射向 A', panelX+12, panelY+18);
+
+  // 投影：物理 (x, y) → canvas
+  const xMin = -2.5, xMax = 2.5, yMin = -2.5, yMax = 1.0;
+  const padX = 30, padY = 32;
+  const sx = (panelW - 2*padX) / (xMax - xMin);
+  const sy = (panelH - 2*padY) / (yMax - yMin);
+  const s = Math.min(sx, sy);
+  const offX = panelX + padX + (-xMin)*s + (panelW - 2*padX - (xMax-xMin)*s)/2;
+  const offY = panelY + padY + yMax*s + (panelH - 2*padY - (yMax-yMin)*s)/2;
+  const px = x => offX + x*s;
+  const py = y => offY - y*s;     // canvas y 反向
+
+  // 棱镜三角形（半透明黄）
+  ctx.fillStyle = 'rgba(200,160,106,0.15)';
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px(A_pos.x), py(A_pos.y));
+  ctx.lineTo(px(B_pos.x), py(B_pos.y));
+  ctx.lineTo(px(C_pos.x), py(C_pos.y));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // BC 反射膜（斜线）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1;
+  for(let xi = -a_side/Math.sqrt(2); xi <= a_side/Math.sqrt(2); xi += 0.15){
+    ctx.beginPath();
+    ctx.moveTo(px(xi), py(B_pos.y));
+    ctx.lineTo(px(xi - 0.1), py(B_pos.y - 0.18));
+    ctx.stroke();
+  }
+
+  // 顶点标
+  function drawVertex(p, label, dx, dy){
+    const cx = px(p.x), cy = py(p.y);
+    ctx.fillStyle = '#3a3a3c';
+    ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 800 13px Georgia,serif';
+    ctx.fillText(label, cx + dx, cy + dy);
+  }
+  drawVertex(A_pos, 'A', 8, -8);
+  drawVertex(B_pos, 'B', -16, 4);
+  drawVertex(C_pos, 'C', 8, 4);
+
+  // M 标（仅 stage>=1 显示）
+  if(state.stage >= 1){
+    const mx = px(M_pos.x), my = py(M_pos.y);
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 800 12px Georgia,serif';
+    ctx.fillText('M', mx - 16, my - 4);
+  }
+
+  // N 标（仅 stage>=3 显示）
+  if(state.stage >= 3){
+    const nx = px(N_pos.x), ny = py(N_pos.y);
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(nx, ny, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5d6964';
+    ctx.font = 'italic 800 12px Georgia,serif';
+    ctx.fillText('N', nx + 6, ny + 14);
+  }
+
+  // 已走过的光路（实线，按 stage 增加）
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(px(incident_start.x), py(incident_start.y));
+
+  // stage 1：入射段
+  if(state.stage === 1){
+    ctx.lineTo(px(state.lightX), py(state.lightY));
+  } else if(state.stage >= 2){
+    ctx.lineTo(px(M_pos.x), py(M_pos.y));     // 到 M
+  }
+  // stage 2：折射段
+  if(state.stage === 2){
+    ctx.lineTo(px(state.lightX), py(state.lightY));
+  } else if(state.stage >= 3){
+    ctx.lineTo(px(N_pos.x), py(N_pos.y));     // 到 N
+  }
+  // stage 4-5：反射段
+  if(state.stage === 4){
+    ctx.lineTo(px(state.lightX), py(state.lightY));
+  } else if(state.stage >= 5){
+    ctx.lineTo(px(A_pos.x), py(A_pos.y));     // 到 A
+  }
+  ctx.stroke();
+
+  // 当前光头
+  if(state.stage > 0 && state.stage < 5){
+    ctx.fillStyle = '#16613f';
+    ctx.beginPath(); ctx.arc(px(state.lightX), py(state.lightY), 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  // AB 法线（在 M 处虚线，stage>=2 显示）
+  if(state.stage >= 2){
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    const norm_dx = 0.4, norm_dy = -0.4;     // 内法线方向 (1,-1)/√2 缩放
+    ctx.beginPath();
+    ctx.moveTo(px(M_pos.x - norm_dx), py(M_pos.y - norm_dy));
+    ctx.lineTo(px(M_pos.x + norm_dx), py(M_pos.y + norm_dy));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#94a09b';
+    ctx.font = '500 9px ui-monospace,monospace';
+    ctx.fillText('AB 法线', px(M_pos.x + norm_dx) + 4, py(M_pos.y + norm_dy));
+    // 角度标
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText('i=45°', px(M_pos.x) - 30, py(M_pos.y) - 24);
+    ctx.fillText('r=30°', px(M_pos.x) + 8, py(M_pos.y) + 18);
+  }
+
+  // BC 法线（在 N 处虚线，stage>=4 显示）
+  if(state.stage >= 4){
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(px(N_pos.x), py(N_pos.y));
+    ctx.lineTo(px(N_pos.x), py(N_pos.y) - 50);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // AM 标注（stage>=5）
+  if(state.stage >= 5){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px(A_pos.x) - 14, py(A_pos.y) - 10);
+    ctx.lineTo(px(M_pos.x) - 14, py(M_pos.y) - 10);
+    ctx.stroke();
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 800 12px Georgia,serif';
+    ctx.fillText('AM = (3−√3)/3 · AB', px((A_pos.x+M_pos.x)/2) - 90, py((A_pos.y+M_pos.y)/2) - 4);
+  }
+
+  // 阶段提示
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+  const stageText = state.stage === 1 ? '阶段 ① 入射光垂直 BC（向下）' :
+                    state.stage === 2 ? '阶段 ② 折射进棱镜（45°→30°）' :
+                    state.stage === 3 ? '阶段 ③ 打到 BC 反射膜' :
+                    state.stage === 4 ? '阶段 ④ 反射光射向 A' :
+                                         '阶段 ⑤ 求出 AM = (3−√3)/3 · AB';
+  ctx.fillText(stageText, panelX+12, panelY+panelH-8);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('几何 + 光路推导', panelX+12, panelY+18);
+
+  const lines = [];
+  if(state.u >= 0.10) lines.push({c:'#5d6964', t:'• ABC 等腰直角，A 直角，AB=AC=a'});
+  if(state.u >= 0.20) lines.push({c:'#5d6964', t:'• 入射光垂直 BC → 与 AB 法线夹 45°'});
+  if(state.u >= 0.30) lines.push({c:'#16613f', t:'• 折射定律：sin45°/sin r = √2 → r = 30°'});
+  if(state.u >= 0.50) lines.push({c:'#5d6964', t:'• 折射光与水平方向夹 15°（45°-30°）'});
+  if(state.u >= 0.55) lines.push({c:'#5d6964', t:'• 镜面反射：与 BC 法线夹 15°（对称）'});
+  if(state.u >= 0.65) lines.push({c:'#5d6964', t:'• 反射光从 N 射向 A：方向 (sin15°, +cos15°)'});
+  if(state.u >= 0.75) lines.push({c:'#5d6964', t:'• 几何方程：MN_y = (AM−a)/√2 = -d·cos15°'});
+  if(state.u >= 0.80) lines.push({c:'#5d6964', t:'• NA：N_x = -t·sin15°，t = a/(√2·cos15°)'});
+  if(state.u >= 0.85) lines.push({c:'#c2611f', t:'• 解：AM = 2a·tan15°/(1+tan15°) = (3−√3)·a/3'});
+
+  ctx.font = '600 11px "Noto Sans SC",sans-serif';
+  let yy = panelY + 38;
+  lines.forEach(l => {
+    ctx.fillStyle = l.c;
+    ctx.fillText(l.t, panelX+14, yy);
+    yy += 17;
+  });
+
+  // 答案徽章
+  if(state.u > 0.90){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-50, panelW-24, 38, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案', panelX+22, panelY+panelH-32);
+    ctx.font = '700 12px "Cambria Math",serif';
+    ctx.fillText('AM = (3 − √3) / 3 · AB ≈ 0.423 AB', panelX+22, panelY+panelH-14);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2023 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 16 题 · 12 分（选修 3-4）',
+  title: '等腰直角棱镜 · 折射+反射几何',
+  subtitle: '折射率 n=√2，光垂直 BC 入射经 M 折射，BC 反射后射向 A。求 AM。',
+  deliv: {
+    title: '折射定律 + 几何方程',
+    sub: 'AM = (3−√3)/3 · AB ≈ 0.423 AB'
+  },
+  originalProblem: {
+    meta: '2023 全国乙卷 · 计算 · 第 16 题 · 12 分（选修 3-4 模块）',
+    image: '../../source/images/image156.png',
+    text: `如图，一折射率为 √2 的棱镜的横截面为等腰直角三角形（A 为直角顶，AB = AC，BC 为斜边），BC 边所在底面上镀有一层反射膜。一细光束沿垂直于 BC 方向经 AB 边上的 M 点射入棱镜，若这束光被 BC 边反射后恰好射向顶点 A，求 M 点到 A 点的距离。`,
+    subQuestions: [],
+    officialAnswer: 'AM = (3 − √3)/3 · AB ≈ 0.423 AB · 推导：①由 A 直角 + AB=AC 得 ∠ABC=∠ACB=45°。②光垂直 BC 入射 → 与 AB 法线夹 i=45°。折射定律 sin45°/sin r = √2 → sin r = 1/2 → r=30°。③折射光与 AB 内法线夹 30°，与水平方向夹 15°。④反射光与 BC 法线夹 15°（对称），方向 (sin15°, +cos15°)。⑤设 M 在 AB 上 AM=x，反射光从 N 射向 A：N_x = -a·tan15°/√2，由几何方程 -x/√2 + (a-x)·tan15°/√2 = -a·tan15°/√2 解出 x = 2a·tan15°/(1+tan15°) = (3−√3)·a/3。'
+  },
+  totalT: T_total,
+  speedFactor: 0.45,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 入射 + 几何', label_short:'入射',
+     formula_tex: String.raw`\angle ABC = 45°,\;\; i = 45°`,
+     note:'光垂直 BC，AB 与水平 45°。'},
+    {label:'阶段 ② 折射 r=30°', label_short:'折射',
+     formula_tex: String.raw`\dfrac{\sin 45°}{\sin r} = \sqrt{2} \;\Rightarrow\; r = 30°`,
+     note:'折射定律。'},
+    {label:'阶段 ③ 折射光方向', label_short:'方向',
+     formula_tex: String.raw`(\sin 15°,\,-\cos 15°)`,
+     note:'与水平方向夹 15°（45°-30°），向右下。'},
+    {label:'阶段 ④ BC 反射', label_short:'反射',
+     formula_tex: String.raw`(\sin 15°,\,+\cos 15°)`,
+     note:'BC 镜面反射，y 分量反号。'},
+    {label:'阶段 ⑤ 几何方程', label_short:'AM',
+     formula_tex: String.raw`AM = \dfrac{2a\tan 15°}{1+\tan 15°} = \dfrac{(3-\sqrt{3})a}{3}`,
+     note:'反射光从 N 射向 A：用 N 在 BC 上 + N_x 关系反求 AM。'}
+  ],
+  stats: [
+    {label:'A 直角',     fmt:()=>'∠BAC=90°'},
+    {label:'∠ABC=∠ACB', fmt:()=>'45°'},
+    {label:'折射率 n',   fmt:()=>'√2'},
+    {label:'入射角 i',   fmt:()=>'45°'},
+    {label:'折射角 r',   fmt:()=>'30°'},
+    {label:'折射光与水平',fmt:()=>'15°'},
+    {label:'AB 长度',    fmt:()=>'a (符号)'},
+    {label:'AM 长度',    fmt:s=>s.u>=0.85?'(3−√3)a/3':'?'}
+  ],
+  conclusions: [
+    {label_text:'i', value_text:'45°',                  note:'垂直 BC + AB 45°'},
+    {label_text:'r', value_text:'30°',                  note:'折射定律 n=√2'},
+    {label_text:'AM', value_text:'(3−√3)/3 · AB ≈ 0.423 AB', note:'最终答案'}
+  ],
+  legend: [
+    {swatch:{bg:'#c8a06a',border:'#5d6964',type:'rect'}, text:'棱镜（横截面）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'光路'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'光头位置'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'dot'}, text:'M / N 关键点'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'法线（虚线）'}
+  ],
+  defaults: {speed:1.0, lineW:3.0, vec:false, guide:true},
+  fileName: '2023全国乙-Q16-棱镜折射'
+});
+</script>
+</body>
+</html>
