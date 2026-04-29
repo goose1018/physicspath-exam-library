@@ -92,9 +92,13 @@ function drawScene(ctx, view, state, t, opts){
     ctx.fillText(h+' m', barX-72, yh+3);
   }
 
-  // 运动员位置
-  const athleteRange_x = barX - 200;
-  const athleteX = athleteRange_x + state.x * 250;
+  // 运动员位置（修：起跳瞬间应在横杆左侧，越过后落在右侧）
+  // state.x: 阶段 1 助跑 0→1，阶段 2 起跳 1→1.3，阶段 3 落地 1.3→1.8
+  // 让 state.x = 1 时 athleteX = barX - 30（起跳点在横杆左前方）
+  // 让 state.x = 1.15 时（最高点 k=0.5）athleteX = barX（正越过横杆）
+  // 让 state.x = 1.8 时 athleteX = barX + 80（落地海绵垫）
+  // 即 athleteX = barX + (state.x - 1.15)·sub_factor，sub_factor ≈ 120
+  const athleteX = barX + (state.x - 1.15) * 120;
   const athleteY = yGround - state.y*pxPerM;
 
   // 运动员（简单 stick figure）

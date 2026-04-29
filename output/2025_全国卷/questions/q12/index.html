@@ -146,12 +146,10 @@ function drawApparatus(ctx, x, y, w, h, ballPos, qOffset){
 
 function drawStage1(ctx, x, y, w, h, state){
   // 演示小球从 A 沿弧滑到弧底
-  const ballX = x+w*0.18 + 30 + (-60)*Math.cos(state.u * Math.PI/2);     // 从 A 到弧底
-  const ballY_base = (state.u < 0.3) ? 0 : 0;     // 沿弧滑动
-  // 在弧上：以圆心 (Px+30, Py-Rpx) 为中心
+  // 与 drawApparatus 中 Py = (y+h-30)-5 = y+h-35 保持一致（修 5px 错位 bug）
   const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy = (y+h-30) - Rpx;
-  const ang = Math.PI - state.u*Math.PI/2;     // 从 π (左侧, A 上方) 到 π/2 (底部)
+  const cx = x+w*0.18 + 30, cy = (y+h-35) - Rpx;
+  const ang = Math.PI - state.u*Math.PI/2;     // 从 π (左侧, A) 到 π/2 (弧底)
   const ball = {x: cx + Rpx*Math.cos(ang), y: cy + Rpx*Math.sin(ang)};
 
   const apparatus = drawApparatus(ctx, x, y, w, h, ball, 0);
@@ -183,8 +181,9 @@ function drawStage1(ctx, x, y, w, h, state){
 
 function drawStage2(ctx, x, y, w, h, state){
   // 显示 B 点 + 自由落到 A + 沿弧滑到 v₀
+  // 与 drawApparatus 中 Py = y+h-35 保持一致（修 5px 错位 bug）
   const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy_base = (y+h-30) - Rpx;
+  const cx = x+w*0.18 + 30, cy_base = (y+h-35) - Rpx;
   const A_x = cx, A_y = cy_base;
   const B_y = A_y - 80;     // B 在 A 上方 (代表 h_BA, 简化为 80px)
   let ball;
@@ -198,9 +197,9 @@ function drawStage2(ctx, x, y, w, h, state){
     const ang = Math.PI - k*Math.PI/2;
     ball = {x: cx + Rpx*Math.cos(ang), y: cy_base + Rpx*Math.sin(ang)};
   } else {
-    // 在 Q 上向右压弹簧
+    // 在 Q 上向右压弹簧（Py = cy_base + Rpx 是 Q 表面）
     const k = (state.u-0.7)/0.3;
-    ball = {x: cx + 30 + k*60, y: cy_base + Rpx};
+    ball = {x: cx + 30 + k*60, y: cy_base + Rpx - 8};
   }
   const apparatus = drawApparatus(ctx, x, y, w, h, ball, 0);
 
@@ -255,10 +254,12 @@ function drawStage2(ctx, x, y, w, h, state){
 
 function drawStage3(ctx, x, y, w, h, state){
   // P-Q 已断开，Q 与小球被弹簧驱动 → 共速时弹簧最大 EP=2.2mgR
+  // 修 5px 错位 + 小球跟随 Q 移动（保持视觉接触）
   const qOffset = 30 + state.u*40;     // Q 向右移
   const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy_base = (y+h-30) - Rpx;
-  const ball = {x: cx + 30 + 30 + state.u*30, y: cy_base + Rpx};
+  const cx = x+w*0.18 + 30, cy_base = (y+h-35) - Rpx;
+  // 小球在 Q 上跟随移动（贴近弹簧自由端）：基准位置 + qOffset 跟随
+  const ball = {x: cx + 30 + qOffset*0.5 + state.u*15, y: cy_base + Rpx - 8};
   drawApparatus(ctx, x, y, w, h, ball, qOffset);
 
   // 推导
@@ -299,10 +300,12 @@ function drawStage3(ctx, x, y, w, h, state){
 
 function drawStage4(ctx, x, y, w, h, state){
   // Q 最终动能最大 → 弹簧恢复原长 + 小球速度=0
+  // 修 5px 错位；小球停在 Q 离开瞬间的位置（弹簧恢复时与 Q 脱离）
   const qOffset = 50 + state.u*60;
   const Rpx = 60;
-  const cx = x+w*0.18 + 30, cy_base = (y+h-30) - Rpx;
-  const ball = {x: cx + 30 + 50, y: cy_base + Rpx};     // 小球停留
+  const cx = x+w*0.18 + 30, cy_base = (y+h-35) - Rpx;
+  // 小球停在弹簧释放时的接触点（约 Q 离开 50 时）
+  const ball = {x: cx + 30 + 50, y: cy_base + Rpx - 8};
   drawApparatus(ctx, x, y, w, h, ball, qOffset);
 
   // 推导

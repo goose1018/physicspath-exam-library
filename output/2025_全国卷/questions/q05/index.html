@@ -109,31 +109,22 @@ function drawSquare(ctx, x, y, w, h, state){
   ctx.font = '600 9px "Cambria Math",serif';
   ctx.fillText('O'+(state.stage+1), cxC+5, cyC-5);
 
-  // 走过的弧（实线）
-  // 起点 a (0,0)，圆心 (R, 0)（物理坐标）
-  // a 相对圆心：(-R, 0)，对应数学角度 π（标准：从 +x 轴逆时针）
-  // canvas 角度（y 翻转）：标准角度 π → canvas 角度 -π = π（对称）
-  // 顺时针走过弧（电子向 +x 偏转 → 圆心右下 → 顺时针在物理坐标 = 顺时针在 canvas）
-  // 起点 canvas 角：a 在圆心左 → angle = π
+  // 走过的弧（实线）— 修：anticlockwise=false，angle 增加 π → 3π/2（canvas 视觉上方）
+  // 推导：电子从 a 出发物理 +y（=canvas -y, 视觉上方），canvas 中圆心 (cxC, cyC) 在 a 右侧
+  // a 相对圆心 (-Rpx, 0)，canvas angle = π
+  // 切线方向（视觉向上 = canvas -y）：当 angle 增加时切线 = (-sin α, cos α)，α=π 时 = (0, -1) ✓
+  // 所以 angle 从 π 增加到 π+arcAng，anticlockwise=false（在 canvas 中即 angle 增大方向）
   const startAng_canvas = Math.PI;
   const arcAng = state.u * c.theta;
-  // 顺时针：canvas 中 angle 增加（因 y 反向）
-  const endAng_canvas = startAng_canvas - arcAng;     // 物理逆时针 = canvas 顺时针，但电子偏转方向...
 
-  // 实际上电子从 a 出发垂直 ab（向上 = 物理 +y = canvas -y）做圆周 → 圆心在 a 的右侧（+x 方向）
-  // 顺时针走（在物理坐标系 y 上看）= 标准 angle 减小 = canvas 中 angle 增加（因 y 翻转）
-  // canvas 中 a 的角度：相对 cyC（圆心 canvas y）的 a 是 (cxA-cxC, cyA-cyC) = (-Rpx, 0) → angle=π
-  // 顺时针走（canvas 中）angle 增加：π → 3π/2（对应物理下方，即正方形外）
-  // 但电子在正方形上半行进 → canvas 上方 = canvas y 小 = angle = π → π/2 → 0
-  // 即 canvas 中 angle 减小（逆时针）
   ctx.strokeStyle = c.color;
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(cxC, cyC, Rpx, startAng_canvas, startAng_canvas - arcAng, true);
+  ctx.arc(cxC, cyC, Rpx, startAng_canvas, startAng_canvas + arcAng, false);
   ctx.stroke();
 
   // 当前电子位置
-  const ang_now = startAng_canvas - arcAng;
+  const ang_now = startAng_canvas + arcAng;
   const ex = cxC + Rpx*Math.cos(ang_now);
   const ey = cyC + Rpx*Math.sin(ang_now);
   ctx.fillStyle = c.color;
