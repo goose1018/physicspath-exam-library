@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 16 题 · 正方形棱镜折射 + 全反射</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：正方形 ABCD（边长 a）；M=AB 中点；入射角 60° 折射进入棱镜
+// M 处：sin 60° = n·sin θ → sin θ = √3/(2n)
+// 光线打 BC 边 N 点恰好全反射：N 处入射角 α 满足 sin α = 1/n
+// 几何：M→N 段方向与 AB 法线（竖直）夹 θ → 与 BC 法线（水平）夹 (90°−θ)
+//   故 N 处入射角 α = 90°−θ，sin α = cos θ = 1/n
+// 联立：sin²θ + cos²θ = 3/(4n²) + 1/n² = 1 → n² = 7/4 → **n = √7/2**
+// 由此 sin θ = √3/√7、cos θ = 2/√7、tan θ = √3/2
+//
+// 几何求 PC（坐标：A=(0,0), B=(a,0), C=(a,a), D=(0,a)，y 向下）：
+//   M = (a/2, 0)；折射光方向 (sin θ, cos θ)
+//   N = (a, a/(2tan θ)) = (a, a/√3)
+//   反射光方向 (−sin θ, cos θ)
+//   到 CD (y=a) 时 s = (a − a/(2 tan θ))/cos θ
+//   x_P = a − s·sin θ；PC = a − x_P = s·sin θ = a·(tan θ − 1/2) = a(√3/2 − 1/2) = **a(√3−1)/2**
+
+const T_total = 16;
+const a_side = 1.0;
+const sin60 = Math.sqrt(3) / 2;
+
+const n_index = Math.sqrt(7) / 2;            // ≈ 1.323
+const sinTh = sin60 / n_index;                // = √3/√7 ≈ 0.6547
+const cosTh = Math.sqrt(1 - sinTh * sinTh);   // = 2/√7 ≈ 0.7559
+const tanTh = sinTh / cosTh;                  // = √3/2
+
+// 关键点（物理坐标 +y 向下）
+const Mp = { x: a_side / 2, y: 0 };
+const Np = { x: a_side, y: a_side / (2 * tanTh) };          // ≈ (1, 0.577)
+// P：反射光从 N 走到 y=a 时
+const sLen = (a_side - Np.y) / cosTh;
+const Pp = { x: a_side - sLen * sinTh, y: a_side };
+const PC_dist = a_side - Pp.x;                              // = a(√3−1)/2 ≈ 0.366
+
+// 入射光：传播方向 = 从右上向左下指向 M（与 AB 法线夹 60°）
+// 物理 y 向下与屏幕同向 → "向下进棱镜"对应 +y 分量
+const incidentDir = { x: -Math.sin(60 * Math.PI / 180), y: +Math.cos(60 * Math.PI / 180) };
+const incLen = a_side * 0.45;
+const M_in = {
+  x: Mp.x - incidentDir.x * incLen,    // 入射光起点 x（在 M 右侧）
+  y: Mp.y - incidentDir.y * incLen     // 入射光起点 y（负值，在 AB 上方空气中）
+};
+
+// 出射光（从 P 出 CD），折射角 = 60°（对称回到空气）
+// 出射光方向：在 P 内部光与 CD 法线夹 θ，出射后与 CD 法线夹 60°
+const outDir = { x: -Math.sin(60 * Math.PI / 180), y: Math.cos(60 * Math.PI / 180) };  // 向左下出射
+const outLen = a_side * 0.45;
+const P_out = {
+  x: Pp.x + outDir.x * outLen,
+  y: Pp.y + outDir.y * outLen
+};
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面（棱镜 + 入射光 60°）
+  // 0.10-0.30 M 折射（sin60°=n·sinθ）
+  // 0.30-0.50 光线从 M 到 N（棱镜内传播）
+  // 0.50-0.65 N 全反射（sin α = 1/n, α=90°−θ → cos θ = 1/n）
+  // 0.65-0.80 反射光从 N 到 P
+  // 0.80-0.92 P 折射出射 + 几何求 PC
+  // 0.92-1.00 答案 n=√7/2 + PC=a(√3−1)/2
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.50) phase = 2;
+  else if(u < 0.65) phase = 3;
+  else if(u < 0.80) phase = 4;
+  else if(u < 0.92) phase = 5;
+  else phase = 6;
+
+  // 光线进度（从入射开始到出射结束）
+  // 4 段：
+  //   ① 入射光 M_in → M（u: 0..0.30）
+  //   ② 棱镜内 M → N（u: 0.30..0.50）
+  //   ③ 棱镜内 N → P（u: 0.65..0.80）
+  //   ④ 出射光 P → P_out（u: 0.80..0.92）
+  return {u, t, phase};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 全宽棱镜光路（按 2026-04-30 偏好：drawScene 不画大段文字推导面板）
+  drawPrism(ctx, 14, 14, W-28, H-28, state);
+}
+
+function drawPrism(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('棱镜光路（边长 a，M 为 AB 中点；入射角 60°）', panelX+12, panelY+18);
+
+  // 把物理 (0,0)..(a,a) 映射到 panel 中央
+  const padding = 60;
+  const sc = Math.min((panelW - 2*padding) / 2.0, (panelH - 2*padding) / 1.5);
+  const cx = panelX + panelW * 0.5;
+  const cy = panelY + panelH * 0.55;
+  const px = (xx) => cx - a_side*sc/2 + xx * sc;
+  const py = (yy) => cy - a_side*sc/2 + yy * sc;     // y 物理向下 → 屏幕也向下（同向）
+
+  // 棱镜（正方形 ABCD）— 半透明蓝色填充
+  ctx.fillStyle = 'rgba(63, 111, 143, 0.10)';
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(0));
+  ctx.lineTo(px(a_side), py(0));
+  ctx.lineTo(px(a_side), py(a_side));
+  ctx.lineTo(px(0), py(a_side));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 顶点标签
+  ctx.fillStyle = '#3a3a3c'; ctx.font = '900 13px Georgia,serif';
+  ctx.fillText('A', px(0) - 14, py(0) - 4);
+  ctx.fillText('B', px(a_side) + 4, py(0) - 4);
+  ctx.fillText('C', px(a_side) + 4, py(a_side) + 14);
+  ctx.fillText('D', px(0) - 14, py(a_side) + 14);
+
+  // 关键点：M, N, P
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 10px Georgia,serif';
+  function drawPt(p, label, dx, dy, color){
+    ctx.fillStyle = color || '#16613f';
+    ctx.beginPath();
+    ctx.arc(px(p.x), py(p.y), 4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = color || '#16613f';
+    ctx.font = '900 12px Georgia,serif';
+    ctx.fillText(label, px(p.x) + dx, py(p.y) + dy);
+  }
+  drawPt(Mp, 'M', -3, -8, '#16613f');
+  if(state.u >= 0.30) drawPt(Np, 'N', 8, 4, '#c2611f');
+  if(state.u >= 0.65) drawPt(Pp, 'P', -3, 16, '#b4442e');
+
+  // ━━━━━━ 光路 4 段 ━━━━━━
+
+  // ① 入射光 M_in → M（u: 0..0.30，渐进）
+  if(state.u >= 0){
+    const segU = Math.min(state.u / 0.30, 1);
+    const sx = px(M_in.x), sy = py(M_in.y);
+    const ex = px(Mp.x),   ey = py(Mp.y);
+    const cur = { x: sx + (ex - sx) * segU, y: sy + (ey - sy) * segU };
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(cur.x, cur.y);
+    ctx.stroke();
+    if(segU >= 0.95){
+      // 入射光箭头头
+      const dx = ex - sx, dy = ey - sy;
+      const len = Math.sqrt(dx*dx + dy*dy);
+      const ux = dx/len, uy = dy/len;
+      const ax = ex - ux * 8, ay = ey - uy * 8;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ax + uy*4, ay - ux*4);
+      ctx.lineTo(ax - uy*4, ay + ux*4);
+      ctx.closePath();
+      ctx.fillStyle = '#c2611f';
+      ctx.fill();
+    }
+  }
+
+  // ② 棱镜内 M → N（u: 0.30..0.50，渐进）
+  if(state.u >= 0.30){
+    const segU = Math.min((state.u - 0.30) / 0.20, 1);
+    const sx = px(Mp.x), sy = py(Mp.y);
+    const ex = px(Np.x), ey = py(Np.y);
+    const cur = { x: sx + (ex - sx) * segU, y: sy + (ey - sy) * segU };
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(cur.x, cur.y);
+    ctx.stroke();
+  }
+
+  // ③ 棱镜内 N → P（u: 0.65..0.80，渐进）
+  if(state.u >= 0.65){
+    const segU = Math.min((state.u - 0.65) / 0.15, 1);
+    const sx = px(Np.x), sy = py(Np.y);
+    const ex = px(Pp.x), ey = py(Pp.y);
+    const cur = { x: sx + (ex - sx) * segU, y: sy + (ey - sy) * segU };
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(cur.x, cur.y);
+    ctx.stroke();
+  }
+
+  // ④ 出射光 P → P_out（u: 0.80..0.92）
+  if(state.u >= 0.80){
+    const segU = Math.min((state.u - 0.80) / 0.12, 1);
+    const sx = px(Pp.x), sy = py(Pp.y);
+    const ex = px(P_out.x), ey = py(P_out.y);
+    const cur = { x: sx + (ex - sx) * segU, y: sy + (ey - sy) * segU };
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(cur.x, cur.y);
+    ctx.stroke();
+  }
+
+  // 法线（虚线，揭晓时机不同）
+  ctx.setLineDash([4, 3]);
+  // M 处法线（垂直 AB，向上下延伸）
+  if(state.u >= 0.10){
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px(Mp.x), py(Mp.y) - 0.4 * sc);
+    ctx.lineTo(px(Mp.x), py(Mp.y) + 0.3 * sc);
+    ctx.stroke();
+  }
+  // N 处法线（水平向 BC 外）
+  if(state.u >= 0.50){
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px(Np.x) - 0.3 * sc, py(Np.y));
+    ctx.lineTo(px(Np.x) + 0.4 * sc, py(Np.y));
+    ctx.stroke();
+  }
+  // P 处法线（垂直 CD，向下）
+  if(state.u >= 0.80){
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px(Pp.x), py(Pp.y) - 0.3 * sc);
+    ctx.lineTo(px(Pp.x), py(Pp.y) + 0.4 * sc);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // 入射角 60° 标注（M 处）
+  if(state.u >= 0.10){
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('60°', px(Mp.x) + 8, py(Mp.y) - 22);
+  }
+  // θ 角标注（M 内部）
+  if(state.u >= 0.20){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('θ', px(Mp.x) + 6, py(Mp.y) + 16);
+  }
+  // N 处入射角 (90°−θ) 标注
+  if(state.u >= 0.55){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('90°−θ', px(Np.x) - 50, py(Np.y) - 4);
+  }
+
+  // PC 距离标注（u≥0.85）
+  if(state.u >= 0.85){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.6;
+    PPath.arrow(ctx, px(Pp.x), py(a_side) + 18, px(a_side), py(a_side) + 18, '#16613f', 1.6);
+    PPath.arrow(ctx, px(a_side), py(a_side) + 18, px(Pp.x), py(a_side) + 18, '#16613f', 1.6);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('PC', (px(Pp.x) + px(a_side))/2 - 10, py(a_side) + 32);
+  }
+
+  // 阶段标签
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① 入射光 60° 朝 M',
+    '阶段 ② M 折射：sin60°=n·sinθ',
+    '阶段 ③ M→N 棱镜内传播',
+    '阶段 ④ N 全反射：cosθ=1/n',
+    '阶段 ⑤ N→P 反射光',
+    '阶段 ⑥ P 折射出射 + 求 PC',
+    '阶段 ⑦ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+
+  // 答案徽章（u≥0.92，浮在右下角；推导链放 phases.formula_tex KaTeX 公式栏）
+  if(state.u >= 0.92){
+    const bW = 240, bH = 78;
+    const bX = panelX + panelW - bW - 18, bY = panelY + panelH - bH - 36;
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bX, bY, bW, bH, 10);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案', bX + 14, bY + 20);
+    ctx.font = '900 14px ui-monospace,monospace';
+    ctx.fillText('(1)  n = √7 / 2', bX + 14, bY + 44);
+    ctx.fillText('(2)  PC = a(√3−1)/2', bX + 14, bY + 66);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 16 题（选考光学）· 9 分',
+  title: '正方形棱镜折射 + 全反射',
+  subtitle: 'M 入射 60° → N 全反射 → P 出射；联立 sin60°=n·sinθ 与 cosθ=1/n，得 n=√7/2、PC=a(√3−1)/2。',
+  deliv: { title: '折射 + 全反射 + 几何', sub: 'n=√7/2 / PC=a(√3−1)/2' },
+  originalProblem: {
+    meta: '2022 全国甲 · 计算 · 第 16 题（选考光学）· 9 分',
+    image: '../../source/images/image187.png',
+    text: `如图，边长为 a 的正方形 ABCD 为一棱镜的横截面，M 为 AB 边的中点。在截面所在的平面，一光线自 M 点射入棱镜，入射角为 60°，经折射后在 BC 边的 N 点恰好发生全反射，反射光线从 CD 边的 P 点射出棱镜。求棱镜的折射率以及 P、C 两点之间的距离。`,
+    subQuestions: [
+      '(1) 棱镜的折射率 n',
+      '(2) P、C 两点之间的距离 PC'
+    ],
+    officialAnswer: '(1) n = √7 / 2 ≈ 1.32  (2) PC = a(√3−1)/2 · M 处折射：sin 60° = n·sin θ → sin θ = √3/(2n)。N 处恰好全反射 → 临界角 α 满足 sin α = 1/n。几何关系：M→N 段方向与 AB 法线（竖直）夹 θ → 与 BC 法线（水平）夹 90°−θ → α = 90°−θ → cos θ = 1/n。联立：sin²θ + cos²θ = 3/(4n²) + 1/n² = (3+4)/(4n²) = 1 → **n² = 7/4 → n = √7/2**。由此 sin θ = √3/√7、cos θ = 2/√7、tan θ = √3/2。坐标 A(0,0)/B(a,0)/C(a,a)/D(0,a)（y 向下），M(a/2, 0)，N(a, a/(2tan θ)) = (a, a/√3)。反射光方向 (−sin θ, cos θ)，到 y=a 时 s = (a−a/(2tan θ))/cos θ；x_P = a − s·sin θ。**PC = a − x_P = s·sin θ = a(tan θ − 1/2) = a(√3/2 − 1/2) = a(√3−1)/2**。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 入射', label_short:'60°',
+     formula_tex: String.raw`\text{入射角 } i = 60°,\;\text{折射角 } \theta`,
+     note:'M 处由空气入棱镜。'},
+    {label:'阶段 ② M 折射', label_short:'sin60°=n·sinθ',
+     formula_tex: String.raw`\sin 60° = n \sin\theta \Rightarrow \sin\theta = \dfrac{\sqrt{3}}{2n}`,
+     note:'Snell 定律。'},
+    {label:'阶段 ③ M→N', label_short:'光路',
+     formula_tex: String.raw`N=\left(a,\,\dfrac{a}{2\tan\theta}\right)`,
+     note:'棱镜内沿折射方向到 BC。'},
+    {label:'阶段 ④ N 全反射', label_short:'cosθ=1/n',
+     formula_tex: String.raw`\sin\alpha = \dfrac{1}{n},\;\;\alpha = 90°-\theta \Rightarrow \cos\theta = \dfrac{1}{n}`,
+     note:'临界全反射条件。'},
+    {label:'阶段 ⑤ 解 n', label_short:'n=√7/2',
+     formula_tex: String.raw`\dfrac{3}{4n^2} + \dfrac{1}{n^2} = 1 \Rightarrow n^2 = \dfrac{7}{4}`,
+     note:'sin² + cos² = 1。'},
+    {label:'阶段 ⑥ 解 PC', label_short:'PC',
+     formula_tex: String.raw`\tan\theta=\dfrac{\sqrt{3}}{2},\;\;PC = a\!\left(\tan\theta-\dfrac{1}{2}\right) = \dfrac{a(\sqrt{3}-1)}{2}`,
+     note:'反射光到 CD，几何求 PC。'},
+    {label:'阶段 ⑦ 答案', label_short:'',
+     formula_tex: String.raw`n=\dfrac{\sqrt{7}}{2},\;\;PC=\dfrac{a(\sqrt{3}-1)}{2}`,
+     note:'答案。'}
+  ],
+  stats: [
+    {label:'入射角',     fmt:s=>(s.u>=0.05? '60°' : '?')},
+    {label:'sin θ',      fmt:s=>(s.u>=0.20? '√3/(2n)' : '?')},
+    {label:'N 入射角 α', fmt:s=>(s.u>=0.55? '90°−θ' : '?')},
+    {label:'cos θ',      fmt:s=>(s.u>=0.55? '1/n' : '?')},
+    {label:'n',          fmt:s=>(s.u>=0.92? '√7/2' : '?')},
+    {label:'PC',         fmt:s=>(s.u>=0.92? 'a(√3−1)/2' : '?')}
+  ],
+  conclusions: [
+    {label_text:'(1) n', value_text:'n = √7 / 2',         note:'≈ 1.32'},
+    {label_text:'(2) PC', value_text:'PC = a(√3−1)/2',    note:'≈ 0.366 a'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'空气中光线（入射 / 出射）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'棱镜内光线'},
+    {swatch:{bg:'rgba(63,111,143,0.20)',border:'#3a3a3c',type:'rect'}, text:'棱镜（正方形 ABCD）'},
+    {swatch:{bg:'#a89878',border:'#a89878',type:'rect'}, text:'法线（虚线）'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q16-棱镜折射'
+});
+</script>
+</body>
+</html>

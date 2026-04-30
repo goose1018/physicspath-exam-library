@@ -126,6 +126,47 @@
   font-weight: 800;
 }
 
+/* 浮动左右翻页按钮：墨绿色实心、稳居屏幕左右边缘 */
+.el-pfixed {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  width: 64px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ppath-ink-green-800);
+  border: 2px solid var(--ppath-ink-green-800);
+  border-radius: 14px;
+  cursor: pointer;
+  color: white;
+  box-shadow: 0 6px 22px rgba(31, 58, 46, 0.28);
+  transition: all var(--ppath-dur-fast) var(--ppath-ease);
+}
+.el-pfixed svg { width: 32px; height: 32px; stroke-width: 2.6; }
+.el-pfixed:hover:not(:disabled) {
+  background: var(--ppath-ink-green-900, #122a20);
+  transform: translateY(-50%) scale(1.06);
+  box-shadow: 0 10px 28px rgba(31, 58, 46, 0.42);
+}
+.el-pfixed:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.98);
+}
+.el-pfixed:disabled { opacity: 0; pointer-events: none; }
+.el-pfixed-left { left: 24px; }
+.el-pfixed-right { right: 24px; }
+@media (max-width: 1100px) {
+  .el-pfixed { width: 52px; height: 80px; }
+  .el-pfixed svg { width: 26px; height: 26px; }
+  .el-pfixed-left { left: 12px; }
+  .el-pfixed-right { right: 12px; }
+}
+@media (max-width: 720px) {
+  .el-pfixed { display: none; }
+}
+
 /* ─── ExamLibrary head wrapper ─── */
 .exam-page { max-width: 1280px; margin: 0 auto; padding: 56px 56px 80px; }
 .exam-head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 36px; gap: 32px; }

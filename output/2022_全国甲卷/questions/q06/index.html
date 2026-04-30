@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 6 题 · 双滑块+弹簧撤力分析</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：等质量 m 的 P、Q（P 在右、Q 在左），水平弹簧连接，摩擦系数 μ
+// 撤 F 前匀速：F=2μmg；P 受 F(右)−μmg(左)−T(左)=0 / Q 受 T(右)−μmg(左)=0 → 弹簧拉力 T=μmg（伸长）
+//
+// 撤 F 瞬间（向右为正，两块仍向右动 → 摩擦向左）：
+//   P：−T − μmg = −2μmg → a_P=−2μg（|a_P|_max=2μg）
+//   Q：+T − μmg = 0 → a_Q=0
+//
+// 弹簧第一次恢复原长瞬间（T=0）：
+//   P：−μmg → a_P=−μg
+//   Q：−μmg → a_Q=−μg（|a_Q|_max=μg）
+//
+// 中间过程：P 减速 → PQ 距离缩 → 弹簧伸长量缩 → T↓
+//   P 合力（向左）= μmg + T↓ → 减速加速度变小
+//   Q 合力（向左）= μmg − T↓ → 减速加速度增大
+//
+// 答案 AD：A) |a_P|_max=2μg ✓；B) |a_Q|_max=μg(非 2μg) ✗；C) P 位移<Q 位移 ✗；D) v_P ≤ v_Q ✓
+
+const T_total = 14;
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面/起始 P/Q 匀速
+  // 0.10-0.30 撤 F 瞬间（力分析 + a_P=-2μg, a_Q=0）
+  // 0.30-0.55 中间过程（P 减速、Q 加速度增大）
+  // 0.55-0.75 弹簧恢复原长瞬间（a_P=-μg, a_Q=-μg）
+  // 0.75-0.90 4 选项判定
+  // 0.90-1.00 答案 AD
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.55) phase = 2;
+  else if(u < 0.75) phase = 3;
+  else if(u < 0.90) phase = 4;
+  else phase = 5;
+
+  // P/Q 位置（任意单位）
+  // 设撤 F 前 v_0=1，撤 F 时 t_F=1.0（局部时间），到弹簧恢复原长 t_R=2.5
+  // 撤 F 前：x_P=v_0·t, x_Q=v_0·t-D0（D0=初始距离）
+  // 撤 F 后：用近似抛物线
+  const v0 = 1.0;
+  const D0 = 2.0;          // 初始 PQ 距（弹簧伸长量参考）
+  const stretchInit = 0.6; // 初始弹簧伸长（任意单位）
+  // 局部"撤 F 后"时间 τ ∈ [0, 1.5]
+  let xP, xQ, springStretch, vP, vQ, aP, aQ;
+
+  if(u < 0.10){
+    // 匀速阶段（演示）
+    const localT = u / 0.10 * 0.6;     // 0→0.6
+    xP = D0 + v0 * localT;
+    xQ = v0 * localT;
+    springStretch = stretchInit;
+    vP = v0; vQ = v0;
+    aP = 0; aQ = 0;
+  } else if(u < 0.55){
+    // 撤 F 后到中间过程
+    const localU = (u - 0.10) / 0.45;    // 0→1
+    const tau = localU * 1.0;           // 局部时间 0→1（撤 F 到中间）
+    // 简化模型：P 减速 a_P=-(2μg)·(1-tau/2), Q 加速度 -μg·tau/2 (从 0 渐增到 -μg/2)
+    // 但为简化展示用近似
+    vP = v0 * (1 - 0.6 * tau);
+    vQ = v0 * (1 - 0.2 * tau);
+    aP = -2.0 * (1 - 0.4 * tau);  // 撤 F 瞬间最大 -2，逐渐变小
+    aQ = -0.5 * tau;              // 0 → -0.5
+    xP = D0 + 0.6 + v0 * tau - 0.3 * tau * tau;  // 估算位移
+    xQ = 0.6 + v0 * tau - 0.1 * tau * tau;
+    springStretch = stretchInit * (1 - 0.6 * tau);  // 0.6 → 0.24
+  } else if(u < 0.75){
+    // 弹簧恢复原长瞬间
+    const localU = (u - 0.55) / 0.20;   // 0→1
+    const tau = 1.0 + localU * 0.5;     // 局部时间 1→1.5
+    vP = v0 * (1 - 0.6 - 0.15 * (tau-1));
+    vQ = v0 * (1 - 0.2 - 0.3 * (tau-1));
+    aP = -1.0;                          // 弹簧恢复原长 a_P=-μg=-1
+    aQ = -1.0;                          // 此瞬间 a_Q=-μg=-1
+    xP = D0 + 0.6 + v0 * tau - 0.3 * tau * tau;
+    xQ = 0.6 + v0 * tau - 0.1 * tau * tau;
+    springStretch = 0;                  // 原长
+  } else {
+    // 选项 / 答案阶段：保持弹簧原长状态
+    vP = 0.25; vQ = 0.50;
+    aP = -1.0; aQ = -1.0;
+    xP = D0 + 0.6 + 1.5 - 0.675;        // 末态位置
+    xQ = 0.6 + 1.5 - 0.225;
+    springStretch = 0;
+  }
+
+  return {u, t, phase, xP, xQ, springStretch, vP, vQ, aP, aQ};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上：装置（滑块+弹簧+速度+F），下：受力分析（4 力箭头+加速度数值+答案徽章）
+  drawSetup(ctx, 14, 14, W-28, H*0.58-21, state);
+  drawForces(ctx, 14, H*0.58+7, W-28, H*0.42-21, state);
+}
+
+function drawSetup(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('双滑块 P、Q（弹簧连接，摩擦 μ）', panelX+12, panelY+18);
+
+  // 桌面（位于面板下半部）
+  const tableY = panelY + panelH * 0.65;
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 12, tableY);
+  ctx.lineTo(panelX + panelW - 12, tableY);
+  ctx.stroke();
+  // 桌面斜线
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1;
+  for(let xi = panelX + 14; xi < panelX + panelW - 12; xi += 12){
+    ctx.beginPath();
+    ctx.moveTo(xi, tableY);
+    ctx.lineTo(xi - 5, tableY + 6);
+    ctx.stroke();
+  }
+
+  // 像素/物理单位
+  const xRange = 6;          // 物理坐标范围 0→6
+  const sc = (panelW - 80) / xRange;
+  const xOrig = panelX + 30;
+  // 滑块尺寸
+  const blockW = 32, blockH = 22;
+
+  // Q 位置（左）
+  const qx = xOrig + state.xQ * sc;
+  // P 位置（右）
+  const px = xOrig + state.xP * sc;
+
+  // 弹簧（连接 Q 右边到 P 左边）
+  const springStartX = qx + blockW/2;
+  const springEndX = px - blockW/2;
+  drawSpring(ctx, springStartX, tableY - blockH/2, springEndX, tableY - blockH/2);
+
+  // P（右、红）
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(px - blockW/2, tableY - blockH, blockW, blockH);
+  ctx.strokeStyle = '#7d2f1f'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(px - blockW/2, tableY - blockH, blockW, blockH);
+  ctx.fillStyle = '#fff'; ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('P', px, tableY - blockH/2 + 4);
+
+  // Q（左、蓝）
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(qx - blockW/2, tableY - blockH, blockW, blockH);
+  ctx.strokeStyle = '#1f4f6f'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(qx - blockW/2, tableY - blockH, blockW, blockH);
+  ctx.fillStyle = '#fff';
+  ctx.fillText('Q', qx, tableY - blockH/2 + 4);
+  ctx.textAlign = 'start';
+
+  // F 拉力箭头（仅 phase 0）
+  if(state.phase === 0){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.5;
+    PPath.arrow(ctx, px + blockW/2 + 4, tableY - blockH/2,
+                     px + blockW/2 + 36, tableY - blockH/2, '#c2611f', 2.5);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px Georgia,serif';
+    ctx.fillText('F', px + blockW/2 + 14, tableY - blockH/2 - 4);
+  }
+
+  // 速度箭头（蓝）
+  if(state.vP > 0.01){
+    ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.5;
+    PPath.arrow(ctx, px - 5, tableY - blockH - 8,
+                     px + 12 + state.vP * 18, tableY - blockH - 8, '#3a3a3c', 1.5);
+    ctx.fillStyle = '#3a3a3c';
+    ctx.font = '700 9px Georgia,serif';
+    ctx.fillText('v_P', px + 8, tableY - blockH - 12);
+  }
+  if(state.vQ > 0.01){
+    ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.5;
+    PPath.arrow(ctx, qx - 5, tableY - blockH - 8,
+                     qx + 12 + state.vQ * 18, tableY - blockH - 8, '#3a3a3c', 1.5);
+    ctx.fillStyle = '#3a3a3c';
+    ctx.font = '700 9px Georgia,serif';
+    ctx.fillText('v_Q', qx + 8, tableY - blockH - 12);
+  }
+
+  // 阶段标签
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① 撤 F 前匀速',
+    '阶段 ② 撤 F 瞬间',
+    '阶段 ③ 中间过程',
+    '阶段 ④ 弹簧恢复原长',
+    '阶段 ⑤ 选项判定',
+    '阶段 ⑥ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+
+  // 弹簧伸长指示（u≥0.10）
+  if(state.u >= 0.10){
+    ctx.fillStyle = state.springStretch > 0.01 ? '#c2611f' : '#16613f';
+    ctx.font = '700 10px ui-monospace,monospace';
+    const stretchTxt = state.springStretch > 0.01 ? `弹簧伸长 ≈ ${state.springStretch.toFixed(2)}` : '弹簧 = 原长';
+    ctx.fillText(stretchTxt, panelX + 12, panelY + 32);
+  }
+}
+
+function drawSpring(ctx, x1, y, x2, y2){
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  const N = 10;
+  const dx = (x2 - x1) / N;
+  const amp = 4;
+  ctx.moveTo(x1, y);
+  for(let i = 1; i < N; i++){
+    const xi = x1 + i * dx;
+    const yi = y + (i % 2 === 0 ? -amp : amp);
+    ctx.lineTo(xi, yi);
+  }
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function drawForces(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('受力分析（撤 F 后水平方向）', panelX+12, panelY+18);
+
+  const cy = panelY + panelH * 0.55;
+  const cxQ = panelX + panelW * 0.30;
+  const cxP = panelX + panelW * 0.70;
+  const blockW = 30, blockH = 22;
+
+  // Q 滑块
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(cxQ - blockW/2, cy - blockH/2, blockW, blockH);
+  ctx.fillStyle = '#fff'; ctx.font = '900 11px "Noto Sans SC",sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Q', cxQ, cy + 4);
+
+  // P 滑块
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(cxP - blockW/2, cy - blockH/2, blockW, blockH);
+  ctx.fillStyle = '#fff';
+  ctx.fillText('P', cxP, cy + 4);
+  ctx.textAlign = 'start';
+
+  // 力箭头
+  if(state.u >= 0.10){
+    // P 滑块力（左）：弹簧拉力 T 向左 + 摩擦 μmg 向左
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, cxP, cy - blockH/2 - 12, cxP - 30, cy - blockH/2 - 12, '#a89878', 2);
+    ctx.fillStyle = '#a89878'; ctx.font = '700 10px Georgia,serif';
+    ctx.fillText('T (弹)', cxP - 60, cy - blockH/2 - 8);
+
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, cxP, cy + blockH/2 + 12, cxP - 24, cy + blockH/2 + 12, '#5d6964', 2);
+    ctx.fillStyle = '#5d6964'; ctx.font = '700 10px Georgia,serif';
+    ctx.fillText('μmg (摩)', cxP - 60, cy + blockH/2 + 16);
+
+    // Q 滑块力（右）：弹簧拉力 T 向右 + 摩擦 μmg 向左
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, cxQ, cy - blockH/2 - 12, cxQ + 30, cy - blockH/2 - 12, '#a89878', 2);
+    ctx.fillStyle = '#a89878'; ctx.font = '700 10px Georgia,serif';
+    ctx.fillText('T', cxQ + 32, cy - blockH/2 - 8);
+
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, cxQ, cy + blockH/2 + 12, cxQ - 24, cy + blockH/2 + 12, '#5d6964', 2);
+    ctx.fillStyle = '#5d6964'; ctx.font = '700 10px Georgia,serif';
+    ctx.fillText('μmg', cxQ - 50, cy + blockH/2 + 16);
+  }
+
+  // 加速度示数
+  ctx.fillStyle = '#3a3a3c'; ctx.font = '700 10px ui-monospace,monospace';
+  ctx.textAlign = 'center';
+  if(state.u >= 0.10){
+    ctx.fillStyle = state.aP < -1.5 ? '#b4442e' : '#5d6964';
+    ctx.fillText(`a_P = ${state.aP.toFixed(2)} μg`, cxP, cy + blockH/2 + 38);
+    ctx.fillStyle = state.aQ < -0.5 ? '#3f6f8f' : '#5d6964';
+    ctx.fillText(`a_Q = ${state.aQ.toFixed(2)} μg`, cxQ, cy + blockH/2 + 38);
+  }
+  ctx.textAlign = 'start';
+
+  // 答案徽章（u≥0.92）
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    const bX = panelX + panelW - 130, bY = panelY + 12, bW = 118, bH = 30;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bX, bY, bW, bH, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('答案 AD', bX + bW/2, bY + 20);
+    ctx.textAlign = 'start';
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '双滑块+弹簧撤力分析',
+  subtitle: '撤 F 瞬间 |a_P|_max=2μg、a_Q=0；弹簧恢复原长瞬间 |a_Q|_max=μg；过程中 v_P ≤ v_Q。',
+  deliv: { title: '弹簧 + 摩擦 + 牛顿第二定律', sub: 'AD：a_P 极值 + v_P ≤ v_Q' },
+  originalProblem: {
+    meta: '2022 全国甲 · 多选 · 第 6 题 · 6 分',
+    image: '../../source/images/image60.png',
+    text: `如图，质量相等的两滑块 P、Q 置于水平桌面上，二者用一轻弹簧水平连接，两滑块与桌面间的动摩擦因数均为 μ。重力加速度大小为 g。用水平向右的拉力 F 拉动 P，使两滑块均做匀速运动；某时刻突然撤去该拉力，则从此刻开始到弹簧第一次恢复原长之前（    ）`,
+    subQuestions: [
+      'A. P 的加速度大小的最大值为 2μg',
+      'B. Q 的加速度大小的最大值为 2μg',
+      'C. P 的位移大小一定大于 Q 的位移大小',
+      'D. P 的速度大小均不大于同一时刻 Q 的速度大小'
+    ],
+    officialAnswer: 'AD · 撤 F 前匀速 → F=2μmg、弹簧拉力 T=μmg。撤 F 瞬间：弹簧伸长不变 → P 受 T+μmg 同向（皆向左）→ |a_P|=2μg（最大值，A 对）；Q 受 T(右)−μmg(左)=0 → a_Q=0。中间过程 P 减速、PQ 距减小、T↓ → |a_P|↓、|a_Q|↑。弹簧第一次恢复原长瞬间 T=0：P 仅受摩擦 μmg → |a_P|=μg；Q 仅受摩擦 μmg → |a_Q|=μg（这是 Q 加速度最大值，B 错应为 μg 非 2μg）。位移：P 一直在减速、Q 起初匀速后才减速 → 同时段 P 走得少（C 错，应 P 位移&lt;Q 位移）。速度：撤 F 瞬两者相等，之后 P 减速比 Q 早且加速度大 → v_P ≤ v_Q（D 对）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 撤 F 前', label_short:'F=2μmg',
+     formula_tex: String.raw`F=2\mu mg,\;\;T_{\text{弹}}=\mu mg`,
+     note:'匀速：弹簧伸长 T=μmg。'},
+    {label:'阶段 ② 撤 F 瞬间', label_short:'a_P=-2μg',
+     formula_tex: String.raw`a_P=-2\mu g,\;\;a_Q=0`,
+     note:'P 受 T+摩擦同向（向左），Q 合力为 0。'},
+    {label:'阶段 ③ 中间过程', label_short:'T↓',
+     formula_tex: String.raw`T\downarrow\;\Rightarrow\;|a_P|\downarrow,\;|a_Q|\uparrow`,
+     note:'弹簧伸长缩 → P 减速变缓、Q 减速增大。'},
+    {label:'阶段 ④ 弹簧原长', label_short:'a_Q=-μg',
+     formula_tex: String.raw`T=0:\;|a_P|=|a_Q|=\mu g`,
+     note:'此瞬间 |a_Q|_max=μg（非 2μg）。'},
+    {label:'阶段 ⑤ 选项', label_short:'A/B/C/D',
+     formula_tex: String.raw`A\;\checkmark\;\;B\;\times\;\;C\;\times\;\;D\;\checkmark`,
+     note:'A 对、B/C 错、D 对。'},
+    {label:'阶段 ⑥ 答案', label_short:'AD',
+     formula_tex: String.raw`\text{答案}\;AD`,
+     note:'AD。'}
+  ],
+  stats: [
+    {label:'F (匀速)',     fmt:s=>(s.u>=0.05? '2μmg' : '?')},
+    {label:'T (初)',       fmt:s=>(s.u>=0.05? 'μmg' : '?')},
+    {label:'|a_P|_max',    fmt:s=>(s.u>=0.92? '2μg' : '?')},
+    {label:'|a_Q|_max',    fmt:s=>(s.u>=0.92? 'μg'  : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'|a_P|_max = 2μg ✓',  note:'撤 F 瞬间最大'},
+    {label_text:'B 错', value_text:'|a_Q|_max = μg',     note:'非 2μg'},
+    {label_text:'C 错', value_text:'P 位移 &lt; Q 位移',     note:'P 减速 Q 起初匀速'},
+    {label_text:'D 对', value_text:'v_P ≤ v_Q ✓',        note:'P 减速更早更快'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#7d2f1f',type:'rect'}, text:'P 滑块（右）'},
+    {swatch:{bg:'#3f6f8f',border:'#1f4f6f',type:'rect'}, text:'Q 滑块（左）'},
+    {swatch:{bg:'#a89878',border:'#a89878',type:'rect'}, text:'弹簧 / 弹簧拉力'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q6-双滑块弹簧'
+});
+</script>
+</body>
+</html>

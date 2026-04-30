@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 5 题 · 带电粒子电磁场摆线轨迹</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：B 垂直纸面向里 (B=-Bẑ)，E 沿 +y
+// 正电荷从 O 静止 → 受 qE ŷ 向上 → 一旦 v_y>0 → 洛伦兹力 qv×B = -qBv_y x̂ 向左
+// 故初始向 +y +-x 偏，即向左上方运动
+//
+// 解析：m·v̇_x = -qBv_y, m·v̇_y = qE+qBv_x
+// ω=qB/m, R=mE/(qB²)=E/(Bω)
+// x(t) = R·sin(ωt) - (E/B)t
+// y(t) = R·[1-cos(ωt)]
+// 标准摆线：从 O 出发向 +y -x 起步，y_max=2R，每周期 x 漂移 -2πR
+//
+// 答案 B（向左漂移的摆线轨迹）
+
+const T_total = 12;
+
+// 摆线参数（任意单位）
+const R_cyc = 1.0;            // 圆周运动半径
+const omega = 2 * Math.PI;    // 角频率（每"秒"一周）
+const drift = R_cyc * omega;  // 漂移速度 = E/B = R·ω
+const totalCycles = 2.0;      // 显示 2 周期
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面
+  // 0.10-0.30 力分析（受力图：电场力 + 洛伦兹力示意）
+  // 0.30-0.65 摆线轨迹画出
+  // 0.65-0.85 4 选项对比
+  // 0.85-1.00 答案 B
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.65) phase = 2;
+  else if(u < 0.85) phase = 3;
+  else phase = 4;
+
+  // 摆线进度（u: 0.30→0.65 映射到 0→2π·totalCycles）
+  let psi = 0;
+  if(u >= 0.30){
+    const localU = (u - 0.30) / 0.35;  // 0→1
+    const clamped = Math.max(0, Math.min(localU, 1));
+    psi = clamped * 2 * Math.PI * totalCycles;
+  }
+
+  // 摆线坐标（物理单位，后面再缩放到屏幕）
+  const x_phys = R_cyc * Math.sin(psi) - drift * (psi / omega);
+  const y_phys = R_cyc * (1 - Math.cos(psi));
+  return {u, t, phase, psi, x_phys, y_phys};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 左：摆线轨迹（主图）；右：4 选项小图对比
+  drawTrajectory(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawOptions(ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawTrajectory(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('xOy 平面摆线轨迹（B 向里、E 沿 +y）', panelX+12, panelY+18);
+
+  // 坐标系（O 在右上侧靠近右边，因为粒子向左漂移）
+  const Ox = panelX + panelW * 0.85;   // O 点位置
+  const Oy = panelY + panelH * 0.30;
+  // 像素/物理单位
+  const pxScale = panelW * 0.30 / (totalCycles * 2 * Math.PI);  // x 方向
+  const pyScale = panelH * 0.55 / (2 * R_cyc);                  // y 方向
+  // 让 x 和 y 等比例（摆线形状不变形）
+  const sc = Math.min(pxScale, pyScale);
+
+  // ×号磁场背景
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 9px Georgia,serif';
+  for(let xi = panelX+22; xi < panelX+panelW-12; xi += 18){
+    for(let yi = panelY+34; yi < panelY+panelH-30; yi += 18){
+      ctx.globalAlpha = 0.18;
+      ctx.fillText('×', xi, yi);
+    }
+  }
+  ctx.globalAlpha = 1.0;
+
+  // x 轴（水平线穿 O）
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(panelX+12, Oy);
+  ctx.lineTo(panelX+panelW-12, Oy);
+  ctx.stroke();
+  // y 轴
+  ctx.beginPath();
+  ctx.moveTo(Ox, panelY+30);
+  ctx.lineTo(Ox, panelY+panelH-12);
+  ctx.stroke();
+
+  // 轴标
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px Georgia,serif';
+  ctx.fillText('x', panelX+panelW-22, Oy-6);
+  ctx.fillText('y', Ox+6, panelY+38);
+  ctx.fillText('O', Ox+5, Oy+13);
+
+  // E 方向箭头（在轨迹左侧标 +y）
+  if(state.u >= 0.10){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, panelX+30, Oy+10, panelX+30, Oy-30, '#c2611f', 2);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 11px Georgia,serif';
+    ctx.fillText('E', panelX+34, Oy-20);
+  }
+
+  // 画摆线轨迹（从 0 到当前 psi）
+  if(state.u >= 0.30){
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    const dPsi = 0.05;
+    const psiNow = state.psi;
+    for(let p = 0; p <= psiNow; p += dPsi){
+      const xPhys = R_cyc * Math.sin(p) - drift * (p / omega);
+      const yPhys = R_cyc * (1 - Math.cos(p));
+      const px = Ox + xPhys * sc;
+      const py = Oy - yPhys * sc;     // canvas y 反向
+      if(p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // 当前粒子位置
+    const px_now = Ox + state.x_phys * sc;
+    const py_now = Oy - state.y_phys * sc;
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath();
+    ctx.arc(px_now, py_now, 5.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#7d2f1f'; ctx.lineWidth = 1.2;
+    ctx.stroke();
+    // + 号
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 9px Georgia,serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('+', px_now, py_now+3);
+    ctx.textAlign = 'start';
+  }
+
+  // 标注 y_max=2R 和周期 2πR（u≥0.55 揭晓）
+  if(state.u >= 0.55){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10px ui-monospace,monospace';
+    // y_max 虚线
+    const yTopPx = Oy - 2 * R_cyc * sc;
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(panelX+12, yTopPx);
+    ctx.lineTo(panelX+panelW-12, yTopPx);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText('y_max = 2R', panelX+16, yTopPx-3);
+  }
+}
+
+function drawOptions(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('四选项轨迹对比', panelX+12, panelY+18);
+
+  // 4 个小图（2×2）
+  const cellW = (panelW - 36) / 2;
+  const cellH = (panelH - 50) / 2;
+  const cells = [
+    {label:'A', x: panelX+12,             y: panelY+30,             kind:'rightCycloid'},
+    {label:'B', x: panelX+12+cellW+12,    y: panelY+30,             kind:'leftCycloid'},   // 正解
+    {label:'C', x: panelX+12,             y: panelY+30+cellH+12,    kind:'rightSpiral'},
+    {label:'D', x: panelX+12+cellW+12,    y: panelY+30+cellH+12,    kind:'leftSpiral'}
+  ];
+
+  cells.forEach(c => {
+    // 边框
+    const isCorrect = (c.label === 'B');
+    const showHighlight = (state.u >= 0.92 && isCorrect);
+    ctx.strokeStyle = showHighlight ? '#16613f' : '#d9cfb8';
+    ctx.lineWidth = showHighlight ? 2.5 : 1;
+    ctx.fillStyle = showHighlight ? '#f0f8f1' : '#fffdf9';
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(c.x, c.y, cellW, cellH, 8);ctx.fill();ctx.stroke();}
+
+    // 标签
+    ctx.fillStyle = showHighlight ? '#16613f' : '#5d6964';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText(c.label, c.x+6, c.y+14);
+
+    // 小坐标系（O 在右上侧 for B/D，左上侧 for A/C）
+    const Oxx = (c.kind === 'leftCycloid' || c.kind === 'leftSpiral') ? c.x + cellW * 0.85 : c.x + cellW * 0.18;
+    const Oyy = c.y + cellH * 0.32;
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(c.x+8, Oyy); ctx.lineTo(c.x+cellW-8, Oyy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(Oxx, c.y+24); ctx.lineTo(Oxx, c.y+cellH-8);
+    ctx.stroke();
+
+    // 轨迹（sc2 收紧防止 1.5 周期摆线 (3π·R) 超出 cell 边框）
+    const sc2 = Math.min(cellW * 0.085 / Math.PI, cellH * 0.18);
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if(c.kind === 'leftCycloid'){
+      // B：向左漂移摆线（正解）
+      for(let p = 0; p <= 2 * Math.PI * 1.5; p += 0.05){
+        const xP = R_cyc * Math.sin(p) - drift * (p / omega);
+        const yP = R_cyc * (1 - Math.cos(p));
+        const ppx = Oxx + xP * sc2;
+        const ppy = Oyy - yP * sc2;
+        if(p === 0) ctx.moveTo(ppx, ppy); else ctx.lineTo(ppx, ppy);
+      }
+    } else if(c.kind === 'rightCycloid'){
+      // A：向右漂移摆线（错）
+      for(let p = 0; p <= 2 * Math.PI * 1.5; p += 0.05){
+        const xP = -R_cyc * Math.sin(p) + drift * (p / omega);
+        const yP = R_cyc * (1 - Math.cos(p));
+        const ppx = Oxx + xP * sc2;
+        const ppy = Oyy - yP * sc2;
+        if(p === 0) ctx.moveTo(ppx, ppy); else ctx.lineTo(ppx, ppy);
+      }
+    } else if(c.kind === 'leftSpiral'){
+      // D：向左螺旋（半径增大，错）
+      for(let p = 0; p <= 4 * Math.PI; p += 0.05){
+        const rr = 0.15 + 0.18 * p;
+        const xP = -p * 0.2 + rr * Math.sin(p);
+        const yP = rr * (1 - Math.cos(p)) + 0.05 * p;
+        const ppx = Oxx + xP * sc2;
+        const ppy = Oyy - yP * sc2;
+        if(p === 0) ctx.moveTo(ppx, ppy); else ctx.lineTo(ppx, ppy);
+      }
+    } else if(c.kind === 'rightSpiral'){
+      // C：向右螺旋（错）
+      for(let p = 0; p <= 4 * Math.PI; p += 0.05){
+        const rr = 0.15 + 0.18 * p;
+        const xP = p * 0.2 - rr * Math.sin(p);
+        const yP = rr * (1 - Math.cos(p)) + 0.05 * p;
+        const ppx = Oxx + xP * sc2;
+        const ppy = Oyy - yP * sc2;
+        if(p === 0) ctx.moveTo(ppx, ppy); else ctx.lineTo(ppx, ppy);
+      }
+    }
+    ctx.stroke();
+    // O 点
+    ctx.fillStyle = '#3a3a3c';
+    ctx.beginPath();
+    ctx.arc(Oxx, Oyy, 2, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // 答案徽章
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX+12, panelY+panelH-32, panelW-24, 22, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B：向左漂移的摆线（正方向 +y、漂移 −x）', panelX+22, panelY+panelH-15);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '带电粒子电磁场摆线轨迹',
+  subtitle: 'B 向里 + E 沿 +y，正电粒子从 O 静止 → 标准摆线（向 −x 漂移、y_max=2R）。',
+  deliv: { title: '电磁场 + 摆线运动', sub: 'B：向左漂移摆线' },
+  originalProblem: {
+    meta: '2022 全国甲 · 单选 · 第 5 题 · 6 分',
+    image: '../../source/images/image53.png',
+    text: `空间存在着匀强磁场和匀强电场，磁场的方向垂直于纸面（xOy 平面）向里，电场的方向沿 y 轴正方向。一带正电的粒子在电场和磁场的作用下，从坐标原点 O 由静止开始运动。下列四幅图中，可能正确描述该粒子运动轨迹的是（    ）`,
+    subQuestions: [
+      'A. 向 +x 漂移的摆线',
+      'B. 向 −x 漂移的摆线',
+      'C. 向 +x 扩张螺旋',
+      'D. 向 −x 扩张螺旋'
+    ],
+    officialAnswer: 'B · 解法二（速度分解）：将 v=0 分解为 v_+= +(E/B)x̂ 与 v_-= −(E/B)x̂。对 v_- 部分：洛伦兹力 q(−E/B x̂)×(−B ẑ)= −qE ŷ 与电场力 +qE ŷ 平衡 → 此分量做匀速直线运动（向 −x 漂移，速度 E/B）。对 v_+ 部分：合力为 0 后剩余仅磁力 → 做匀速圆周运动，半径 R=m·(E/B)/(qB)=mE/(qB²)。合成轨迹：摆线 x=R·sin(ωt)−(E/B)t、y=R·[1−cos(ωt)]，y_max=2R，每周期向 −x 漂移 2πR。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 起步', label_short:'F_E',
+     formula_tex: String.raw`F_E = qE\,\hat{y}\;(\text{向上})`,
+     note:'t=0 静止，仅电场力 → 向 +y 加速。'},
+    {label:'阶段 ② 偏转', label_short:'F_B',
+     formula_tex: String.raw`F_B = -qBv_y\,\hat{x}\;(\text{向左})`,
+     note:'v_y>0 后洛伦兹力出现 → 向 −x 偏。'},
+    {label:'阶段 ③ 摆线', label_short:'cycloid',
+     formula_tex: String.raw`x = R\sin\omega t - \tfrac{E}{B}t,\;\; y = R(1-\cos\omega t)`,
+     note:'R=mE/(qB²)，ω=qB/m。'},
+    {label:'阶段 ④ 选项', label_short:'A/B/C/D',
+     formula_tex: String.raw`\text{摆线 (B) vs 螺旋 (C/D) vs 反向 (A)}`,
+     note:'对比 4 候选轨迹。'},
+    {label:'阶段 ⑤ 答案', label_short:'B',
+     formula_tex: String.raw`\text{B}: \text{向 }-x\text{ 漂移摆线，}y_{\max}=2R`,
+     note:'答案 B。'}
+  ],
+  stats: [
+    {label:'方向',     fmt:s=>(s.u>=0.20? '向 +y 偏 + 向 −x 漂' : '?')},
+    {label:'R',        fmt:s=>(s.u>=0.30? 'mE/(qB²)' : '?')},
+    {label:'y_max',    fmt:s=>(s.u>=0.55? '2R' : '?')},
+    {label:'x 周期漂', fmt:s=>(s.u>=0.55? '−2πR' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'向 +x 漂移',  note:'方向反（应向 −x）'},
+    {label_text:'B 对', value_text:'向 −x 漂移摆线 ✓', note:'正确'},
+    {label_text:'C 错', value_text:'扩张螺旋',    note:'摆线非螺旋'},
+    {label_text:'D 错', value_text:'向 −x 螺旋',  note:'摆线非螺旋'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#7d2f1f',type:'circle'}, text:'正电粒子'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'摆线轨迹'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'电场 E'}
+  ],
+  defaults: {speed:1.0, lineW:2.5, vec:false, guide:true},
+  fileName: '2022全国甲-Q5-带电粒子摆线'
+});
+</script>
+</body>
+</html>

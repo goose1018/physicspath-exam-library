@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 8 题 · 带电小球水平电场等效抛体</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：水平电场 +x，正电小球从 P 沿 -x 射出 v_0；qE=mg → 等效合力 √2·mg 沿 45° 右下
+// 解析：取 P 为原点，+x 右、+y 上（数学约定）
+//   v(t) = (-v_0 + gt, -gt)
+//   r(t) = (-v_0·t + ½gt², -½gt²)
+//   v² = (v_0-gt)² + g²t² → KE_min 在 t = v_0/(2g)，此时 |v_x|=|v_y|=v_0/2
+//   x_min（最负）在 t = v_0/g，此时 v_x=0、|v_y|=v_0
+//
+// 关键时刻：
+//   t1 = v_0/(2g)：动能最小（C 错：此时 |v_x|=|v_y|，但 KE 最小不是最大）
+//   t2 = v_0/g：v_x=0、电势能最大（B 对：KE=½m·v_0²=KE_0；D 对：W_重=ΔE_p_电=½mv_0²）
+//
+// 答案 BD
+
+const T_total = 14;
+const v0 = 1.0;
+const g = 1.0;
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面（射出瞬间）
+  // 0.10-0.32 等效场分析（重力 + 电场力 → 等效 √2 g 45°）
+  // 0.32-0.55 t=0 → t1（KE_min）：小球减速、降落
+  // 0.55-0.78 t1 → t2（v_x=0）：水平速度归零、电势能最大
+  // 0.78-0.92 4 选项判定
+  // 0.92-1.00 答案 BD
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.32) phase = 1;
+  else if(u < 0.55) phase = 2;
+  else if(u < 0.78) phase = 3;
+  else if(u < 0.92) phase = 4;
+  else phase = 5;
+
+  // 物理时间 0..2·v_0/g（覆盖 t=0 至 t=2·t2，看到 v_x=0 之后弹回）
+  const tMax = 2.0 * v0 / g;
+  let tPhys = 0;
+  if(u >= 0.10){
+    const localU = (u - 0.10) / 0.68;   // 0..1 over phases 1-3
+    const clamped = Math.max(0, Math.min(localU, 1));
+    tPhys = clamped * tMax;
+  }
+
+  const vx = -v0 + g * tPhys;
+  const vy = -g * tPhys;
+  const x = -v0 * tPhys + 0.5 * g * tPhys * tPhys;
+  const y = -0.5 * g * tPhys * tPhys;
+  const KE = 0.5 * (vx*vx + vy*vy);          // m=1 单位
+  // 电势能 E_p_电 = -qE·x = -g·x（qE=mg=g 单位下）
+  const Ep_E = -g * x;                       // x<0 → E_p_E > 0
+  // 重力势能 E_p_重 = -mg·y · ... 取 P 为零点 → y<0 → 重力势能 < 0（小球下降）
+  const Ep_G = g * y;                        // y<0 → E_p_G < 0
+
+  const KE0 = 0.5 * v0 * v0;
+
+  return {u, t, phase, tPhys, vx, vy, x, y, KE, Ep_E, Ep_G, KE0,
+          showT1: u >= 0.55, showT2: u >= 0.78};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上：xOy 轨迹主图；下：能量 vs t 图
+  drawTrajectory(ctx, 14, 14, W-28, H*0.62-21, state);
+  drawEnergy(ctx, 14, H*0.62+7, W-28, H*0.38-21, state);
+}
+
+function drawTrajectory(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('xOy 平面（重力 mg ↓ + 电场力 qE → 等效 √2·mg 沿 45° 右下）', panelX+12, panelY+18);
+
+  // 坐标系（P 在右上靠中位置，因为小球向左下漂移）
+  const Px = panelX + panelW * 0.72;
+  const Py = panelY + panelH * 0.32;
+  // 物理范围：x∈[-1.5, 0.5]·v0²/g, y∈[-1.2, 0.2]·v0²/g
+  const xRange = 2.0 * v0 * v0 / g;
+  const yRange = 1.4 * v0 * v0 / g;
+  const sc = Math.min((panelW - 60) / xRange, (panelH - 80) / yRange);
+  // 防止过大
+  const phys2pxX = (xx) => Px + xx * sc;
+  const phys2pxY = (yy) => Py - yy * sc;       // canvas y-down: 物理 +y 对应屏幕 -y
+
+  // 坐标轴
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 24, Py); ctx.lineTo(panelX + panelW - 16, Py);  // x 轴
+  ctx.moveTo(Px, panelY + 28); ctx.lineTo(Px, panelY + panelH - 22);  // y 轴
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px Georgia,serif';
+  ctx.fillText('x', panelX + panelW - 24, Py - 6);
+  ctx.fillText('y', Px + 6, panelY + 36);
+  ctx.fillText('P', Px + 5, Py + 13);
+
+  // 等效重力箭头（蓝色 45° 右下）— 在 P 旁
+  if(state.u >= 0.10){
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    const arrowLen = sc * 0.35 * v0 * v0 / g;
+    const arrowEndX = Px + arrowLen * Math.cos(Math.PI/4);
+    const arrowEndY = Py + arrowLen * Math.sin(Math.PI/4);   // canvas y 向下
+    PPath.arrow(ctx, Px + 22, Py - 14, arrowEndX, arrowEndY, '#3f6f8f', 2);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 10px Georgia,serif';
+    ctx.fillText('√2·mg', Px + 32, Py - 18);
+  }
+
+  // 重力箭头（灰色向下）
+  if(state.u >= 0.05){
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.4;
+    PPath.arrow(ctx, panelX + 32, panelY + 36, panelX + 32, panelY + 70, '#5d6964', 1.4);
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '700 9px Georgia,serif';
+    ctx.fillText('mg', panelX + 16, panelY + 56);
+  }
+  // 电场 E 箭头（橙色向右）
+  if(state.u >= 0.05){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.4;
+    PPath.arrow(ctx, panelX + 50, panelY + 56, panelX + 88, panelY + 56, '#c2611f', 1.4);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 9px Georgia,serif';
+    ctx.fillText('E', panelX + 60, panelY + 50);
+  }
+
+  // 轨迹（从 t=0 到当前 tPhys 渐进画）
+  if(state.u >= 0.32){
+    ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    const dT = 0.02;
+    for(let tt = 0; tt <= state.tPhys; tt += dT){
+      const xx = -v0 * tt + 0.5 * g * tt * tt;
+      const yy = -0.5 * g * tt * tt;
+      const px = phys2pxX(xx);
+      const py = phys2pxY(yy);
+      if(tt === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // 关键时刻虚线标记
+  // t1 = v_0/(2g)：KE_min（|v_x|=|v_y|=v_0/2）
+  if(state.showT1){
+    const t1 = v0 / (2 * g);
+    const x1 = -v0 * t1 + 0.5 * g * t1 * t1;
+    const y1 = -0.5 * g * t1 * t1;
+    const p1x = phys2pxX(x1), p1y = phys2pxY(y1);
+    ctx.fillStyle = '#16613f';
+    ctx.beginPath();
+    ctx.arc(p1x, p1y, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('t₁ (KE_min)', p1x - 30, p1y - 8);
+  }
+  // t2 = v_0/g：v_x=0、E_p_E 最大
+  if(state.showT2){
+    const t2 = v0 / g;
+    const x2 = -v0 * t2 + 0.5 * g * t2 * t2;
+    const y2 = -0.5 * g * t2 * t2;
+    const p2x = phys2pxX(x2), p2y = phys2pxY(y2);
+    ctx.fillStyle = '#c2611f';
+    ctx.beginPath();
+    ctx.arc(p2x, p2y, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('t₂ (v_x=0)', p2x - 28, p2y + 18);
+    // 竖直虚线（标 x_min 位置）
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(p2x, Py); ctx.lineTo(p2x, p2y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 当前小球位置（t≥0 时显示）
+  if(state.u >= 0.10){
+    const ballX = phys2pxX(state.x);
+    const ballY = phys2pxY(state.y);
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath();
+    ctx.arc(ballX, ballY, 6, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#7d2f1f'; ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 9px Georgia,serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('+', ballX, ballY + 3);
+    ctx.textAlign = 'start';
+
+    // 速度向量
+    if(state.u >= 0.32){
+      const vScale = sc * 0.4;
+      ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 1.6;
+      PPath.arrow(ctx, ballX, ballY,
+                       ballX + state.vx * vScale, ballY - state.vy * vScale, '#3a3a3c', 1.6);
+    }
+  }
+
+  // 阶段短标注
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① 射出瞬间 v₀ ←',
+    '阶段 ② 等效场（重力+电场 → √2·mg 45°）',
+    '阶段 ③ 0→t₁：小球向左下，KE 减小',
+    '阶段 ④ t₁→t₂：水平 v_x→0，E_p 持续增',
+    '阶段 ⑤ 选项判定',
+    '阶段 ⑥ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+
+  // 答案徽章
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    const bX = panelX + panelW - 130, bY = panelY + 12, bW = 118, bH = 30;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bX, bY, bW, bH, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('答案 BD', bX + bW/2, bY + 20);
+    ctx.textAlign = 'start';
+  }
+}
+
+function drawEnergy(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量 — t（KE 红 / E_p_电 橙 / E_p_重 灰）', panelX+12, panelY+18);
+
+  // 坐标系
+  const padL = 50, padR = 16, padT = 32, padB = 26;
+  const x0 = panelX + padL;
+  const yMid = panelY + (panelY + panelH - padB - padT) / 2 + padT * 0.5;
+  // 用底部 y 轴位置（y0），KE 全为正所以放上半，重力势能为负放下半
+  const y0 = panelY + panelH - padB;
+  const xMax = panelX + panelW - padR;
+  const yTop = panelY + padT;
+  const halfH = (y0 - yTop) * 0.42;
+
+  // 轴
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, yTop); ctx.lineTo(x0, y0 + 8);
+  ctx.moveTo(x0 - 6, y0); ctx.lineTo(xMax, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 10px Georgia,serif';
+  ctx.fillText('E', x0 - 14, yTop + 8);
+  ctx.fillText('t', xMax + 4, y0 + 4);
+  ctx.fillText('0', x0 - 12, y0 + 4);
+
+  if(state.u < 0.32) return;
+
+  const KE0 = state.KE0;
+  const tMaxAbs = 2.0 * v0 / g;
+  // y_phys range: KE max = KE0 = 0.5; E_p_E max = mv0²/2 = 0.5; E_p_G min = -mv0²/2 = -0.5
+  // y 显示比例：y0 - val * (halfH / KE0) → val=KE0 时 y = y0 - halfH（顶端）
+  const phys2y = (val) => y0 - val * (halfH / KE0);
+
+  // 关键时刻竖直虚线 t1, t2
+  const t1 = v0 / (2 * g);
+  const t2 = v0 / g;
+  const sampleX = (tt) => x0 + (tt / tMaxAbs) * (xMax - x0 - 4);
+
+  if(state.showT1){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    const tx = sampleX(t1);
+    ctx.moveTo(tx, yTop); ctx.lineTo(tx, y0);
+    ctx.stroke();
+    ctx.fillStyle = '#16613f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('t₁', tx - 6, yTop + 12);
+  }
+  if(state.showT2){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    const tx = sampleX(t2);
+    ctx.moveTo(tx, yTop); ctx.lineTo(tx, y0);
+    ctx.stroke();
+    ctx.fillStyle = '#c2611f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('t₂', tx - 6, yTop + 12);
+  }
+  ctx.setLineDash([]);
+
+  // KE 曲线（红）
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  const dT = 0.02;
+  let started = false;
+  for(let tt = 0; tt <= state.tPhys; tt += dT){
+    const vx = -v0 + g * tt;
+    const vy = -g * tt;
+    const KE_t = 0.5 * (vx*vx + vy*vy);
+    const xx = sampleX(tt);
+    const yy = phys2y(KE_t);
+    if(!started){ ctx.moveTo(xx, yy); started = true; }
+    else ctx.lineTo(xx, yy);
+  }
+  if(started) ctx.stroke();
+
+  // E_p_E 曲线（橙）— 电势能 = -g·x = g·v_0·t - 0.5·g²·t²
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  started = false;
+  for(let tt = 0; tt <= state.tPhys; tt += dT){
+    const xx_phys = -v0 * tt + 0.5 * g * tt * tt;
+    const Ep_E_t = -g * xx_phys;
+    const xx = sampleX(tt);
+    const yy = phys2y(Ep_E_t);
+    if(!started){ ctx.moveTo(xx, yy); started = true; }
+    else ctx.lineTo(xx, yy);
+  }
+  if(started) ctx.stroke();
+
+  // E_p_G 曲线（灰）— y<0 → E_p_G<0，画在 y0 下方
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.6; ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  started = false;
+  for(let tt = 0; tt <= state.tPhys; tt += dT){
+    const yy_phys = -0.5 * g * tt * tt;
+    const Ep_G_t = g * yy_phys;     // 负
+    const xx = sampleX(tt);
+    const yy = phys2y(Ep_G_t);
+    if(!started){ ctx.moveTo(xx, yy); started = true; }
+    else ctx.lineTo(xx, yy);
+  }
+  if(started) ctx.stroke();
+  ctx.setLineDash([]);
+
+  // KE_0 水平参考线（u≥0.92 揭晓，与答案徽章同步避免剧透 B 选项核心）
+  if(state.u >= 0.92){
+    ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    const yy0 = phys2y(KE0);
+    ctx.moveTo(x0, yy0); ctx.lineTo(xMax, yy0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#b4442e'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('KE₀', x0 + 4, yy0 - 4);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '带电小球水平电场等效抛体',
+  subtitle: 'qE=mg → 等效合力 √2·mg 沿 45°；KE_min 在 t₁=v₀/(2g)；E_p 最大在 t₂=v₀/g 即 v_x=0 时。',
+  deliv: { title: '电场+重力等效斜抛', sub: 'BD：KE=KE₀ 时 E_p 最大 + 重力做功=ΔE_p_电' },
+  originalProblem: {
+    meta: '2022 全国甲 · 多选 · 第 8 题 · 6 分',
+    image: '../../source/images/image86.png',
+    text: `地面上方某区域存在方向水平向右的匀强电场，将一带正电荷的小球自电场中 P 点水平向左射出。小球所受的重力和电场力的大小相等，重力势能和电势能的零点均取在 P 点。则射出后，（    ）`,
+    subQuestions: [
+      'A. 小球的动能最小时，其电势能最大',
+      'B. 小球的动能等于初始动能时，其电势能最大',
+      'C. 小球速度的水平分量和竖直分量大小相等时，其动能最大',
+      'D. 从射出时刻到小球速度的水平分量为零时，重力做的功等于小球电势能的增加量'
+    ],
+    officialAnswer: 'BD · 取 P 为原点，+x 右、+y 上；初速 v=(-v₀,0)；力 (qE,-mg)=(mg,-mg)，加速度 (g,-g)。v(t)=(-v₀+gt, -gt)，r(t)=(-v₀t+½gt², -½gt²)。**v² = (v₀-gt)²+g²t²**；dv²/dt=2g(2gt-v₀)=0 → **t₁=v₀/(2g) 时 KE 最小**，此时 |v_x|=|v_y|=v₀/2 ≠ KE 最大（**C 错**）。**x_min**（最负）在 dx/dt=-v₀+gt=0 → **t₂=v₀/g 即 v_x=0 时**，此时 x=-v₀²/(2g)、E_p_E=-qE·x=mv₀²/2（**最大**）。此刻 KE=½m·v_y²=½m·v₀²=**KE₀**（**B 对**：动能等于初始动能时电势能最大）。t₁ 时 KE 最小但 E_p_E 不是最大（**A 错**）。t=0→t₂ 期间，重力做功 W_重=-mg·Δy=mg·(v₀²/(2g))=½mv₀²；电势能增加量 ΔE_p_E=mv₀²/2 → **W_重=ΔE_p_E**（**D 对**）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 射出', label_short:'v₀',
+     formula_tex: String.raw`\vec{v}_0 = -v_0\,\hat{x},\;\;qE=mg`,
+     note:'P 沿 -x 射出。'},
+    {label:'阶段 ② 等效场', label_short:'√2g',
+     formula_tex: String.raw`\vec{F}_\text{合} = mg\,\hat{x} - mg\,\hat{y},\;|\vec{F}|=\sqrt{2}\,mg \;(45°)`,
+     note:'重力+电场力 → 等效 √2·mg 沿 45°。'},
+    {label:'阶段 ③ 0→t₁', label_short:'KE↓',
+     formula_tex: String.raw`t_1 = \dfrac{v_0}{2g}:\;\;|v_x|=|v_y|=\dfrac{v_0}{2},\;KE_\min=\dfrac{1}{4}mv_0^2`,
+     note:'KE 最小（C 错应为最大）。'},
+    {label:'阶段 ④ t₁→t₂', label_short:'v_x→0',
+     formula_tex: String.raw`t_2 = \dfrac{v_0}{g}:\;v_x=0,\;x_{\min}=-\dfrac{v_0^2}{2g},\;KE=KE_0`,
+     note:'此时 E_p_E 最大、KE 回到 KE₀。'},
+    {label:'阶段 ⑤ 选项', label_short:'A/B/C/D',
+     formula_tex: String.raw`A\;\times\;\;B\;\checkmark\;\;C\;\times\;\;D\;\checkmark`,
+     note:'BD 对。'},
+    {label:'阶段 ⑥ 答案', label_short:'BD',
+     formula_tex: String.raw`W_\text{重} = \Delta E_{p,\text{电}} = \dfrac{1}{2}mv_0^2`,
+     note:'答案 BD。'}
+  ],
+  stats: [
+    {label:'qE/mg',     fmt:s=>(s.u>=0.05? '1（重力 = 电场力）' : '?')},
+    {label:'F_合方向',  fmt:s=>(s.u>=0.20? '45° 右下' : '?')},
+    {label:'t₁ (KE_min)', fmt:s=>(s.u>=0.92? 'v₀/(2g)' : '?')},
+    {label:'t₂ (v_x=0)',  fmt:s=>(s.u>=0.92? 'v₀/g' : '?')},
+    {label:'E_p_E 最大', fmt:s=>(s.u>=0.92? '½mv₀² (在 t₂)' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'KE_min 时 E_p 不最大', note:'t₁≠t₂'},
+    {label_text:'B 对', value_text:'KE=KE₀ 时 E_p 最大 ✓', note:'即 t₂'},
+    {label_text:'C 错', value_text:'|v_x|=|v_y| 时 KE 最小', note:'非最大'},
+    {label_text:'D 对', value_text:'W_重 = ΔE_p_E ✓',     note:'t₂ 时同等于 ½mv₀²'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#7d2f1f',type:'circle'}, text:'正电小球'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'等效重力（45°）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'电场 E（→）'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'重力（↓）'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q8-带电小球电场'
+});
+</script>
+</body>
+</html>

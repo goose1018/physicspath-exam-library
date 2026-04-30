@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 15 题 · 横波填空（λ/f/A 点方向）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：v=2 m/s 沿 +x；题面：A=2cm，y_A(0,0)=-1cm；答案 λ=4 m, f=0.5 Hz, A 向下
+// 取 y(x,0) = A·sin(2π·x/λ + φ_0)，由 y(0,0)=-1 得 sin(φ_0)=-0.5 → 取 φ_0=-π/6
+// （首个上升零点在 x=1/3 m，峰在 x=4/3 m，谷在 x=10/3 m，符合 λ=4 整体波形）
+// 沿 +x 传播：A 下一瞬时位移 = 当前 (x=-ε) 处位移；x=-2/3 处为波谷 -2 → 左邻位移更负 → A 向下
+const A_amp = 2;          // 振幅 cm
+const lambda = 4;         // m
+const v_wave = 2;         // m/s
+const T_period = lambda / v_wave;   // 2 s
+const freq = 1 / T_period;           // 0.5 Hz
+// 取波形：y(x, t) = A·sin(2π·(x - v·t)/λ + φ_0)，φ_0 调整让 y(0,0) = -1
+// y(0,0) = A·sin(φ_0) = -1 → sin(φ_0) = -0.5 → φ_0 = -π/6（让 y'(0,0) = (2π/λ)·cos(-π/6) > 0，上升斜率）
+const phi0 = -Math.PI / 6;
+
+const T_total = 14;
+
+function waveY(x, tWave){
+  // 波沿 +x 传播：y(x,t) = A·sin(2π·(x - v·t)/λ + φ_0)
+  return A_amp * Math.sin(2 * Math.PI * (x - v_wave * tWave) / lambda + phi0);
+}
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面（t=0 波形）
+  // 0.10-0.30 波长 λ 测量（一个完整周期 = 4m）
+  // 0.30-0.50 频率 f 计算（v/λ）
+  // 0.50-0.80 波形传播动画（A 点振动）
+  // 0.80-0.92 t=2s（T）状态判断
+  // 0.92-1.00 答案揭晓
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.50) phase = 2;
+  else if(u < 0.80) phase = 3;
+  else if(u < 0.92) phase = 4;
+  else phase = 5;
+
+  // 波形随物理时间推进
+  let tWave = 0;
+  if(u >= 0.50){
+    const localU = (u - 0.50) / 0.30;
+    const tau = Math.max(0, Math.min(localU, 1));
+    tWave = tau * (2 * T_period);   // 推进 2 个周期
+  }
+
+  // A 点（x=0）当前位移与瞬时速度
+  const yA = waveY(0, tWave);
+  // dy/dt at x=0：dy/dt = A·cos(...) · (-2π·v/λ)
+  const vyA = A_amp * Math.cos(2 * Math.PI * (0 - v_wave * tWave) / lambda + phi0) * (-2 * Math.PI * v_wave / lambda);
+
+  return {u, t, phase, tWave, yA, vyA};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上：波形主图（含 A 点 + 当前波形）；下：填空答案 + A 点 y-t 图
+  drawWave(ctx, 14, 14, W-28, H*0.62-21, state);
+  drawAnswerPanel(ctx, 14, H*0.62+7, W-28, H*0.38-21, state);
+}
+
+function drawWave(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('波形 y-x（v=2 m/s 沿 +x 传播）', panelX+12, panelY+18);
+
+  // 坐标系
+  const padL = 50, padR = 24, padT = 36, padB = 38;
+  const x0 = panelX + padL;
+  const yC = panelY + (panelY + panelH - padT - padB) / 2 + padT * 0.6;   // y=0 横线
+  const xMax = panelX + panelW - padR;
+  // x 范围 0..6 m；y 范围 -3..3 cm
+  const xRange = 6;
+  const yRange = 3.0;
+  const px = (xx) => x0 + (xx / xRange) * (xMax - x0);
+  const py = (yy) => yC - (yy / yRange) * ((panelH - padT - padB) / 2);
+
+  // x 轴
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, yC); ctx.lineTo(xMax, yC);
+  ctx.stroke();
+  // y 轴
+  ctx.beginPath();
+  ctx.moveTo(x0, py(yRange) - 4); ctx.lineTo(x0, py(-yRange) + 4);
+  ctx.stroke();
+
+  // x 轴刻度（每 1m）
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 9px Georgia,serif';
+  for(let xi = 0; xi <= 6; xi++){
+    const tx = px(xi);
+    ctx.beginPath();
+    ctx.moveTo(tx, yC - 3); ctx.lineTo(tx, yC + 3);
+    ctx.stroke();
+    ctx.fillText(`${xi}`, tx - 3, yC + 14);
+  }
+  ctx.fillText('x/m', xMax + 4, yC + 4);
+  ctx.fillText('y/cm', x0 - 30, py(yRange) - 4);
+
+  // y 轴刻度（每 1cm）
+  for(let yi = -2; yi <= 2; yi++){
+    if(yi === 0) continue;
+    const ty = py(yi);
+    ctx.beginPath();
+    ctx.moveTo(x0 - 3, ty); ctx.lineTo(x0 + 3, ty);
+    ctx.stroke();
+    ctx.fillText(`${yi}`, x0 - 16, ty + 3);
+  }
+
+  // 当前波形（蓝色）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  const dX = 0.05;
+  for(let xx = 0; xx <= 6; xx += dX){
+    const yy = waveY(xx, state.tWave);
+    const tx = px(xx);
+    const ty = py(yy);
+    if(xx === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+  }
+  ctx.stroke();
+
+  // t=0 初始波形（淡虚线，对照）— u≥0.50 显示
+  if(state.u >= 0.50 && state.tWave > 0.05){
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.2; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    for(let xx = 0; xx <= 6; xx += dX){
+      const yy = waveY(xx, 0);
+      const tx = px(xx);
+      const ty = py(yy);
+      if(xx === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#a89878'; ctx.font = '700 9px ui-monospace,monospace';
+    ctx.fillText('t=0', xMax - 30, py(0) - 6);
+  }
+
+  // λ 标注（u≥0.10 揭晓 → 一个周期长度 = 4m）
+  if(state.u >= 0.20){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.6;
+    const yLam = py(yRange) + 8;
+    // 双向箭头从 x=0 到 x=4
+    PPath.arrow(ctx, px(0), yLam, px(4), yLam, '#16613f', 1.6);
+    PPath.arrow(ctx, px(4), yLam, px(0), yLam, '#16613f', 1.6);
+    ctx.fillStyle = '#16613f'; ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('λ = 4 m', px(2) - 24, yLam - 4);
+  }
+
+  // A 点（x=0）位置 — 始终显示作为题目核心要素
+  ctx.fillStyle = '#b4442e';
+  const Ax = px(0);
+  const Ay = py(state.yA);
+  ctx.beginPath();
+  ctx.arc(Ax, Ay, 6, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = '#7d2f1f'; ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.fillStyle = '#b4442e'; ctx.font = '900 11px Georgia,serif';
+  ctx.fillText('A', Ax + 8, Ay + 4);
+
+  // A 点初始位置 (0, -1) 标注 u≥0.05
+  if(state.u >= 0.05){
+    ctx.fillStyle = '#5d6964'; ctx.font = '700 9px ui-monospace,monospace';
+    ctx.fillText('y_A(t=0) = -1 cm', px(0.2), py(-1) + 12);
+  }
+
+  // A 点速度方向小箭头（u≥0.50）
+  if(state.u >= 0.50 && Math.abs(state.vyA) > 0.05){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    const arrowDir = state.vyA > 0 ? -1 : +1;   // 物理 vy>0 → 屏幕 y 减小（向上）
+    PPath.arrow(ctx, Ax + 18, Ay, Ax + 18, Ay + arrowDir * 18, '#c2611f', 2);
+  }
+
+  // 当前 t（物理时间）标注
+  if(state.u >= 0.50){
+    ctx.fillStyle = '#5d6964'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText(`t = ${state.tWave.toFixed(2)} s`, panelX + panelW - 100, panelY + 36);
+  }
+
+  // 阶段标签
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① t=0 波形（A 点 y=-1 cm）',
+    '阶段 ② 测量波长 λ',
+    '阶段 ③ 计算频率 f = v/λ',
+    '阶段 ④ 波形传播 + A 点振动',
+    '阶段 ⑤ t=2s（T）时 A 点方向',
+    '阶段 ⑥ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+}
+
+function drawAnswerPanel(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('A 点 y-t 图（在 x=0 振动）', panelX+12, panelY+18);
+
+  // 坐标系（A 点位移随时间）
+  const padL = 60, padR = 16, padT = 32, padB = 26;
+  const x0 = panelX + padL;
+  const yC = panelY + (panelY + panelH - padT - padB) / 2 + padT * 0.5;
+  const xMax = panelX + panelW - padR - 130;     // 留右侧空间放答案徽章
+  const tMaxAbs = 2 * T_period;
+  const px = (tt) => x0 + (tt / tMaxAbs) * (xMax - x0);
+  const py = (yy) => yC - (yy / 3.0) * ((panelH - padT - padB) / 2);
+
+  // 轴
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, py(2.5) - 4); ctx.lineTo(x0, py(-2.5) + 4);
+  ctx.moveTo(x0, yC); ctx.lineTo(xMax, yC);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 9px Georgia,serif';
+  ctx.fillText('y/cm', x0 - 36, py(2.5) - 4);
+  ctx.fillText('t/s', xMax + 2, yC + 4);
+  ctx.fillText('0', x0 - 10, yC + 12);
+
+  // T 与 2T 刻度
+  for(let i = 1; i <= 2; i++){
+    const tx = px(i * T_period);
+    ctx.beginPath();
+    ctx.moveTo(tx, yC - 3); ctx.lineTo(tx, yC + 3);
+    ctx.stroke();
+    ctx.fillText(`${i}T`, tx - 6, yC + 14);
+  }
+
+  // y-t 曲线（红）— u≥0.50 起绘制（已知 A 点振动）
+  if(state.u >= 0.50){
+    ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    const dT = 0.02;
+    for(let tt = 0; tt <= state.tWave; tt += dT){
+      const yyA = waveY(0, tt);
+      const tx = px(tt);
+      const ty = py(yyA);
+      if(tt === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+    }
+    ctx.stroke();
+    // 当前点
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath();
+    ctx.arc(px(state.tWave), py(state.yA), 4, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // t=2s（即 T）虚线（u≥0.80 揭晓）
+  if(state.u >= 0.80){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    const tx = px(T_period);
+    ctx.moveTo(tx, py(2.5)); ctx.lineTo(tx, py(-2.5));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#16613f'; ctx.font = '700 9px ui-monospace,monospace';
+    ctx.fillText('t=2s=T', px(T_period) - 14, py(2.5) - 4);
+  }
+
+  // 三个填空答案（右侧），u≥0.92 揭晓
+  if(state.u >= 0.92){
+    const aX = panelX + panelW - 128;
+    const aY = panelY + 36;
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(aX, aY, 116, panelH - 50, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('填空答案', aX + 12, aY + 22);
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillStyle = '#c2611f';
+    ctx.fillText('① λ = 4 m', aX + 8, aY + 44);
+    ctx.fillText('② f = 0.5 Hz', aX + 8, aY + 62);
+    ctx.fillText('③ 向下运动', aX + 8, aY + 80);
+  } else {
+    // 中间步骤渐进揭晓
+    const aX = panelX + panelW - 128;
+    const aY = panelY + 36;
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '700 11px ui-monospace,monospace';
+    if(state.u >= 0.20) ctx.fillText('① λ = 4 m', aX, aY + 22);
+    if(state.u >= 0.40) ctx.fillText('② f = v/λ = 0.5 Hz', aX, aY + 40);
+    // ③ 向下运动 留到 0.92 揭晓
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '填空 · 第 15 题（选考振动波动）· 9 分',
+  title: '横波 v=2 m/s 填空（λ/f/A 点方向）',
+  subtitle: '由 t=0 波形（A 点 y=-1cm）+ v=2 m/s 求 λ=4m、f=0.5Hz；t=2s=T 时 A 向下运动。',
+  deliv: { title: '简谐横波 + 上下坡判断', sub: 'λ=4m / f=0.5Hz / 向下' },
+  originalProblem: {
+    meta: '2022 全国甲 · 填空 · 第 15 题（选考振动波动）· 9 分',
+    image: '../../source/images/image181.png',
+    text: `一平面简谐横波以速度 v = 2 m/s 沿 x 轴正方向传播，t = 0 时刻的波形图如图所示，介质中平衡位置在坐标原点的质点 A 在 t = 0 时刻的位移 y = −1 cm，该波的波长为______ m，频率为______ Hz，t = 2 s 时刻，质点 A______（填"向上运动""速度为零"或"向下运动"）。`,
+    subQuestions: [
+      '① 波长 λ = ?  m',
+      '② 频率 f = ?  Hz',
+      '③ t = 2 s 时 A 点的运动方向'
+    ],
+    officialAnswer: '① λ = 4 m  ② f = 0.5 Hz  ③ 向下运动 · 由波形图：振幅 A = 2 cm；A 点 y(0,0)=−1 cm；从图上几何识别一个完整周期长 = **λ = 4 m**。频率 f = v/λ = 2/4 = **0.5 Hz**，周期 T = 1/f = 2 s。t=2 s = T → 振动状态与 t=0 时相同。波沿 +x 传播，下一瞬时 A 点位移 ≈ 当前 (x=0−ε) 处波形位移；A 点左侧邻近波谷（y → −2），左邻位移比 −1 更负 → A 接下来位移变得更负 → **向下运动**。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① t=0 波形', label_short:'init',
+     formula_tex: String.raw`y(x,0)=A\sin\!\left(\dfrac{2\pi}{\lambda}x+\varphi\right),\;A=2\,\text{cm}`,
+     note:'A 点 y(0,0)=−1 cm。'},
+    {label:'阶段 ② 测 λ', label_short:'λ=4m',
+     formula_tex: String.raw`\text{由两点 }(0,-1),(1.5,0)\Rightarrow \lambda = 4\,\text{m}`,
+     note:'一个完整周期长 = 4 m。'},
+    {label:'阶段 ③ 频率', label_short:'f=0.5Hz',
+     formula_tex: String.raw`f = \dfrac{v}{\lambda} = \dfrac{2}{4} = 0.5\,\text{Hz},\;T=2\,\text{s}`,
+     note:'周期 2 秒。'},
+    {label:'阶段 ④ 传播', label_short:'wave→+x',
+     formula_tex: String.raw`y(x,t) = A\sin\!\left(\dfrac{2\pi}{\lambda}(x-vt)+\varphi\right)`,
+     note:'波形向 +x 平移。'},
+    {label:'阶段 ⑤ t=T', label_short:'同 t=0',
+     formula_tex: String.raw`t=2\,\text{s}=T \Rightarrow \text{波形同 }t=0`,
+     note:'A 点位移 = -1 cm，方向用上下坡法判断。'},
+    {label:'阶段 ⑥ 答案', label_short:'向下',
+     formula_tex: String.raw`\lambda=4\text{ m},\;f=0.5\text{ Hz},\;A\text{ 向下运动}`,
+     note:'A 左邻近波谷 → 接下来位移更负。'}
+  ],
+  stats: [
+    {label:'振幅 A',  fmt:s=>(s.u>=0.05? '2 cm' : '?')},
+    {label:'波长 λ',  fmt:s=>(s.u>=0.20? '4 m' : '?')},
+    {label:'频率 f',  fmt:s=>(s.u>=0.40? '0.5 Hz' : '?')},
+    {label:'周期 T',  fmt:s=>(s.u>=0.40? '2 s' : '?')},
+    {label:'t=2s 时 A 方向', fmt:s=>(s.u>=0.92? '向下运动' : '?')}
+  ],
+  conclusions: [
+    {label_text:'① 波长',   value_text:'λ = 4 m',     note:'一周期长度'},
+    {label_text:'② 频率',   value_text:'f = 0.5 Hz',  note:'f=v/λ'},
+    {label_text:'③ A 方向', value_text:'向下运动',     note:'左邻近波谷 → 更负'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'当前波形'},
+    {swatch:{bg:'#a89878',border:'#a89878',type:'rect'}, text:'t=0 初始波形（虚线）'},
+    {swatch:{bg:'#b4442e',border:'#7d2f1f',type:'circle'}, text:'A 点（x=0）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'波长 λ 标注'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q15-横波填空'
+});
+</script>
+</body>
+</html>

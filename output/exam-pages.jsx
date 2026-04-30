@@ -4,12 +4,22 @@
 const { useState: useStateE, useMemo: useMemoE, useRef: useRefE, useEffect: useEffectE } = React;
 
 // ─────────────────────── ExamLibrary (dual search + grouped grid) ───────────────────────
+const EXAM_LIB_STATE_KEY = 'pp_examlibrary_state';
+function loadExamLibState() {
+  try { const s = sessionStorage.getItem(EXAM_LIB_STATE_KEY); return s ? JSON.parse(s) : null; }
+  catch { return null; }
+}
+function saveExamLibState(state) {
+  try { sessionStorage.setItem(EXAM_LIB_STATE_KEY, JSON.stringify(state)); } catch {}
+}
+
 function ExamLibrary({ go }) {
-  const [year, setYear] = useStateE('all');   // 'all' | number
-  const [region, setRegion] = useStateE('all'); // 'all' | paper.id
+  const _saved = loadExamLibState();
+  const [year, setYear] = useStateE(() => _saved?.year ?? 'all');   // 'all' | number
+  const [region, setRegion] = useStateE(() => _saved?.region ?? 'all'); // 'all' | paper.id
   const [yearOpen, setYearOpen] = useStateE(false);
   const [regionOpen, setRegionOpen] = useStateE(false);
-  const [page, setPage] = useStateE(0);
+  const [page, setPage] = useStateE(() => _saved?.page ?? 0);
 
   // group by year — show one year per page (paginated)
   const yearsAll = year === 'all' ? window.YEARS : [year];
@@ -18,7 +28,28 @@ function ExamLibrary({ go }) {
   const curIdx = Math.min(page, Math.max(0, totalPages - 1));
   const yearsToShow = totalPages > 0 ? [yearsAll[curIdx]] : [];
 
-  useEffectE(() => { setPage(0); }, [year, region]);
+  // 持久化 year/region/page（返回此页时恢复）
+  useEffectE(() => { saveExamLibState({ year, region, page }); }, [year, region, page]);
+
+  // year/region 变化时重置 page，但跳过初次 mount（避免覆盖恢复的 page）
+  const _mounted = useRefE(false);
+  useEffectE(() => {
+    if (_mounted.current) setPage(0);
+    else _mounted.current = true;
+  }, [year, region]);
+
+  // 键盘左右箭头翻页（无输入框聚焦时）
+  useEffectE(() => {
+    const onKey = (e) => {
+      if (totalPages <= 1) return;
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+      if (e.key === 'ArrowLeft' && curIdx > 0) { setPage(curIdx - 1); }
+      else if (e.key === 'ArrowRight' && curIdx < totalPages - 1) { setPage(curIdx + 1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [curIdx, totalPages]);
 
   return (
     <div className="exam-page" data-screen-label="02 真题图库">
@@ -128,23 +159,38 @@ function ExamLibrary({ go }) {
         )}
       </div>
 
-      {/* 翻页 */}
+      {/* 翻页（底部 dots + 左右浮动按钮）*/}
       {totalPages > 1 && (
-        <div className="el-pager">
-          <button className="el-pbtn" disabled={curIdx === 0} onClick={() => setPage(curIdx - 1)}>
-            <window.Icon name="chevron-left" size={14}/> 上一年
-          </button>
-          <div className="el-pdots">
-            {yearsAll.map((y, i) => (
-              <button key={y} className={`el-pdot ${i === curIdx ? 'on' : ''}`} onClick={() => setPage(i)}>
-                {y}
-              </button>
-            ))}
+        <>
+          <div className="el-pager">
+            <div className="el-pdots">
+              {yearsAll.map((y, i) => (
+                <button key={y} className={`el-pdot ${i === curIdx ? 'on' : ''}`} onClick={() => setPage(i)}>
+                  {y}
+                </button>
+              ))}
+            </div>
           </div>
-          <button className="el-pbtn" disabled={curIdx >= totalPages - 1} onClick={() => setPage(curIdx + 1)}>
-            下一年 <window.Icon name="chevron-right" size={14}/>
+          {/* 浮动左右按钮：稳居屏幕左右边缘随滚动条始终可见 */}
+          <button
+            className="el-pfixed el-pfixed-left"
+            disabled={curIdx === 0}
+            onClick={() => setPage(curIdx - 1)}
+            aria-label="上一年"
+            title="上一年（← 键）"
+          >
+            <window.Icon name="chevron-left" size={20}/>
           </button>
-        </div>
+          <button
+            className="el-pfixed el-pfixed-right"
+            disabled={curIdx >= totalPages - 1}
+            onClick={() => setPage(curIdx + 1)}
+            aria-label="下一年"
+            title="下一年（→ 键）"
+          >
+            <window.Icon name="chevron-right" size={20}/>
+          </button>
+        </>
       )}
     </div>
   );

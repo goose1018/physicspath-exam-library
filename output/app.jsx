@@ -20,7 +20,28 @@ function App() {
   const [modal, setModal] = useStateA(null);
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
 
-  const go = (r, params = null) => { setRoute(r); setRouteParams(params); window.scrollTo(0, 0); };
+  // 路由滚动管理：进新路由前保存当前路由滚动位置，进新路由后恢复（如有保存）或归零
+  const _scrollKey = (r, params) => {
+    if (r === 'paper' && params) return `pp_scroll_paper_${params.year}_${params.paper}`;
+    if (r === 'library') return 'pp_scroll_library';
+    return null;  // home/problem/workshop/ai 不保存（每次进都视为新内容）
+  };
+  const go = (r, params = null) => {
+    // 保存当前路由滚动位置
+    const curKey = _scrollKey(route, routeParams);
+    if (curKey) { try { sessionStorage.setItem(curKey, String(window.scrollY)); } catch {} }
+    // 切路由
+    setRoute(r);
+    setRouteParams(params);
+    // 等 DOM 渲染后恢复或归零
+    const newKey = _scrollKey(r, params);
+    const saved = newKey ? (() => { try { return sessionStorage.getItem(newKey); } catch { return null; } })() : null;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, saved != null ? Number(saved) : 0);
+      });
+    });
+  };
   window.__go = go;
 
   // apply tweaks as CSS vars

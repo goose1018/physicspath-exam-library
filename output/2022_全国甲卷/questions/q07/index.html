@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国甲 · 第 7 题 · 导体棒+电容器电磁感应</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：水平光滑平行导轨（俯视），磁场竖直向下；MN 质量 m、电阻 R；左端 C 与外接 R 并联
+// 初始 C 带电 Q，开关 S 断；合 S 后：
+//
+// 阶段 ① 闭合瞬间：v=0 → ε_MN=0 → MN 等效纯电阻 R，电流最大 I_max= U_C0/(R 等效)
+//        电容器同时通过 R 与 MN 放电（A 对：I_max 由初始电压决定）
+//
+// 阶段 ② 加速过程：I 流过 MN 产生安培力 F=BIL → MN 向右加速；v↑ → ε=BLv↑ →
+//        净放电电压 U_C-ε ↓ → 电流减小
+//
+// 阶段 ③ 速度最大瞬间：I_MN=0 → 安培力=0（C 错：v_max 时 F_安=0 而非最大）
+//        此瞬间 ε=BLv_max = U_C
+//
+// 阶段 ④ 减速过程：v 继续靠惯性？不，瞬间 I=0 加速度=0 但能量未平衡 → 电容器 C
+//        与 MN+R 仍构成通路；ε > U_C 时电流反向 → MN 受反向安培力减速
+//        最终 v→0 全部能量耗散在 R 与 MN 上（B 错：不会匀速）
+//
+// 阶段 ⑤ 焦耳热分配：加速阶段 I_R > I_MN（MN 反电动势抑制其电流）→ R 多耗能
+//        减速阶段电流再分流，R 仍多耗 → 总焦耳热 Q_R > Q_MN（D 对）
+//
+// 答案 AD
+
+const T_total = 14;
+
+// 电流近似时间函数（无量纲）：先正向（衰减振荡）→ 0（tau=0.5 处，与 v_max 同步）→ 反向 → 自然衰减回 ~0
+// 用阻尼正弦近似
+function I_at(u){
+  // u: 0..1（仅在 phase 2-4 区间用，即 u∈[0.10, 0.85]）
+  if(u < 0.10) return 0;
+  if(u > 0.85) return 0;
+  const tau = (u - 0.10) / 0.75;          // 0..1
+  const damp = Math.exp(-3.0 * tau);      // 强阻尼，tau=1 时 e^-3 ≈ 0.05 → 尾部自然回 0
+  // I=0 at tau=0.5 (cos(π/2)=0) 与 v_max(sin(π·0.5)=1) 严格同步
+  return Math.cos(Math.PI * tau) * damp;
+}
+function v_at(u){
+  // v: 0 → v_max（在 tau=0.45 处）→ 0
+  if(u < 0.10) return 0;
+  if(u > 0.85) return 0;
+  const tau = (u - 0.10) / 0.75;
+  // 简单包络：sin(π·tau) 形状，0 起 0 止
+  return Math.sin(Math.PI * tau);
+}
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段（与 v_at(tau=0.5) 即 u=0.475 严格对齐）：
+  // 0.00-0.10 题面（S 断开，C 带电）
+  // 0.10-0.30 闭合瞬间（v=0、I 最大）
+  // 0.30-0.46 加速过程（v↑、I↓）
+  // 0.46-0.50 v 最大瞬间（u=0.475，tau=0.5，I=0、F_安=0）
+  // 0.50-0.85 减速过程（I 反向、v↓）
+  // 0.85-0.92 4 选项判定
+  // 0.92-1.00 答案 AD
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.46) phase = 2;
+  else if(u < 0.50) phase = 3;
+  else if(u < 0.85) phase = 4;
+  else if(u < 0.92) phase = 5;
+  else phase = 6;
+
+  const I = I_at(u);   // 归一化电流（正：N→M 自下而上流过 MN；右手定则配 B 向下 → 向右安培力）
+  const v = v_at(u);   // 归一化速度
+  // MN 累积位移（积分速度）
+  let xMN = 0;
+  if(u >= 0.10){
+    const tau = Math.min((u - 0.10) / 0.75, 1);
+    // 简易积分 sin(π·t) dt = (1-cos(πt))/π
+    xMN = (1 - Math.cos(Math.PI * tau)) / Math.PI;
+  }
+
+  return {u, t, phase, I, v, xMN, S_closed: u >= 0.10};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上：俯视装置；下：I-t 图
+  drawCircuit(ctx, 14, 14, W-28, H*0.62-21, state);
+  drawCurrentTime(ctx, 14, H*0.62+7, W-28, H*0.38-21, state);
+}
+
+function drawCircuit(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('电路俯视图（磁场 B 竖直向下、记 ⊗）', panelX+12, panelY+18);
+
+  // 磁场背景 ⊗ 网格
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 10px Georgia,serif';
+  for(let xi = panelX+24; xi < panelX+panelW-12; xi += 22){
+    for(let yi = panelY+44; yi < panelY+panelH-22; yi += 22){
+      ctx.globalAlpha = 0.18;
+      ctx.fillText('⊗', xi, yi);
+    }
+  }
+  ctx.globalAlpha = 1.0;
+
+  // 导轨（两根水平线）
+  const trackY1 = panelY + panelH * 0.35;
+  const trackY2 = panelY + panelH * 0.78;
+  const leftX = panelX + 60;
+  const rightX = panelX + panelW - 30;
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(leftX, trackY1); ctx.lineTo(rightX, trackY1);
+  ctx.moveTo(leftX, trackY2); ctx.lineTo(rightX, trackY2);
+  ctx.stroke();
+
+  // 左端 C 和 R 并联（在 leftX 处接入）
+  // 上下导轨在 leftX 通过两条短竖线连到 C 和 R
+  // 简化：垂直方向从 trackY1 到 trackY2 之间画两个并联元件
+  const parallelX1 = leftX - 30;   // C 元件 x
+  const parallelX2 = leftX - 12;   // R 元件 x（更靠近导轨）
+  // C 上引线
+  ctx.beginPath();
+  ctx.moveTo(leftX, trackY1); ctx.lineTo(parallelX1, trackY1);
+  ctx.moveTo(parallelX1, trackY1); ctx.lineTo(parallelX1, panelY + panelH*0.50);
+  ctx.moveTo(parallelX1, panelY + panelH*0.63); ctx.lineTo(parallelX1, trackY2);
+  ctx.lineTo(leftX, trackY2);
+  // R 上引线
+  ctx.moveTo(leftX, trackY1); ctx.lineTo(parallelX2, trackY1);
+  ctx.moveTo(parallelX2, trackY1); ctx.lineTo(parallelX2, panelY + panelH*0.45);
+  ctx.moveTo(parallelX2, panelY + panelH*0.68); ctx.lineTo(parallelX2, trackY2);
+  ctx.stroke();
+
+  // 电容器符号 C（两条短水平线）
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(parallelX1 - 8, panelY + panelH*0.50); ctx.lineTo(parallelX1 + 8, panelY + panelH*0.50);
+  ctx.moveTo(parallelX1 - 8, panelY + panelH*0.63); ctx.lineTo(parallelX1 + 8, panelY + panelH*0.63);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px Georgia,serif';
+  ctx.fillText('C', parallelX1 - 18, panelY + panelH*0.58);
+
+  // 电阻符号 R（zigzag）
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  const rTop = panelY + panelH*0.45, rBot = panelY + panelH*0.68;
+  const rN = 4; const rH = (rBot - rTop) / rN;
+  ctx.moveTo(parallelX2, rTop);
+  for(let i = 0; i < rN; i++){
+    const sign = i % 2 === 0 ? 1 : -1;
+    ctx.lineTo(parallelX2 + sign*5, rTop + (i+0.5)*rH);
+    ctx.lineTo(parallelX2,         rTop + (i+1)*rH);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px Georgia,serif';
+  ctx.fillText('R', parallelX2 + 10, panelY + panelH*0.58);
+
+  // 开关 S（在 R 上方接导轨处）
+  const sX = leftX + 30, sY = trackY1;
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(sX, sY); ctx.lineTo(sX + 24, sY);
+  ctx.stroke();
+  // 开关本身
+  ctx.beginPath();
+  ctx.arc(sX, sY, 2.5, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(sX + 24, sY, 2.5, 0, Math.PI*2);
+  ctx.fill();
+  // 开关刀
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  if(state.S_closed){
+    ctx.moveTo(sX, sY); ctx.lineTo(sX + 24, sY);
+  } else {
+    ctx.moveTo(sX, sY); ctx.lineTo(sX + 22, sY - 12);
+  }
+  ctx.strokeStyle = state.S_closed ? '#16613f' : '#b4442e';
+  ctx.stroke();
+  ctx.fillStyle = state.S_closed ? '#16613f' : '#b4442e';
+  ctx.font = '700 10px Georgia,serif';
+  ctx.fillText('S', sX + 8, sY - 16);
+
+  // MN 导体棒（垂直，连两条导轨）
+  const xMNbase = leftX + 90;
+  const mnDriftRange = (rightX - 60) - xMNbase;  // 可移动范围
+  const mnX = xMNbase + state.xMN * mnDriftRange * 0.7;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(mnX, trackY1 - 4); ctx.lineTo(mnX, trackY2 + 4);
+  ctx.stroke();
+  ctx.fillStyle = '#b4442e'; ctx.font = '900 12px Georgia,serif';
+  ctx.fillText('M', mnX - 16, trackY1 - 6);
+  ctx.fillText('N', mnX - 14, trackY2 + 18);
+
+  // 电流方向箭头（沿 MN 与导轨）
+  if(state.S_closed && Math.abs(state.I) > 0.02){
+    const arrowColor = state.I > 0 ? '#3f6f8f' : '#c2611f';
+    // MN 上的电流（向上为正）
+    ctx.strokeStyle = arrowColor; ctx.lineWidth = 1.8;
+    if(state.I > 0){
+      // 从 N 向 M（自下而上）
+      PPath.arrow(ctx, mnX + 10, trackY2 - 5, mnX + 10, trackY1 + 5, arrowColor, 1.8);
+    } else {
+      PPath.arrow(ctx, mnX + 10, trackY1 + 5, mnX + 10, trackY2 - 5, arrowColor, 1.8);
+    }
+    // 上导轨电流方向（左←右）
+    if(state.I > 0){
+      PPath.arrow(ctx, mnX - 18, trackY1 - 6, leftX + 10, trackY1 - 6, arrowColor, 1.4);
+    } else {
+      PPath.arrow(ctx, leftX + 10, trackY1 - 6, mnX - 18, trackY1 - 6, arrowColor, 1.4);
+    }
+  }
+
+  // 速度箭头
+  if(state.v > 0.02){
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.8;
+    PPath.arrow(ctx, mnX + 6, (trackY1 + trackY2)/2,
+                     mnX + 6 + state.v * 28, (trackY1 + trackY2)/2, '#5d6964', 1.8);
+    ctx.fillStyle = '#5d6964'; ctx.font = '700 10px Georgia,serif';
+    ctx.fillText(`v`, mnX + 14, (trackY1 + trackY2)/2 - 4);
+  }
+
+  // 阶段短标注
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① S 断开 · C 带电 Q',
+    '阶段 ② 闭合瞬间 · v=0 · I 最大',
+    '阶段 ③ 加速 · v↑ · I↓',
+    '阶段 ④ v_max 瞬间 · I=0 · F_安=0',
+    '阶段 ⑤ 减速 · I 反向 · v↓',
+    '阶段 ⑥ 选项判定',
+    '阶段 ⑦ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+
+  // 答案徽章（u≥0.92）
+  if(state.u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    const bX = panelX + panelW - 130, bY = panelY + 10, bW = 118, bH = 30;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bX, bY, bW, bH, 8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('答案 AD', bX + bW/2, bY + 20);
+    ctx.textAlign = 'start';
+  }
+}
+
+function drawCurrentTime(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('I_MN — t 图（正：向右安培力）', panelX+12, panelY+18);
+
+  // 坐标系
+  const padL = 50, padR = 16, padT = 32, padB = 28;
+  const x0 = panelX + padL;
+  const y0 = panelY + (panelH - padB);   // x 轴位置
+  const xMax = panelX + panelW - padR;
+  const yTop = panelY + padT;
+  const halfH = (y0 - yTop) * 0.45;       // 上下各占 45%
+
+  // 轴
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x0, yTop); ctx.lineTo(x0, y0 + 8);
+  ctx.moveTo(x0 - 6, y0); ctx.lineTo(xMax, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 10px Georgia,serif';
+  ctx.fillText('I', x0 - 14, yTop + 8);
+  ctx.fillText('t', xMax + 4, y0 + 4);
+  ctx.fillText('0', x0 - 12, y0 + 4);
+
+  // I-t 曲线（u 从 0.10 到 0.85，sample 每 0.01）
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  let started = false;
+  for(let uu = 0.10; uu <= state.u + 0.001; uu += 0.005){
+    const tau = (uu - 0.10) / 0.75;
+    if(tau < 0 || tau > 1.001) continue;
+    const Ival = I_at(Math.min(uu, 0.85));
+    const xx = x0 + tau * (xMax - x0 - 4);
+    const yy = y0 - Ival * halfH;
+    if(!started){ ctx.moveTo(xx, yy); started = true; }
+    else ctx.lineTo(xx, yy);
+  }
+  if(started) ctx.stroke();
+
+  // 当前点
+  if(state.S_closed){
+    const tauNow = Math.min((state.u - 0.10) / 0.75, 1);
+    const xNow = x0 + tauNow * (xMax - x0 - 4);
+    const yNow = y0 - state.I * halfH;
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath();
+    ctx.arc(xNow, yNow, 4, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // I=0 标注（在 v_max 瞬间，u=0.475 即 tau=0.5；u≥0.46 揭晓与 phase 3 起始对齐）
+  if(state.u >= 0.46){
+    const xZero = x0 + (0.475 - 0.10) / 0.75 * (xMax - x0 - 4);
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(xZero, yTop); ctx.lineTo(xZero, y0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#16613f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('I=0 (v_max)', xZero + 4, yTop + 12);
+  }
+
+  // I_max 标注（u≥0.30 揭晓与 phase 2 起始对齐）
+  if(state.u >= 0.30){
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 - halfH); ctx.lineTo(xMax, y0 - halfH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#3f6f8f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('I_max', x0 + 6, y0 - halfH - 4);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '导体棒+电容器电磁感应',
+  subtitle: '闭合瞬间 v=0 → I_MN 最大；v_max 瞬间 I=0 → F_安=0；最终 v→0；R 焦耳热 &gt; MN 焦耳热。',
+  deliv: { title: '电磁感应 + 电容器放电', sub: 'AD：I_max + Q_R&gt;Q_MN' },
+  originalProblem: {
+    meta: '2022 全国甲 · 多选 · 第 7 题 · 6 分',
+    image: '../../source/images/image73.png',
+    text: `如图，两根相互平行的光滑长直金属导轨固定在水平绝缘桌面上，在导轨的左端接入电容为 C 的电容器和阻值为 R 的电阻。质量为 m、阻值也为 R 的导体棒 MN 静止于导轨上，与导轨垂直，且接触良好，导轨电阻忽略不计，整个系统处于方向竖直向下的匀强磁场中。开始时，电容器所带的电荷量为 Q，合上开关 S 后，（    ）`,
+    subQuestions: [
+      'A. 通过导体棒电流的最大值为 Q/(RC)',
+      'B. 导体棒 MN 向右先加速、后匀速运动',
+      'C. 导体棒速度最大时所受的安培力也最大',
+      'D. 电阻 R 上产生的焦耳热大于导体棒上产生的焦耳热'
+    ],
+    officialAnswer: 'AD · 合上瞬间 v=0 → ε_MN=BLv=0 → MN 视为纯电阻 R，电容器初始电压 U_0=Q/C 通过 R 与 MN 放电，**电流最大值 I_max=Q/(RC)**（A 对）。MN 在 BIL 安培力下加速，v↑ → ε↑ → 抗 C 放电，电流减小。当 v=v_max 时 I=0 → 安培力=0（C 错应为最大时安培力=0）。此后系统未达稳态：电容器仍可放/充电与 MN+R 构成回路（一直通路），由能量守恒最终 MN 减速到 v=0（B 错不会匀速）。能量分配：加速阶段 MN 反电动势抑制其电流 → I_R&gt;I_MN，R 多耗能；减速阶段电流分流 R 仍多耗 → 总焦耳热 Q_R&gt;Q_MN（D 对）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① S 断', label_short:'init',
+     formula_tex: String.raw`U_{C0}=\dfrac{Q}{C},\;v=0`,
+     note:'C 带电 Q，MN 静止。'},
+    {label:'阶段 ② 闭合瞬间', label_short:'I_max',
+     formula_tex: String.raw`I_{\max}=\dfrac{U_{C0}}{R}=\dfrac{Q}{RC}\;(\varepsilon_{MN}=0)`,
+     note:'MN 视为纯电阻，电流最大。'},
+    {label:'阶段 ③ 加速', label_short:'v↑I↓',
+     formula_tex: String.raw`F_\text{安}=BIL,\;\varepsilon=BLv\uparrow\Rightarrow I\downarrow`,
+     note:'反电动势抑制电流。'},
+    {label:'阶段 ④ v_max', label_short:'I=0',
+     formula_tex: String.raw`I=0\Rightarrow F_\text{安}=0,\;\varepsilon=BLv_{\max}=U_C`,
+     note:'C 错：v_max 时安培力为 0。'},
+    {label:'阶段 ⑤ 减速', label_short:'v↓',
+     formula_tex: String.raw`\varepsilon>U_C\Rightarrow I\text{ 反向}\Rightarrow v\downarrow\to 0`,
+     note:'B 错：不会匀速。'},
+    {label:'阶段 ⑥ 选项', label_short:'A/B/C/D',
+     formula_tex: String.raw`A\;\checkmark\;\;B\;\times\;\;C\;\times\;\;D\;\checkmark`,
+     note:'AD 对。'},
+    {label:'阶段 ⑦ 答案', label_short:'AD',
+     formula_tex: String.raw`Q_R>Q_{MN}\text{（R 多耗，D 对）}`,
+     note:'答案 AD。'}
+  ],
+  stats: [
+    {label:'U_C0',     fmt:s=>(s.u>=0.05? 'Q/C' : '?')},
+    {label:'I_max',    fmt:s=>(s.u>=0.92? 'Q/(RC)' : '?')},
+    {label:'v_max 时 I', fmt:s=>(s.u>=0.92? '0（F_安=0）' : '?')},
+    {label:'最终 v',   fmt:s=>(s.u>=0.92? '0（非匀速）' : '?')},
+    {label:'热分配',   fmt:s=>(s.u>=0.92? 'Q_R > Q_MN' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'I_max=Q/(RC) ✓',     note:'闭合瞬间 ε=0'},
+    {label_text:'B 错', value_text:'最终 v→0',           note:'非匀速'},
+    {label_text:'C 错', value_text:'v_max 时 F_安=0',    note:'I=0 安培力=0'},
+    {label_text:'D 对', value_text:'Q_R &gt; Q_MN ✓',    note:'反电动势抑制 I_MN'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#7d2f1f',type:'rect'}, text:'MN 导体棒'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'正向电流（→ 加速）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'反向电流（→ 减速）'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国甲-Q7-导体棒电容器'
+});
+</script>
+</body>
+</html>

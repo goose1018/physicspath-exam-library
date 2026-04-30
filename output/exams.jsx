@@ -193,6 +193,7 @@ const REAL_PROBLEMS = [
   // ── 2021 全国乙卷 ──
   { id:'2021-gk2-q01', year:2021, paper:'gk2', no:'1',  module:'力学',    tplId:null, title:'弹簧滑块小车 · 动量与机械能守恒',                  summary:'光滑地面 + 内摩擦：撤推力后水平外力为零→p 守恒；内摩擦做功→机械能不守恒。答案 B。', diff:'易', heat:130, hasAnim:true, htmlPath:'2021_全国乙卷/questions/q01/index.html' },
   { id:'2021-gk2-q02', year:2021, paper:'gk2', no:'2',  module:'电磁学',  tplId:null, title:'接地板上方负电荷 · M/N 处电场力与电势能',         summary:'N 等势面密 → E_N>E_M → F_M<F_N；M 距板近 → φ_M>φ_N → E_p_M>E_p_N。答案 A。', diff:'中', heat:120, hasAnim:true, htmlPath:'2021_全国乙卷/questions/q02/index.html' },
+  { id:'2021-gk2-q03', year:2021, paper:'gk2', no:'3',  module:'电磁学',  tplId:null, title:'圆形磁场区粒子偏转 · 速度比 v₁/v₂',                summary:'粒子从圆周 M 沿直径射入。CM⊥OM 几何 → 弦 MP=2R cos(θ/2)=2r sin(θ/2) → r=R cot(θ/2)。θ₁=60°→r₁=√3 R；θ₂=120°→r₂=R/√3。v∝r → v₁/v₂=3。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2021_全国乙卷/questions/q03/index.html' },
   // ── 2020 新课标 II 卷 ──
   { id:'2020-xkbII-q03', year:2020, paper:'xkbII', no:'3',  module:'力学',    tplId:null, title:'摩托车越野跨坑 · 平抛 E₂/E₁',                      summary:'坑宽 3h, a 比 b 高 0.5h；E₁ 落 c (h, h)：t₁=√(2h/g), v₀₁=√(gh/2), E₁=mgh/4；E₂ 到 b (3h, 0.5h)：t₂=√(h/g), v₀₂=3√(gh), E₂=9mgh/2；比值 18。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2020_新课标II/questions/q03/index.html' },
   { id:'2020-xkbII-q07', year:2020, paper:'xkbII', no:'7',  module:'电磁学',  tplId:null, title:'圆环异种电荷 4 点 · 场强电势比较',               summary:'上半 +Q 下半 -Q；4 点 a/b/c/d 等距 r₀；y 轴对称 → E_a=E_b（向下）+ V_a=V_b；水平翻转+电荷反号反对称 → E_c=E_d（向下）；沿 E 方向 V 降 → V_c>V_d。答案 ABC。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标II/questions/q07/index.html' },
@@ -219,6 +220,10 @@ const REAL_PROBLEMS = [
   { id:'2022-gk1-q05', year:2022, paper:'gk1',  no:'5',  module:'电磁学',  tplId:null, title:'带电粒子电磁场摆线轨迹',                            summary:'B 向里 + E 沿 +y，正电粒子从 O 静止；速度分解 v_+/-=±E/B → 漂移 −x 匀速 + 圆周；合成摆线 y_max=2R 每周期漂 −2πR。答案 B。', diff:'难', heat:135, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q05/index.html' },
   { id:'2022-gk1-q06', year:2022, paper:'gk1',  no:'6',  module:'力学',    tplId:null, title:'双滑块+弹簧撤力分析',                                summary:'撤 F 前 F=2μmg、T=μmg；撤 F 瞬间 P：a=−2μg(最大)、Q：a=0；弹簧恢复原长瞬 |a_Q|_max=μg；过程 v_P ≤ v_Q。答案 AD。', diff:'中', heat:120, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q06/index.html' },
   { id:'2022-gk1-q07', year:2022, paper:'gk1',  no:'7',  module:'电磁学',  tplId:null, title:'导体棒+电容器电磁感应',                              summary:'闭合瞬 ε=0 → I_max=Q/(RC)；v_max 时 I=0、F_安=0；最终 v→0 不匀速；R 反电动势抑制 I_MN → Q_R>Q_MN。答案 AD。', diff:'难', heat:140, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q07/index.html' },
+  { id:'2022-gk1-q08', year:2022, paper:'gk1',  no:'8',  module:'电磁学',  tplId:null, title:'带电小球水平电场等效抛体',                            summary:'qE=mg → 等效合力 √2·mg 沿 45°；KE_min 在 t₁=v₀/(2g) 此时 |v_x|=|v_y|；E_p 最大在 t₂=v₀/g 即 v_x=0，KE 回 KE₀；W_重=ΔE_p_E=½mv₀²。答案 BD。', diff:'难', heat:135, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q08/index.html' },
+  { id:'2022-gk1-q13', year:2022, paper:'gk1',  no:'13', module:'热学',    tplId:null, title:'p-T 图 a→b 过原点等容过程',                            summary:'p-T 图过原点 → p/T=const → V=nRT/p 不变 → 等容；W=0、ΔU>0、Q=ΔU。答案 BCE。', diff:'中', heat:115, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q13/index.html' },
+  { id:'2022-gk1-q15', year:2022, paper:'gk1',  no:'15', module:'振动波动', tplId:null, title:'横波 v=2 m/s 填空（λ/f/A 点方向）',                  summary:'A 点 y(0,0)=−1 cm + 图像识别 → λ=4 m；f=v/λ=0.5 Hz、T=2 s；t=2s=T 振动同 t=0；左邻近波谷 → A 向下运动。', diff:'中', heat:105, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q15/index.html' },
+  { id:'2022-gk1-q16', year:2022, paper:'gk1',  no:'16', module:'光学',    tplId:null, title:'正方形棱镜折射 + 全反射',                              summary:'M 入射 60° → sin θ=√3/(2n)；N 全反射 α=90°−θ → cos θ=1/n；联立 sin²+cos² → n²=7/4；几何 PC=a·(tan θ−1/2)。答案 n=√7/2、PC=a(√3−1)/2。', diff:'难', heat:140, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q16/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -356,6 +361,7 @@ const PROBLEM_META = {
   // 2021 全国乙卷
   '2021-gk2-q01': { type:'choice-single', answer:'B' },
   '2021-gk2-q02': { type:'choice-single', answer:'A' },
+  '2021-gk2-q03': { type:'choice-single', answer:'B' },
   // 2020 新课标 II 卷
   '2020-xkbII-q03': { type:'choice-single', answer:'B' },
   '2020-xkbII-q07': { type:'choice-multi',  answer:'ABC' },
@@ -381,6 +387,10 @@ const PROBLEM_META = {
   '2022-gk1-q05':  { type:'choice-single', answer:'B' },
   '2022-gk1-q06':  { type:'choice-multi',  answer:['A','D'] },
   '2022-gk1-q07':  { type:'choice-multi',  answer:['A','D'] },
+  '2022-gk1-q08':  { type:'choice-multi',  answer:['B','D'] },
+  '2022-gk1-q13':  { type:'choice-multi',  answer:['B','C','E'] },
+  '2022-gk1-q15':  { type:'calc',          answer:[{sub:'λ',val:'4 m'},{sub:'f',val:'0.5 Hz'},{sub:'t=2s 时 A',val:'向下运动'}] },
+  '2022-gk1-q16':  { type:'calc',          answer:[{sub:'n',val:'√7/2'},{sub:'PC',val:'a(√3−1)/2'}] },
 };
 
 // 按 year×paper 计数
