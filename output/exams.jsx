@@ -201,10 +201,12 @@ const REAL_PROBLEMS = [
   // ── 2020 新课标 III 卷 ──
   { id:'2020-xkbIII-q01', year:2020, paper:'xkbIII', no:'1', module:'电磁学',  tplId:null, title:'玻璃棒线圈 + 金属圆环 · 楞次定律',                summary:'光滑玻璃棒左端线圈右端金属圆环。开关接通瞬间，I_线圈从 0 增大 → B↑ → Φ_环↑ → 楞次"增则斥" → 圆环受斥力远离线圈（向右）。M/N 端结果相同。答案 B。', diff:'易', heat:120, hasAnim:true, htmlPath:'2020_新课标III/questions/q01/index.html' },
   { id:'2020-xkbIII-q04', year:2020, paper:'xkbIII', no:'4', module:'力学',    tplId:null, title:'绳索 O 点平衡几何 · 求 β',                       summary:'墙左固定绳过 O 点接细线挂甲，另一端经光滑滑轮挂乙。甲乙等质量，α=70° 求 β。O 点 3 力平衡 → cot β=(1-cos α)/sin α=(1-cos 70°)/sin 70°≈0.700 → β≈55°。答案 B。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标III/questions/q04/index.html' },
+  { id:'2020-xkbIII-q15', year:2020, paper:'xkbIII', no:'15', module:'振动波动', tplId:null, title:'简谐横波 · 周期/波速/方向',                       summary:'实线 t=0 / 虚线 t=0.1s 波形图。x=6m 处 0→0.1s 方向不变 (波峰→平衡)。负方向 d_-=(n+1/4)λ, n=0→λ=4m, T=0.4s, v=10m/s。正方向 3T/4 周期方向反转排除。答案 T=0.4s, v=10, 负方向。', diff:'中', heat:115, hasAnim:true, htmlPath:'2020_新课标III/questions/q15/index.html' },
   { id:'2020-xkbIII-q16', year:2020, paper:'xkbIII', no:'16', module:'光学',   tplId:null, title:'三棱镜光路 · AC 与 BC 出射区域比值',              summary:'n=√3, ∠A=90°/∠B=30°。光平行 BC 从 AB 入射。i=60°→sin r=1/2→r=30°。临界角 ≈33.6°。DB 范围 BC 全反射后垂直 AC 出射 → AC 全部出射。AD 范围 AC 全反射后垂直 BC 出射 CF=AC/2。比值 AC:CF=2。', diff:'中', heat:115, hasAnim:true, htmlPath:'2020_新课标III/questions/q16/index.html' },
   // ── 2019 新课标 I 卷 ──
   { id:'2019-xkbI-q01', year:2019, paper:'xkbI', no:'1', module:'近代物理', tplId:null, title:'氢原子能级跃迁 · 可见光最少激发能',               summary:'E_n=-13.6/n² eV；可见光 1.63~3.10 eV。莱曼 n→1 全紫外、帕邢 n→3 全红外、巴尔末 n→2（3→2..6→2 都在范围）→ 必须激发到 n≥3。E_min=E_3-E_1=12.09 eV。答案 A。', diff:'中', heat:130, hasAnim:true, htmlPath:'2019_新课标I/questions/q01/index.html' },
   { id:'2019-xkbI-q05', year:2019, paper:'xkbI', no:'5', module:'力学',    tplId:null, title:'篮球扣篮上升 4 段时间比 t₂/t₁',                  summary:'垂直起跳上升 H, 4 等分 H/4。逆向自由落体反向，等距时间比 1:(√2-1):(√3-√2):(2-√3)。t₁=(2-√3)/2·T, t₂=1/2·T → t₂/t₁=1/(2-√3)=2+√3≈3.732。3<·<4。答案 C。', diff:'中', heat:120, hasAnim:true, htmlPath:'2019_新课标I/questions/q05/index.html' },
+  { id:'2019-xkbI-q15', year:2019, paper:'xkbI', no:'15', module:'振动波动', tplId:null, title:'简谐横波 · P/Q 振动判定（多选）',                summary:'波正方向传播。P 波谷, Q 平衡位置, O 原点波峰。"左邻法"判：P/Q 都向上、O 向下。A 错（Q≠图b 向下）, B 错（P 速率<Q）, C 对（|y|_P>|y|_Q→加速度同序）, D 对（O 与图 b 一致）, E 对（P 距 A>Q 距 0）。答案 CDE。', diff:'中', heat:115, hasAnim:true, htmlPath:'2019_新课标I/questions/q15/index.html' },
   { id:'2019-xkbI-q16', year:2019, paper:'xkbI', no:'16', module:'光学',   tplId:null, title:'帆船桅杆 + 湖底激光折射',                         summary:'h₁=3m 桅杆、h₂=4m 水深、n=4/3。(i) 出射 53° (sin=0.8) 求 x：x₁=h₁tan53°=4, sin θ=0.6→tan θ=3/4→x₂=3, x=7m。(ii) 水中 45° 求 x\'：sin i\'=2√2/3, tan i\'=2√2, x₁\'=6√2, x₂\'=4, x\'=6√2-3≈5.5m。', diff:'中', heat:120, hasAnim:true, htmlPath:'2019_新课标I/questions/q16/index.html' },
   { id:'2023-xgk1-q07', year:2023, paper:'xgk1', no:'7',  module:'力学',    tplId:null, title:'W-x 图分段拉力 · 动能/功率/动量',                  summary:'½mv²=W−f·x，f=4N；F₁=6 加速 / F₂=3<f 减速；x=4 KE=2J；W_f(0→2)=8J；v_max=2√2 在 x=2m。答案 BC。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_新课标卷/questions/q07/index.html' },
   { id:'2023-xgk1-q08', year:2023, paper:'xgk1', no:'8',  module:'热学',    tplId:null, title:'三段绝热汽缸 + 弹簧 + 加热 f',                       summary:'加热 f → P₁ 推 g、弹簧推 P₂ 推 h；P₁ 平衡 P_f=P_g+F/A，P₂ 平衡 P_h=P_g+F/A → P_f=P_h；h 绝热被做正功 ΔU_h>0。答案 AD。', diff:'中', heat:135, hasAnim:true, htmlPath:'2023_新课标卷/questions/q08/index.html' },
@@ -216,6 +218,7 @@ const REAL_PROBLEMS = [
   { id:'2022-gk1-q03', year:2022, paper:'gk1',  no:'3',  module:'电磁学',  tplId:null, title:'三种线框感应电流比较',                              summary:'同导线 R∝L=8r:2πr:6r；面积 S=4r²:πr²:(3√3/2)r²；I=ε/R=S/L·(dB/dt) → 比 2:2:√3 → I₁=I₂>I₃。答案 C。', diff:'中', heat:110, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q03/index.html' },
   { id:'2022-gk1-q05', year:2022, paper:'gk1',  no:'5',  module:'电磁学',  tplId:null, title:'带电粒子电磁场摆线轨迹',                            summary:'B 向里 + E 沿 +y，正电粒子从 O 静止；速度分解 v_+/-=±E/B → 漂移 −x 匀速 + 圆周；合成摆线 y_max=2R 每周期漂 −2πR。答案 B。', diff:'难', heat:135, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q05/index.html' },
   { id:'2022-gk1-q06', year:2022, paper:'gk1',  no:'6',  module:'力学',    tplId:null, title:'双滑块+弹簧撤力分析',                                summary:'撤 F 前 F=2μmg、T=μmg；撤 F 瞬间 P：a=−2μg(最大)、Q：a=0；弹簧恢复原长瞬 |a_Q|_max=μg；过程 v_P ≤ v_Q。答案 AD。', diff:'中', heat:120, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q06/index.html' },
+  { id:'2022-gk1-q07', year:2022, paper:'gk1',  no:'7',  module:'电磁学',  tplId:null, title:'导体棒+电容器电磁感应',                              summary:'闭合瞬 ε=0 → I_max=Q/(RC)；v_max 时 I=0、F_安=0；最终 v→0 不匀速；R 反电动势抑制 I_MN → Q_R>Q_MN。答案 AD。', diff:'难', heat:140, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q07/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -361,10 +364,12 @@ const PROBLEM_META = {
   // 2020 新课标 III 卷
   '2020-xkbIII-q01': { type:'choice-single', answer:'B' },
   '2020-xkbIII-q04': { type:'choice-single', answer:'B' },
+  '2020-xkbIII-q15': { type:'calc',          answer:[{sub:'T',val:'0.4 s'},{sub:'v',val:'10 m/s'},{sub:'方向',val:'x 轴负方向'}] },
   '2020-xkbIII-q16': { type:'calc',          answer:[{sub:'AC : CF',val:'2'}] },
   // 2019 新课标 I 卷
   '2019-xkbI-q01': { type:'choice-single', answer:'A' },
   '2019-xkbI-q05': { type:'choice-single', answer:'C' },
+  '2019-xkbI-q15': { type:'choice-multi',  answer:'CDE' },
   '2019-xkbI-q16': { type:'calc',          answer:[{sub:'(i) x',val:'7 m'},{sub:'(ii) x\'',val:'6√2−3 ≈ 5.5 m'}] },
   '2023-xgk1-q07': { type:'choice-multi',  answer:'BC' },
   '2023-xgk1-q08': { type:'choice-multi',  answer:'AD' },
@@ -375,6 +380,7 @@ const PROBLEM_META = {
   '2022-gk1-q03':  { type:'choice-single', answer:'C' },
   '2022-gk1-q05':  { type:'choice-single', answer:'B' },
   '2022-gk1-q06':  { type:'choice-multi',  answer:['A','D'] },
+  '2022-gk1-q07':  { type:'choice-multi',  answer:['A','D'] },
 };
 
 // 按 year×paper 计数

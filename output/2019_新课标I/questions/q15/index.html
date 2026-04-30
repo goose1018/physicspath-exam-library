@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2019 新课标Ⅰ · 第 15 题 · 简谐横波 P/Q 振动判定</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理（详见 phases[].formula_tex）：
+// 简谐横波沿 x 轴正方向传播。t=t₀ 时波形图(a)，P、Q 是质点。图(b) 振动图象。
+// 设 λ=4m, P 在 x=2 (波谷), Q 在 x=1 (平衡位置)。
+// 正方向传播 → 波形右移 → 任意点下一刻 y 取自其左邻 y。
+// P (x=2): 左邻 (x<2 处) y 增大 → P 当前 -A → 下一刻 y 增大 → P 向上 (正方向)
+// Q (x=1): 左邻 (x<1 处) y > 0 (波峰在 x=0) → Q 当前 0 → 下一刻 y 增大 → Q 向上
+// 原点 (x=0): 当前波峰 +A → 左邻 (x<0 处) y < +A → 原点向下振动 → 与图(b) 一致 → D 对
+//
+// 5 选项判定（t=0 即图 a 的时刻）：
+//   A 错：图(b) 振动方向向下，与 Q (向上) 不符
+//   B 错：P 在波谷速率=0；Q 在平衡位置速率=ωA 最大 → P < Q
+//   C 对：a = -ω²·y 与 |y| 成正比；P 在波谷 |y|=A 加速度最大；Q 在平衡 |y|=0 加速度=0 → P > Q
+//   D 对：原点振动图与图(b) 一致（都先向下）
+//   E 对：P 距平衡 = A；Q 距平衡 = 0 → P > Q
+
+const LAMBDA = 4;
+const A_AMP = 1;     // 振幅归一
+const X_P = 2;
+const X_Q = 1;
+
+function y_wave(x){ return -A_AMP * Math.cos(2*Math.PI*(x - 2)/LAMBDA); }
+// 验证: x=2 → -1 (波谷), x=1 → 0 (平衡), x=0 → +1 (波峰), x=3 → 0, x=4 → +1
+// 原点振动: y(0,t) = -A·cos(2π(0-vt-2)/4) = A·cos(πvt/2) (从 +A 余弦下降)
+// 取 v=10, T=0.4 (任意，振动周期为 T)
+const V_PHYS = 10, T_PHYS = LAMBDA/V_PHYS;     // 0.4
+function y_origin(t){ return Math.cos(2*Math.PI*t/T_PHYS); }
+// t=0: +1, t=T/4=0.1: 0, t=T/2=0.2: -1, t=3T/4=0.3: 0, t=T=0.4: +1
+
+const T_total = 11.0;
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.18){ phase = 1; prog = u/0.18; }
+  else if(u < 0.40){ phase = 2; prog = (u-0.18)/0.22; }
+  else if(u < 0.62){ phase = 3; prog = (u-0.40)/0.22; }
+  else if(u < 0.85){ phase = 4; prog = (u-0.62)/0.23; }
+  else { phase = 5; prog = (u-0.85)/0.15; }
+
+  return {
+    phase, prog, u, t,
+    showDir: phase >= 2,         // P/Q 速度方向箭头
+    showOscB: phase >= 3,        // 振动图(b)
+    showVerdict: phase >= 4,     // 5 选项判定
+    showAnswer: phase >= 5
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const padL = 60, padR = 30, padT = 30, padB = 80;
+  const W2 = W - padL - padR;
+  const H2 = H - padT - padB;
+  const upperH = H2 * 0.50;
+  const lowerH = H2 * 0.45;
+  const gapY = H2 * 0.05;
+
+  // ─── 上图：波形图(a) t=0 ───
+  const xPlotL = padL;
+  const xPlotR = padL + W2;
+  const yWavMid = padT + upperH * 0.5;
+  const yWavMax = padT;
+  const yWavMin = padT + upperH;
+  const xToPx = x => xPlotL + x/4.5 * W2;     // x ∈ [0, 4.5]
+  const yToPx = y => yWavMid - y * (upperH * 0.4);
+
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(xPlotL, yWavMid); ctx.lineTo(xPlotR + 8, yWavMid);
+  ctx.moveTo(xPlotL, yWavMax - 8); ctx.lineTo(xPlotL, yWavMin + 8);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('y', xPlotL - 14, yWavMax - 4);
+  ctx.fillText('x/m', xPlotR + 12, yWavMid + 4);
+  // x 刻度（0,1,2,3,4）
+  ctx.font = '600 10px ui-monospace,monospace';
+  for(let xx=0; xx<=4; xx++){
+    const px = xToPx(xx);
+    ctx.beginPath();
+    ctx.moveTo(px, yWavMid); ctx.lineTo(px, yWavMid + 3);
+    ctx.stroke();
+    ctx.fillText(String(xx), px - 3, yWavMid + 14);
+  }
+
+  // 波形曲线
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  for(let i=0; i<=200; i++){
+    const x = i/200 * 4.5;
+    const y = y_wave(x);
+    const px = xToPx(x), py = yToPx(y);
+    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // P 点（x=2 波谷）
+  const Px_w = xToPx(X_P);
+  const Py_w = yToPx(y_wave(X_P));
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(Px_w, Py_w, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px Georgia,serif';
+  ctx.fillText('P', Px_w - 14, Py_w + 4);
+
+  // Q 点（x=1 平衡）
+  const Qx_w = xToPx(X_Q);
+  const Qy_w = yToPx(y_wave(X_Q));
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(Qx_w, Qy_w, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px Georgia,serif';
+  ctx.fillText('Q', Qx_w - 8, Qy_w - 8);
+
+  // 原点（x=0 波峰）
+  const Ox_w = xToPx(0);
+  const Oy_w = yToPx(y_wave(0));
+  ctx.fillStyle = '#9d3fbf';
+  ctx.beginPath(); ctx.arc(Ox_w, Oy_w, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10px Georgia,serif';
+  ctx.fillText('O', Ox_w - 14, Oy_w - 6);
+
+  // 波传播方向箭头（标在右上角）
+  PPath.arrow(ctx, xToPx(3.6), yWavMax + 14, xToPx(4.3), yWavMax + 14, '#b4442e', 2);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('波 →（正方向）', xToPx(3.4), yWavMax + 8);
+
+  // 阶段 ② 标 P/Q/O 速度方向（向上箭头朝向 +y, canvas 是 -y 方向）
+  if(state.showDir){
+    // P 向上：箭头从 P 朝 canvas 上方
+    PPath.arrow(ctx, Px_w + 14, Py_w, Px_w + 14, Py_w - 26, '#3f6f8f', 1.8);
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('P 向上', Px_w + 18, Py_w - 18);
+    // Q 向上
+    PPath.arrow(ctx, Qx_w + 14, Qy_w, Qx_w + 14, Qy_w - 26, '#16613f', 1.8);
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('Q 向上', Qx_w + 18, Qy_w - 18);
+    // 原点 O 向下
+    PPath.arrow(ctx, Ox_w + 14, Oy_w, Ox_w + 14, Oy_w + 26, '#9d3fbf', 1.8);
+    ctx.fillStyle = '#9d3fbf';
+    ctx.fillText('O 向下', Ox_w + 18, Oy_w + 18);
+  }
+
+  // ─── 下图：振动图(b)（原点振动）───
+  const yPlotMid = padT + upperH + gapY + lowerH * 0.5;
+  const yPlotMax = padT + upperH + gapY;
+  const yPlotMin = padT + upperH + gapY + lowerH;
+  const tPlotL = xPlotL;
+  const tPlotR = xPlotR;
+  const tToPx = tt => tPlotL + tt/0.5 * W2;     // t ∈ [0, 0.5]
+  const yPToPx = y => yPlotMid - y * (lowerH * 0.4);
+
+  if(state.showOscB){
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(tPlotL, yPlotMid); ctx.lineTo(tPlotR + 8, yPlotMid);
+    ctx.moveTo(tPlotL, yPlotMax - 8); ctx.lineTo(tPlotL, yPlotMin + 8);
+    ctx.stroke();
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText('y', tPlotL - 14, yPlotMax - 4);
+    ctx.fillText('t/s', tPlotR + 12, yPlotMid + 4);
+    ctx.font = '600 10px ui-monospace,monospace';
+    for(const tt of [0, 0.1, 0.2, 0.3, 0.4]){
+      const px = tToPx(tt);
+      ctx.beginPath();
+      ctx.moveTo(px, yPlotMid); ctx.lineTo(px, yPlotMid + 3);
+      ctx.stroke();
+      ctx.fillText(tt.toFixed(1), px - 6, yPlotMid + 14);
+    }
+
+    // 振动曲线（原点）
+    ctx.strokeStyle = '#9d3fbf'; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    const tEnd = state.phase === 3 ? state.prog * 0.5 : 0.5;
+    for(let i=0; i<=200; i++){
+      const tt = i/200 * tEnd;
+      const py = yPToPx(y_origin(tt));
+      const px = tToPx(tt);
+      if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // 标 t=0 起点 + 振动方向
+    ctx.fillStyle = '#9d3fbf';
+    ctx.beginPath(); ctx.arc(tToPx(0), yPToPx(1), 5, 0, Math.PI*2); ctx.fill();
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('图(b) 原点振动 · t=0 在波峰 → 向下', tPlotL + 4, yPlotMin + 16);
+  }
+
+  // 阶段 ④/⑤：5 选项判定（短标在右侧）
+  if(state.showVerdict){
+    const lblX = xToPx(3.6) + 6;
+    const lblY0 = yWavMid + 60;
+    const items = [
+      {tag:'A', ok:false, txt:'Q 与图(b) 不同'},
+      {tag:'B', ok:false, txt:'P 速率 < Q'},
+      {tag:'C', ok:true,  txt:'P 加速度 > Q'},
+      {tag:'D', ok:true,  txt:'原点 = 图(b)'},
+      {tag:'E', ok:true,  txt:'P 距离 > Q'}
+    ];
+    items.forEach((it, i) => {
+      ctx.fillStyle = it.ok ? '#16613f' : '#b4442e';
+      ctx.font = '900 11px "Noto Sans SC",sans-serif';
+      ctx.fillText(`${it.tag} ${it.ok?'✓':'✗'}`, lblX, lblY0 + i*15);
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '600 10px ui-monospace,monospace';
+      ctx.fillText(it.txt, lblX + 28, lblY0 + i*15);
+    });
+  }
+
+  // 阶段标
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  const phaseLabel = state.phase === 1 ? '阶段 ① 波形(a)：P 在波谷 / Q 在平衡 / O 在波峰'
+                    : state.phase === 2 ? '阶段 ② 正方向传播 → 各点速度方向（左邻法）'
+                    : state.phase === 3 ? '阶段 ③ 振动图(b)：原点振动（与 D 选项对照）'
+                    : state.phase === 4 ? '阶段 ④ 5 选项 ABCDE 判定'
+                    : '阶段 ⑤ 答案 CDE';
+  ctx.fillText(phaseLabel, padL, padT - 12);
+
+  // 答案徽章
+  if(state.showAnswer){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(W - 160, padT, 145, 36, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 CDE', W - 152, padT + 23);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2019 新课标Ⅰ卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 15 题 · 选考',
+  title: '简谐横波 · P/Q 振动判定',
+  subtitle: '正方向传播 · P 在波谷 / Q 在平衡位置 · 5 选项 ABCDE 判定',
+  deliv: {
+    title: '波形 + 振动图双图对照',
+    sub: '正方向"左邻法"判速度方向 · 5 选项判定速率/加速度/距离/振动图'
+  },
+  originalProblem: {
+    meta: '2019 新课标Ⅰ卷 · 多选 · 第 15 题 · 选考',
+    text: `一简谐横波沿 x 轴正方向传播，在 t = t₀ 时刻，该波的波形图如图(a) 所示，P、Q 是介质中的两个质点。图(b) 表示介质中某质点的振动图象。下列说法正确的是（    ）`,
+    image: '../../source/images/image84.png',
+    subQuestions: [
+      'A. 质点 Q 的振动图象与图(b) 相同',
+      'B. 在 t=0 时刻，质点 P 的速率比质点 Q 的大',
+      'C. 在 t=0 时刻，质点 P 的加速度的大小比质点 Q 的大',
+      'D. 平衡位置在坐标原点的质点的振动图象如图(b) 所示',
+      'E. 在 t=0 时刻，质点 P 与其平衡位置的距离比质点 Q 的大'
+    ],
+    officialAnswer: 'CDE。\nA 错：波沿 x 轴正方向传播，由"左邻法"，在 t=0 时刻 Q 的下一刻 y 由其左邻决定；Q 在平衡位置，左邻处 y &gt; 0（在波峰附近），故 Q 振动方向向上。而图(b) 在该时刻振动方向向下，故 Q 的振动图与图(b) 不同。\nB 错：P 在波谷，速度 v = 0；Q 在平衡位置，速度 v = ωA 最大。故 P 速率 &lt; Q 速率。\nC 对：简谐运动 a = -ω²·y，加速度大小与位移大小成正比。P 在波谷 |y|=A 加速度最大，Q 在平衡位置 |y|=0 加速度为零。故 P 加速度 &gt; Q 加速度。\nD 对：原点 t=0 在波峰，由"左邻法"，左邻处 y &lt; +A，故原点振动方向向下。这与图(b) 在该时刻的振动方向（向下）一致。\nE 对：P 与平衡位置距离 = A（满振幅），Q 与平衡位置距离 = 0。故 P 距离 &gt; Q 距离。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 波形(a)', label_short:'波形',
+     formula_tex: String.raw`\text{P 在波谷 }(y=-A),\;\; \text{Q 在平衡 }(y=0),\;\; \text{O 原点在波峰 }(y=+A)`,
+     note:'波形图(a) 显示 t=0 时刻波形。P 位于波谷，Q 位于平衡位置，原点 O 位于波峰。'},
+    {label:'阶段 ② 速度方向（左邻法）', label_short:'方向',
+     formula_tex: String.raw`\text{正方向传播} \Rightarrow \text{各点下一刻 } y \text{ 由其左邻决定}`,
+     note:'正方向传播 → 波形向 +x 平移 → 任意点下一刻 y 等于当前左邻 y。P 左邻 y &gt; -A（向上）；Q 左邻 y &gt; 0（向上）；O 左邻 y &lt; +A（向下）。'},
+    {label:'阶段 ③ 振动图(b)', label_short:'图(b)',
+     formula_tex: String.raw`y_O(t) = A\cos\!\left(\tfrac{2\pi t}{T}\right),\;\; \text{从波峰 } +A \text{ 起单调下降}`,
+     note:'图(b) 是某质点的振动图。原点 O 在 t=0 处于波峰 +A，下一刻向下振动 → 与图(b) 一致 → D 对。'},
+    {label:'阶段 ④ 5 选项判定', label_short:'判',
+     formula_tex: String.raw`a = -\omega^{2} y,\;\; |a|_{P} > |a|_{Q};\;\; v_{P} = 0 < v_{Q} = \omega A;\;\; |y|_{P} = A > |y|_{Q} = 0`,
+     note:'A 错（Q 向上 ≠ 图 b 向下）；B 错（P 速率=0 &lt; Q）；C 对（|y|_P &gt; |y|_Q → 加速度大小同序）；D 对（原点向下与图 b 一致）；E 对（P 距 A，Q 距 0）。'},
+    {label:'阶段 ⑤ 答案', label_short:'答',
+     formula_tex: String.raw`\boxed{\;\text{CDE}\;}`,
+     note:'C/D/E 三项正确，A/B 错误。'}
+  ],
+  stats: [
+    {label:'波长 λ',          fmt:()=>'4 m'},
+    {label:'P 位置',           fmt:()=>'x = 2 m (波谷)'},
+    {label:'Q 位置',           fmt:()=>'x = 1 m (平衡)'},
+    {label:'O 位置',           fmt:()=>'x = 0 (波峰)'},
+    {label:'P 速度',           fmt:s=>s.showDir?'0 (波谷)':'?'},
+    {label:'Q 速度',           fmt:s=>s.showDir?'ωA 最大':'?'},
+    {label:'P 加速度',         fmt:s=>s.showVerdict?'最大 ω²A':'?'},
+    {label:'Q 加速度',         fmt:s=>s.showVerdict?'0':'?'},
+    {label:'答案',             fmt:s=>s.showAnswer?'CDE':'?'}
+  ],
+  conclusions: [
+    {label_text:'A',           value_text:'?（动画揭晓）',          note:'Q 振动图与 b'},
+    {label_text:'B',           value_text:'?（动画揭晓）',          note:'P/Q 速率比较'},
+    {label_text:'C',           value_text:'?（动画揭晓）',          note:'P/Q 加速度比较'},
+    {label_text:'D',           value_text:'?（动画揭晓）',          note:'原点振动 vs 图 b'},
+    {label_text:'E',           value_text:'?（动画完毕揭晓）',       note:'P/Q 距平衡距离'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'波形(a) 红实线'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'dot'},  text:'P (x=2, 波谷)'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'Q (x=1, 平衡)'},
+    {swatch:{bg:'#9d3fbf',border:'#9d3fbf',type:'dot'},  text:'原点 O (x=0, 波峰)'},
+    {swatch:{bg:'#9d3fbf',border:'#9d3fbf',type:'rect'}, text:'振动图(b) 紫线'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2019新课标I-Q15-横波PQ振动判定'
+});
+</script>
+</body>
+</html>

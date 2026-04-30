@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2020 新课标Ⅲ · 第 15 题 · 简谐横波周期/波速/方向</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理（详见 phases[].formula_tex）：
+// 实线 t=0 与虚线 t=0.1s 的波形图。已知 x=6m 处质点 0→0.1s 内运动方向不变。
+// 由图：λ=4m。从实线到虚线，波"看起来"平移 1m（位置）。
+// (a) 假设正方向传播：右移 (n+某)·λ + 1m = v·0.1 → v_+ = ?
+// (b) 假设负方向传播：左移 1m → v_- = 1/0.1 = 10 m/s
+// 限制：x=6m 处 0→0.1s 单调变化（方向不变）→ 排除正方向取最小 n 的情况
+// 唯一解：T=0.4s, v=10m/s, **负方向**
+
+const LAMBDA = 4;     // 波长 m
+const T_PHYS = 0.4;   // 周期 s
+const V_PHYS = 10;    // 波速 m/s, λ/T
+const DT = 0.1;       // 题目时间间隔
+const X_P = 6;        // P 点位置 m
+
+// 实线 t=0: y(x,0) = A·cos(2π(x-X_P)/λ)，x=6 时 y=A 波峰
+// 虚线 t=0.1: y(x,0.1) = A·cos(2π(x+v·t-X_P)/λ)（负方向传播 → x+vt 为相位）
+//          = A·cos(2π(x-5)/λ)，x=6 时 y=cos(π/2)=0 ✓
+function y_t0(x){ return Math.cos(2*Math.PI*(x - X_P)/LAMBDA); }
+function y_t1(x){ return Math.cos(2*Math.PI*(x - X_P + V_PHYS*DT)/LAMBDA); }
+
+// P 点（x=6m）振动函数（负方向）：y(6, t) = cos(2π·v·t/λ) = cos(2π·10·t/4) = cos(5πt)
+function y_P(t){ return Math.cos(5*Math.PI*t); }
+
+const T_total = 10.0;
+// 阶段：① 波形（u 0-0.18）② 负方向假设（动画平移 u 0.18-0.45）
+//       ③ P 点振动（u 0.45-0.72）④ 正方向假设排除（u 0.72-0.88）⑤ 答案（u 0.88-1.00）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.18){ phase = 1; prog = u/0.18; }
+  else if(u < 0.45){ phase = 2; prog = (u-0.18)/0.27; }
+  else if(u < 0.72){ phase = 3; prog = (u-0.45)/0.27; }
+  else if(u < 0.88){ phase = 4; prog = (u-0.72)/0.16; }
+  else { phase = 5; prog = (u-0.88)/0.12; }
+
+  return {
+    phase, prog, u, t,
+    showShift: phase >= 2,
+    showPMotion: phase >= 3,
+    showPosTry: phase >= 4,
+    showAnswer: phase >= 5
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 上半：波形图（x ∈ [0, 12], y ∈ [-1.2, 1.2]）
+  // 下半：P 点振动图（t ∈ [0, 0.1], y ∈ [-1.2, 1.2]）
+  const padL = 60, padR = 30, padT = 30, padB = 80;
+  const W2 = W - padL - padR;
+  const H2 = H - padT - padB;
+  // 上下分两幅图
+  const upperH = H2 * 0.55;
+  const lowerH = H2 * 0.40;
+  const gapY = H2 * 0.05;
+
+  // ─── 上图：波形图 ───
+  const xPlotL = padL;
+  const xPlotR = padL + W2;
+  const yWavMid = padT + upperH * 0.5;
+  const yWavMax = padT;
+  const yWavMin = padT + upperH;
+  const xMin_phys = 0, xMax_phys = 12;
+  const xToPx = x => xPlotL + (x - xMin_phys)/(xMax_phys - xMin_phys) * W2;
+  const yToPx = y => yWavMid - y * (upperH * 0.4);     // y = ±1 对应 ±0.4·upperH
+
+  // 坐标轴
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(xPlotL, yWavMid); ctx.lineTo(xPlotR + 8, yWavMid);
+  ctx.moveTo(xPlotL, yWavMax - 8); ctx.lineTo(xPlotL, yWavMin + 8);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('y', xPlotL - 14, yWavMax - 4);
+  ctx.fillText('x/m', xPlotR + 12, yWavMid + 4);
+  // x 刻度（0, 2, 4, 6, 8, 10, 12）
+  ctx.font = '600 10px ui-monospace,monospace';
+  for(let xx=0; xx<=12; xx+=2){
+    const px = xToPx(xx);
+    ctx.beginPath();
+    ctx.moveTo(px, yWavMid); ctx.lineTo(px, yWavMid + 3);
+    ctx.stroke();
+    ctx.fillText(String(xx), px - 4, yWavMid + 14);
+  }
+
+  // 实线 t=0 波形（红）
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  for(let i=0; i<=200; i++){
+    const x = xMin_phys + i/200*(xMax_phys-xMin_phys);
+    const y = y_t0(x);
+    const px = xToPx(x), py = yToPx(y);
+    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // 虚线 t=0.1s 波形（蓝色虚线）
+  // 阶段 ② 起：演示从实线"平移到虚线"
+  let shiftFrac = 1;     // 从 0 到 1 表示完成平移
+  if(state.phase === 2){
+    shiftFrac = state.prog;
+  }
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.2; ctx.setLineDash([6,4]);
+  ctx.beginPath();
+  for(let i=0; i<=200; i++){
+    const x = xMin_phys + i/200*(xMax_phys-xMin_phys);
+    // 渐变波形：从 t=0 形态平移到 t=0.1s 形态
+    const phaseShift = shiftFrac * V_PHYS * DT;     // 0 → 1m
+    const y = Math.cos(2*Math.PI*(x - X_P + phaseShift)/LAMBDA);
+    const px = xToPx(x), py = yToPx(y);
+    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 标记 P 点 (x=6m, 实线波峰)
+  const Px_wave = xToPx(X_P);
+  const Py_wave_t0 = yToPx(y_t0(X_P));
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(Px_wave, Py_wave_t0, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px Georgia,serif';
+  ctx.fillText('P', Px_wave + 6, Py_wave_t0 - 6);
+  // x=6m 标
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(Px_wave, yWavMid); ctx.lineTo(Px_wave, yWavMin);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+  ctx.fillText('x=6m', Px_wave - 14, yWavMin + 14);
+
+  // 阶段 ② 演示"波向负方向平移 1m"：在波形上画箭头
+  if(state.showShift){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.6;
+    PPath.arrow(ctx, xToPx(8), yWavMin - 24, xToPx(7), yWavMin - 24, '#16613f', 1.8);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('负方向 平移 1m', xToPx(7) - 8, yWavMin - 8);
+  }
+
+  // 图例
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(xToPx(10) + 6, yWavMax + 2, 16, 2);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10px ui-monospace,monospace';
+  ctx.fillText('t=0 (实)', xToPx(10) + 26, yWavMax + 6);
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(xToPx(10) + 6, yWavMax + 14, 4, 2);
+  ctx.fillRect(xToPx(10) + 13, yWavMax + 14, 4, 2);
+  ctx.fillRect(xToPx(10) + 20, yWavMax + 14, 2, 2);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillText('t=0.1s (虚)', xToPx(10) + 26, yWavMax + 18);
+
+  // ─── 下图：P 点振动图（仅 phase>=3 显示）───
+  const yPlotMid = padT + upperH + gapY + lowerH * 0.5;
+  const yPlotMax = padT + upperH + gapY;
+  const yPlotMin = padT + upperH + gapY + lowerH;
+  const tPlotL = xPlotL;
+  const tPlotR = xPlotR;
+  const tMin_phys = 0, tMax_phys = 0.12;
+  const tToPx = tt => tPlotL + (tt - tMin_phys)/(tMax_phys - tMin_phys) * W2;
+  const yPToPx = y => yPlotMid - y * (lowerH * 0.4);
+
+  if(state.showPMotion){
+    // 坐标轴
+    ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(tPlotL, yPlotMid); ctx.lineTo(tPlotR + 8, yPlotMid);
+    ctx.moveTo(tPlotL, yPlotMax - 8); ctx.lineTo(tPlotL, yPlotMin + 8);
+    ctx.stroke();
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText('y_P', tPlotL - 24, yPlotMax - 4);
+    ctx.fillText('t/s', tPlotR + 12, yPlotMid + 4);
+    ctx.font = '600 10px ui-monospace,monospace';
+    for(const tt of [0, 0.05, 0.1]){
+      const px = tToPx(tt);
+      ctx.beginPath();
+      ctx.moveTo(px, yPlotMid); ctx.lineTo(px, yPlotMid + 3);
+      ctx.stroke();
+      ctx.fillText(tt.toFixed(2), px - 8, yPlotMid + 14);
+    }
+
+    // P 点振动曲线（绿色实线 0~0.1s 部分加粗）
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    const tEnd = state.phase === 3 ? state.prog * 0.1 : 0.1;
+    for(let i=0; i<=100; i++){
+      const tt = i/100 * tEnd;
+      const py = yPToPx(y_P(tt));
+      const px = tToPx(tt);
+      if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // P 点起止标
+    ctx.fillStyle = '#16613f';
+    ctx.beginPath(); ctx.arc(tToPx(0), yPToPx(1), 4, 0, Math.PI*2); ctx.fill();
+    if((state.phase === 3 ? state.prog : 1) >= 1){
+      ctx.beginPath(); ctx.arc(tToPx(0.1), yPToPx(0), 4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#16613f';
+      ctx.font = '700 10.5px ui-monospace,monospace';
+      ctx.fillText('波峰', tToPx(0) + 6, yPToPx(1) - 6);
+      ctx.fillText('平衡位置', tToPx(0.1) + 6, yPToPx(0) - 6);
+      ctx.fillText('单调下降 → 方向不变 ✓', tToPx(0.04), yPlotMin + 14);
+    }
+  }
+
+  // 阶段 ④：演示正方向假设（错误）
+  if(state.showPosTry){
+    ctx.fillStyle = '#b4442e';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('若正方向：v=30 m/s 或 70...，T<0.4s，与方向不变矛盾 ✗', padL, yPlotMin + 30);
+  }
+
+  // 阶段标
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  const phaseLabel = state.phase === 1 ? '阶段 ① 波形 t=0 实线 / t=0.1s 虚线（λ=4m）'
+                    : state.phase === 2 ? '阶段 ② 负方向：平移 1m 让实线 → 虚线'
+                    : state.phase === 3 ? '阶段 ③ P 点 (x=6m) 0→0.1s：波峰 → 平衡 (单调下降)'
+                    : state.phase === 4 ? '阶段 ④ 正方向假设：T<0.4s，违反"方向不变"'
+                    : '阶段 ⑤ T=0.4s · v=10m/s · 负方向';
+  ctx.fillText(phaseLabel, padL, padT - 12);
+
+  // 答案徽章
+  if(state.showAnswer){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(W - 250, padT + 4, 235, 50, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('T = 0.4 s · v = 10 m/s', W - 242, padT + 22);
+    ctx.fillText('传播方向：x 轴负方向', W - 242, padT + 42);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2020 新课标Ⅲ卷',
+  paperHref: '../../index.html',
+  eyebrow: '选填 · 第 15 题 · 选考',
+  title: '简谐横波 · 周期 / 波速 / 传播方向',
+  subtitle: 'λ=4m · t=0 实线 / t=0.1s 虚线 · x=6m 处 0→0.1s 方向不变 · 求 T、v、方向',
+  deliv: {
+    title: '波形平移 + 限制条件',
+    sub: '正/负方向假设 + x=6m 处单调判定 → T、v、方向'
+  },
+  originalProblem: {
+    meta: '2020 新课标Ⅲ卷 · 选填 · 第 15 题 · 选考',
+    text: `如图，一列简谐横波平行于 x 轴传播，图中的实线和虚线分别为 t=0 和 t=0.1s 时的波形图。已知平衡位置在 x=6 m 处的质点，在 0 到 0.1 s 时间内运动方向不变。这列简谐波的周期为 ___ s，波速为 ___ m/s，传播方向沿 x 轴 ___（填"正方向"或"负方向"）。`,
+    image: '../../source/images/image77.png',
+    subQuestions: [
+      '周期 T (s)',
+      '波速 v (m/s)',
+      '传播方向'
+    ],
+    officialAnswer: '答案：T = 0.4 s，v = 10 m/s，沿 x 轴负方向。\n推导：由波形图读出波长 λ=4 m。如果波沿 x 轴正方向传播，0.1s 内波形右移距离 d_+ = (n + 3/4)·λ（n=0,1,2,...）；如果波沿 x 轴负方向传播，0.1s 内波形左移距离 d_- = (n + 1/4)·λ。\n由于 x=6 m 处的质点在 0→0.1s 内运动方向不变，结合该处实线（波峰）→虚线（平衡位置），从 t=0 的波峰到 t=0.1s 的平衡位置必须只经过 1/4 周期（不能经过 1/2 周期回到波峰再到平衡），即 0.1s = T/4 → T = 0.4 s。\n波速 v = λ/T = 4/0.4 = 10 m/s。\n该波沿 x 轴负方向传播。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 波形', label_short:'波形',
+     formula_tex: String.raw`\lambda = 4\,\text{m},\;\; t = 0\;(\text{实线}),\;\; t = 0.1\,\text{s}\;(\text{虚线})`,
+     note:'图中实线为 t=0 波形，虚线为 t=0.1s 波形。波长 λ=4m。'},
+    {label:'阶段 ② 负方向平移 1m', label_short:'负方向',
+     formula_tex: String.raw`\text{若负方向：}\;\; d_{-} = v \cdot \Delta t = (n+\tfrac{1}{4})\lambda,\;\; n=0\Rightarrow v = 10\,\text{m/s},\; T = 0.4\,\text{s}`,
+     note:'若波沿负方向传播 0.1s，最小情形下波形向左平移 1m（即 1/4 波长）。此时 v = 10 m/s，T = 0.4 s。'},
+    {label:'阶段 ③ P 点振动', label_short:'P 振动',
+     formula_tex: String.raw`y_P(t) = A\cos\left(\tfrac{2\pi v t}{\lambda}\right) = A\cos(5\pi t),\;\; t\in[0, 0.1]`,
+     note:'x=6m 处实线波峰，虚线 (t=0.1s) 平衡位置。0→0.1s 内 P 点 y 从 1 单调下降到 0（方向不变 ✓）。'},
+    {label:'阶段 ④ 正方向排除', label_short:'排除',
+     formula_tex: String.raw`\text{若正方向：}\;\; d_{+} = (n+\tfrac{3}{4})\lambda,\;\; n=0\Rightarrow v = 30\,\text{m/s},\; T = \tfrac{2}{15}\,\text{s}`,
+     note:'若正方向最小情形：0→0.1s 内 P 点经过 3/4 周期，方向会改变 → 与"方向不变"矛盾。故正方向解被排除。'},
+    {label:'阶段 ⑤ 答案', label_short:'答',
+     formula_tex: String.raw`\boxed{\;T = 0.4\,\text{s},\;\; v = 10\,\text{m/s},\;\; \text{x 轴负方向}\;}`,
+     note:'唯一解：T=0.4s，v=10m/s，沿 x 轴负方向传播。'}
+  ],
+  stats: [
+    {label:'波长 λ',           fmt:()=>'4 m'},
+    {label:'时间间隔 Δt',       fmt:()=>'0.1 s'},
+    {label:'P 点位置',          fmt:()=>'x = 6 m'},
+    {label:'P 点 t=0',          fmt:()=>'波峰'},
+    {label:'P 点 t=0.1s',       fmt:s=>s.showPMotion?'平衡位置':'?'},
+    {label:'位移变化',          fmt:s=>s.showPMotion?'单调下降':'?'},
+    {label:'周期 T',            fmt:s=>s.showAnswer?'0.4 s':'?'},
+    {label:'波速 v',            fmt:s=>s.showAnswer?'10 m/s':'?'},
+    {label:'方向',              fmt:s=>s.showAnswer?'x 轴负方向':'?'}
+  ],
+  conclusions: [
+    {label_text:'周期 T',       value_text:'?（动画揭晓）',          note:'由 0.1s = T/4 推得'},
+    {label_text:'波速 v',       value_text:'?（动画揭晓）',          note:'v = λ/T'},
+    {label_text:'方向',         value_text:'?（动画完毕揭晓）',       note:'限制条件唯一性'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'t = 0 实线波形'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'t = 0.1s 虚线波形'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'},  text:'P 点 (x=6m)'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'P 振动图（绿色）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2020新课标III-Q15-横波周期波速方向'
+});
+</script>
+</body>
+</html>
