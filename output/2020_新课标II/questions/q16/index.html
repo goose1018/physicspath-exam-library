@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2020 新课标Ⅱ · 第 16 题 · 直角棱镜光路</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 直角棱镜 ABC：∠A=30°, ∠C=90°, ∠B=60°。折射率 n = 1.5。
+// 一束光与 BC 平行（水平），从 AB 边 D 点入射。
+//
+// (i) BC 边是否全反射？
+//   光与 BC 平行 → 光与 AB 的法线夹角 = ∠A 的余角 ... 实际几何分析：
+//   AB 与 BC 夹角 = ∠B = 60° → AB 法线（垂直 AB）与 BC 夹角 = 30°
+//   光与 BC 平行 → 入射角 i = 30°
+//   sin i = n·sin r → sin r = sin 30°/1.5 = 1/3 → r ≈ 19.47°, cos r = 2√2/3
+//   折射光到 BC 边 E 点，入射角 θ
+//   几何：E 处入射角 θ = 60° + r（折射光与 BC 法线的夹角）
+//   ≈ 60° + 19.47° = 79.47°
+//   临界角 θ_c = arcsin(1/n) = arcsin(2/3) ≈ 41.81°
+//   θ > θ_c → 全反射 ✓
+//
+// (ii) 求出射光与入射光的夹角的正弦
+//   全反射光到 AC 边 F 点，入射角 i' = 90° − θ = 30° − r
+//   AC 出射：n·sin i' = sin r'
+//   sin r' = 1.5·sin(30° − r)
+//          = 1.5·(sin 30°·cos r − cos 30°·sin r)
+//          = 1.5·(0.5·2√2/3 − (√3/2)·1/3)
+//          = 1.5·(√2/3 − √3/6)
+//          = (2√2 − √3) / 4
+//          ≈ (2·1.4142 − 1.7320) / 4
+//          ≈ 0.2741
+//   出射光与初始入射光（水平）夹角 = r'，因为初始入射光水平、AC 法线竖直
+//   所以 sin(夹角) = sin r' = (2√2 − √3) / 4
+// ─────────────────────────────────────────────────────────────────────
+
+const N = 1.5;
+const ANGLE_A = 30 * Math.PI / 180;
+const ANGLE_B = 60 * Math.PI / 180;
+const i_in = 30 * Math.PI / 180;             // 入射角
+const sin_r = Math.sin(i_in) / N;             // = 1/3
+const r_refract = Math.asin(sin_r);           // ≈ 19.47°
+const cos_r = Math.cos(r_refract);            // 2√2/3
+const theta_BC = (60 + r_refract * 180/Math.PI) * Math.PI/180;     // E 点入射角
+const theta_c = Math.asin(1/N);               // 临界角 ≈ 41.81°
+const i_out_AC = (30 * Math.PI/180) - r_refract;     // F 点入射角 = 30° − r
+const sin_r_out = N * Math.sin(i_out_AC);     // (2√2 − √3)/4 ≈ 0.274
+const r_out = Math.asin(sin_r_out);
+
+const T_total = 10.0;
+// 阶段：① 装置（u 0-0.15）② D 点折射（u 0.15-0.40）
+//      ③ E 点全反射（u 0.40-0.65）④ F 点出射（u 0.65-0.85）
+//      ⑤ 角度+答案（u 0.85-1.00）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.15){ phase = 1; prog = u/0.15; }
+  else if(u < 0.40){ phase = 2; prog = (u-0.15)/0.25; }
+  else if(u < 0.65){ phase = 3; prog = (u-0.40)/0.25; }
+  else if(u < 0.85){ phase = 4; prog = (u-0.65)/0.20; }
+  else { phase = 5; prog = (u-0.85)/0.15; }
+
+  return {
+    phase, prog, u, t,
+    showRefract: phase >= 2,
+    showTIR: phase >= 3,
+    showOutput: phase >= 4,
+    showAnswer: phase >= 5
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawPrism(ctx, 14, 14, W*0.55 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.55 + 7, 14, W*0.45 - 21, H - 28, state);
+}
+
+function drawPrism(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('直角棱镜 ∠A=30°, ∠C=90°, ∠B=60°, n=1.5', panelX+12, panelY+18);
+
+  // 棱镜 ABC 顶点
+  // 取 BC 水平在底部，B 左下，C 右下，A 在 B 上方（B-A-C 三角形）
+  // ∠B = 60°（B 处角 = AB 与 BC 夹角）
+  // ∠C = 90°（C 处角 = AC ⊥ BC）
+  // BC 长度选 BC_len，则 AC = BC·tan B = BC·tan 60° = √3·BC
+  // AB 长度 = BC/cos B = 2·BC
+  const cy = panelY + panelH * 0.65;
+  const BC_len = (panelW - 100) * 0.6;     // 棱镜底边长（屏幕像素）
+  const Bx = panelX + 70;
+  const By = cy;
+  const Cx = Bx + BC_len;
+  const Cy = cy;
+  const AC_len = BC_len * Math.tan(ANGLE_B);
+  const Ax = Cx;
+  const Ay = Cy - AC_len;
+
+  // 画棱镜（淡蓝填充 + 黑色边）
+  ctx.fillStyle = 'rgba(180,210,230,0.4)';
+  ctx.beginPath();
+  ctx.moveTo(Bx, By);
+  ctx.lineTo(Cx, Cy);
+  ctx.lineTo(Ax, Ay);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // 顶点标签
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px Georgia,serif';
+  ctx.fillText('A', Ax + 6, Ay - 4);
+  ctx.fillText('B', Bx - 16, By + 16);
+  ctx.fillText('C', Cx + 6, Cy + 16);
+
+  // ∠A=30°, ∠B=60° 标注
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText('30°', Ax - 24, Ay + 18);
+  ctx.fillText('60°', Bx + 18, By - 4);
+
+  // 入射光（D 点在 AB 上某位置，与 BC 平行从左方进入）
+  // D 点取 AB 上靠 B 端（≤ 0.097 才能让折射光真正落到 BC 上而非穿出 AC）
+  // 折射斜率 dy/dx ≈ 0.186（cos r=2√2/3, sin r=1/3 → tan(30°-r)≈0.186），
+  // 要 Ex ≤ Cx 需 t·(1+9.33) ≤ 1 → t ≤ 0.097，取 t=0.06 留余量
+  const t_D = 0.06;
+  const Dx = Bx + t_D * (Ax - Bx);
+  const Dy = By + t_D * (Ay - By);
+  // 入射光方向：沿 +x（向右水平）
+  // 入射光起点：左侧 panelX+30
+  const incidentStartX = panelX + 30;
+  const incidentStartY = Dy;
+
+  // 阶段 ① 起立即画入射光（短段）
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(incidentStartX, incidentStartY);
+  ctx.lineTo(Dx, Dy);
+  ctx.stroke();
+  // 入射光箭头
+  PPath.arrow(ctx, incidentStartX, incidentStartY, Dx - 4, Dy, '#b4442e', 2.4);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('入射光（与 BC 平行）', incidentStartX + 4, incidentStartY - 6);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px Georgia,serif';
+  ctx.fillText('D', Dx - 14, Dy - 4);
+
+  // 阶段 ② 起：D 点折射光（向 BC 边 E 点）
+  // 折射光方向计算：D 处法线（垂直 AB，朝棱镜内部）
+  // AB 方向：从 B(Bx,By) 到 A(Ax,Ay)：(Ax-Bx, Ay-By)，归一化
+  const ABdx = Ax - Bx, ABdy = Ay - By;
+  const AB_len_calc = Math.sqrt(ABdx*ABdx + ABdy*ABdy);
+  const ABux = ABdx / AB_len_calc, ABuy = ABdy / AB_len_calc;     // AB 单位向量
+  // AB 法线（朝棱镜内部 = 朝右下方向）
+  // AB 单位向量 (cos60°, -sin60°) = (0.5, -√3/2)（B→A）
+  // 内法线（朝棱镜内 = +x 右、+y 下）应是 (sin60°, cos60°) = (+√3/2, +0.5)
+  // = (-ABuy, ABux) 即旋转 +90°（canvas 系顺时针 90°）
+  const ABnx = -ABuy, ABny = ABux;     // (+√3/2, +0.5) 朝棱镜内部（右下）
+  // 折射光方向：与 AB 法线夹角 r（朝向 BC 边内部）
+  // 入射光从外向内，折射光延续向内，与法线夹角 = r，绕入射点 D 偏离法线
+  // 入射光方向 = (1, 0)（水平向右）
+  // 入射光在 AB 法线上的投影分量 + 切向分量
+  // 折射光：法向分量 = cos r（保持向内），切向分量 = sin r（与原入射切向同号）
+  const rayInDx = 1, rayInDy = 0;
+  // 入射光的切向分量（沿 AB 方向）
+  const tan_in = rayInDx * ABux + rayInDy * ABuy;     // 切向投影（带号）
+  const tan_sign = tan_in >= 0 ? 1 : -1;
+  // 折射光方向：法向 + 切向
+  const refractDx = ABnx * Math.cos(r_refract) + ABux * tan_sign * Math.sin(r_refract);
+  const refractDy = ABny * Math.cos(r_refract) + ABuy * tan_sign * Math.sin(r_refract);
+
+  // 找折射光与 BC（y = By）的交点 E
+  // 参数化折射光：(Dx + s·refractDx, Dy + s·refractDy)
+  // y = By → Dy + s·refractDy = By → s = (By - Dy)/refractDy
+  const s_to_BC = (By - Dy) / refractDy;
+  const Ex = Dx + s_to_BC * refractDx;
+  const Ey = By;
+
+  if(state.showRefract){
+    // D-E 折射光（橙色）
+    const fracProg = state.phase === 2 ? state.prog : 1;
+    const Dexp_x = Dx + fracProg * (Ex - Dx);
+    const Dexp_y = Dy + fracProg * (Ey - Dy);
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(Dx, Dy);
+    ctx.lineTo(Dexp_x, Dexp_y);
+    ctx.stroke();
+    if(fracProg >= 1){
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '900 12px Georgia,serif';
+      ctx.fillText('E', Ex - 4, Ey + 16);
+    }
+    // D 处法线（虚线，垂直 AB 朝内）
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(Dx - 30*ABnx, Dy - 30*ABny);
+    ctx.lineTo(Dx + 30*ABnx, Dy + 30*ABny);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 标注 i 和 r
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText(`i=30°`, Dx - 30, Dy + 14);
+    ctx.fillText(`r ≈ ${(r_refract*180/Math.PI).toFixed(1)}°`, Dx + 8, Dy + 24);
+  }
+
+  if(state.showTIR){
+    // E 点全反射：反射光从 E 到 AC 边 F 点
+    // E 处法线垂直 BC（即沿 +y 朝棱镜内部 = 朝上）
+    // BC 法向 = (0, -1)（朝上）
+    const BCnx = 0, BCny = -1;
+    // 入射光方向（D→E）= (refractDx, refractDy)
+    // 反射光方向 = 入射 - 2·(入射·法线)·法线
+    const dotN = refractDx*BCnx + refractDy*BCny;
+    const reflectDx = refractDx - 2*dotN*BCnx;
+    const reflectDy = refractDy - 2*dotN*BCny;
+    // 反射光与 AC 边的交点 F
+    // AC 边：x = Cx (因 ∠C=90°，AC 垂直 BC，AC 是竖直线 x=Cx)
+    // 参数化：(Ex + s·reflectDx, Ey + s·reflectDy)
+    // x = Cx → s = (Cx - Ex)/reflectDx
+    const s_to_AC = (Cx - Ex) / reflectDx;
+    const Fx = Cx;
+    const Fy = Ey + s_to_AC * reflectDy;
+
+    // E-F 反射光（绿色）
+    const reflProg = state.phase === 3 ? state.prog : 1;
+    const Eexp_x = Ex + reflProg * (Fx - Ex);
+    const Eexp_y = Ey + reflProg * (Fy - Ey);
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(Ex, Ey);
+    ctx.lineTo(Eexp_x, Eexp_y);
+    ctx.stroke();
+    if(reflProg >= 1){
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '900 12px Georgia,serif';
+      ctx.fillText('F', Fx + 6, Fy + 4);
+    }
+    // E 处法线（垂直 BC，朝上）
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(Ex, Ey - 30); ctx.lineTo(Ex, Ey + 12);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 标注 θ
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10px "Cambria Math",serif';
+    ctx.fillText(`θ ≈ ${(theta_BC*180/Math.PI).toFixed(1)}°`, Ex - 30, Ey - 16);
+    ctx.fillText(`> θ_c=41.8° → 全反射`, Ex - 60, Ey - 32);
+
+    // 阶段 ④ 起：F 点出射光
+    if(state.showOutput && reflProg >= 1){
+      // F 处法线垂直 AC（AC 是竖直线 x=Cx，所以法线水平 = (1,0) 朝棱镜外）
+      const ACnx = 1, ACny = 0;
+      // 出射光与法线夹角 r_out（朝外，与反射光在同一切向上）
+      // 反射光方向归一
+      const refl_len = Math.sqrt(reflectDx*reflectDx + reflectDy*reflectDy);
+      const refl_ux = reflectDx/refl_len, refl_uy = reflectDy/refl_len;
+      // AC 切向（沿 AC 方向）= (0, ±1)，与反射光切向同号
+      const ACtx = 0, ACty = (refl_uy >= 0) ? 1 : -1;
+      // 出射光方向：法向 cos(r_out) + 切向 sin(r_out)
+      const outDx = ACnx * Math.cos(r_out) + ACtx * Math.sin(r_out);
+      const outDy = ACny * Math.cos(r_out) + ACty * Math.sin(r_out);
+      const outLen = 110;
+      const outProg = state.phase === 4 ? state.prog : 1;
+      ctx.strokeStyle = '#9d3fbf'; ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(Fx, Fy);
+      ctx.lineTo(Fx + outDx * outLen * outProg, Fy + outDy * outLen * outProg);
+      ctx.stroke();
+      // F 处法线
+      ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(Fx - 12, Fy); ctx.lineTo(Fx + 36, Fy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // 标注 i' 和 r'
+      ctx.fillStyle = '#9d3fbf';
+      ctx.font = '700 10px "Cambria Math",serif';
+      ctx.fillText(`i'≈${(i_out_AC*180/Math.PI).toFixed(1)}°`, Fx + 6, Fy - 12);
+      if(state.showAnswer){
+        ctx.fillText(`r'≈${(r_out*180/Math.PI).toFixed(1)}°`, Fx + 12, Fy + 18);
+      }
+    }
+  }
+
+  // 阶段标
+  const phaseLabel = state.phase === 1 ? '阶段 ① 装置（直角棱镜 + 平行光）'
+                    : state.phase === 2 ? '阶段 ② D 点折射（i=30°, r≈19.5°）'
+                    : state.phase === 3 ? '阶段 ③ E 点全反射（θ≈79.5° > 41.8°）'
+                    : state.phase === 4 ? '阶段 ④ F 点出射（i\'=30°−r）'
+                    : '阶段 ⑤ 出射光与入射光夹角 sin r\' = (2√2−√3)/4';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-10);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('折射 + 全反射 + 出射 三段推导', panelX+12, panelY+18);
+
+  let yy = panelY + 44;
+
+  if(state.showRefract){
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('① D 点入射折射', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('i=30° (与 AB 法线夹角)', panelX+18, yy); yy += 14;
+    ctx.fillText('sin i = n·sin r → sin r = 1/3', panelX+18, yy); yy += 14;
+    ctx.fillText('r ≈ 19.47°', panelX+18, yy); yy += 20;
+  } else { yy += 80; }
+
+  if(state.showTIR){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('② E 点 BC 边全反射', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('几何 θ = 60° + r ≈ 79.47°', panelX+18, yy); yy += 14;
+    ctx.fillText('临界角 θ_c = arcsin(1/n) ≈ 41.81°', panelX+18, yy); yy += 14;
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('θ > θ_c → 全反射 ✓', panelX+18, yy); yy += 22;
+  } else { yy += 80; }
+
+  if(state.showOutput){
+    ctx.fillStyle = '#9d3fbf';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('③ F 点 AC 边出射', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('i\' = 90°−θ = 30°−r ≈ 10.53°', panelX+18, yy); yy += 14;
+    ctx.fillText('n·sin i\' = sin r\'', panelX+18, yy); yy += 14;
+    ctx.fillText('sin r\' = 1.5·sin(30°−r)', panelX+18, yy); yy += 14;
+    ctx.fillText('       = (2√2−√3)/4', panelX+18, yy); yy += 18;
+  } else { yy += 90; }
+
+  if(state.showAnswer){
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12.5px "Cambria Math",serif';
+    ctx.fillText('sin r\' ≈ ' + sin_r_out.toFixed(4), panelX+12, yy); yy += 22;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('(i) BC 边发生全反射 ✓', panelX+12, yy); yy += 14;
+    ctx.fillText('(ii) 夹角正弦 = (2√2−√3)/4', panelX+12, yy); yy += 22;
+
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-150, panelY+panelH-40, 138, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('(2√2−√3)/4 ≈ 0.274', panelX+panelW-142, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2020 新课标Ⅱ卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 16 题 · 选考',
+  title: '直角棱镜光路 · 折射 + BC 边判断 + AC 出射',
+  subtitle: 'n=1.5 · ∠A=30°,∠C=90° · 平行光从 AB 入射 · 判断 BC 边光路 + 求出射光夹角正弦',
+  deliv: {
+    title: '三段光路分析',
+    sub: '入射 → D 折射 → BC 边判断（与临界角比较）→ AC 出射（sin r\' = ?）'
+  },
+  originalProblem: {
+    meta: '2020 新课标Ⅱ卷 · 计算 · 第 16 题 · 选考',
+    text: `直角棱镜的折射率 n = 1.5，其横截面如图所示，图中 ∠C = 90°，∠A = 30°。截面内一细束与 BC 边平行的光线，从棱镜 AB 边上的 D 点射入，经折射后射到 BC 边上。\n（i）光线在 BC 边上是否会发生全反射？说明理由；\n（ii）不考虑多次反射，求从 AC 边射出的光线与最初的入射光线夹角的正弦值。`,
+    image: '../../source/images/image88.png',
+    subQuestions: [
+      '(i) 光线在 BC 边是否全反射？',
+      '(ii) 出射光与入射光夹角的正弦值'
+    ],
+    officialAnswer: '(i) 光在 BC 边发生全反射。设 D 处入射角 i=30°（光与 BC 平行 → 与 AB 法线夹角 = ∠B 余角 = 30°），由折射定律 sin i = n·sin r，得 sin r = 1/3，r ≈ 19.47°。折射光到 BC 边 E 点，由几何关系 θ = 60° + r ≈ 79.47°。临界角 θ_c = arcsin(1/n) = arcsin(2/3) ≈ 41.81°。θ &gt; θ_c → 发生全反射。\n(ii) 全反射光到 AC 边 F 点，入射角 i\' = 90° − θ = 30° − r。由 n·sin i\' = sin r\'，得 sin r\' = 1.5·sin(30° − r) = 1.5·(sin 30°·cos r − cos 30°·sin r) = 1.5·(0.5·2√2/3 − (√3/2)·1/3) = (2√2 − √3)/4 ≈ 0.274。出射光与最初的水平入射光的夹角即等于 r\'（因 AC 法线水平、入射光水平），所以夹角的正弦值 = (2√2 − √3)/4。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置', label_short:'装置',
+     formula_tex: String.raw`\angle A = 30°,\;\angle C = 90°,\;\angle B = 60°,\;n = 1.5`,
+     note:'直角棱镜 ABC，光与 BC 平行从 AB 边 D 点射入。'},
+    {label:'阶段 ② D 点折射', label_short:'折射',
+     formula_tex: String.raw`\sin i = n \sin r,\;\;i=30° \;\Rightarrow\; \sin r = \tfrac{1}{3},\;\; r \approx 19.47°`,
+     note:'D 处入射角 i=30°（光与 BC 平行 → 与 AB 法线夹角 30°）。折射定律解出 sin r = 1/3。'},
+    {label:'阶段 ③ E 点全反射', label_short:'TIR',
+     formula_tex: String.raw`\theta = 60° + r \approx 79.5° \;>\; \theta_c = \arcsin\tfrac{2}{3} \approx 41.8°`,
+     note:'折射光到 BC 边 E 点，几何角度 θ = 60° + r。θ 远大于临界角 → 全反射。'},
+    {label:'阶段 ④ F 点出射', label_short:'出射',
+     formula_tex: String.raw`i' = 30° - r,\;\; n \sin i' = \sin r' \;\Rightarrow\; \sin r' = \tfrac{2\sqrt{2}-\sqrt{3}}{4}`,
+     note:'反射光到 AC 边 F 点，入射角 i\' = 30°−r。出射定律 n·sin i\' = sin r\'，化简得 sin r\' = (2√2−√3)/4。'},
+    {label:'阶段 ⑤ 答案', label_short:'答',
+     formula_tex: String.raw`\boxed{\;\sin r' = \tfrac{2\sqrt{2}-\sqrt{3}}{4} \approx 0.274\;}`,
+     note:'出射光与水平入射光夹角 = r\'（AC 法线水平、入射光水平），夹角正弦 = (2√2−√3)/4。'}
+  ],
+  stats: [
+    {label:'折射率 n',          fmt:()=>'1.5'},
+    {label:'∠A',                fmt:()=>'30°'},
+    {label:'入射角 i',           fmt:()=>'30°'},
+    {label:'sin r',             fmt:s=>s.showRefract?'1/3':'?'},
+    {label:'r',                 fmt:s=>s.showRefract?'≈19.47°':'?'},
+    {label:'BC 入射角 θ',        fmt:s=>s.showTIR?'≈79.47°':'?'},
+    {label:'临界角 θ_c',         fmt:s=>s.showTIR?'≈41.81°':'?'},
+    {label:'AC 入射角 i\'',     fmt:s=>s.showOutput?'≈10.53°':'?'},
+    {label:'sin r\'',           fmt:s=>s.showAnswer?(sin_r_out.toFixed(4)):'?'},
+    {label:'结论',               fmt:s=>s.showAnswer?'(2√2−√3)/4':'?'}
+  ],
+  conclusions: [
+    {label_text:'(i) BC 边光路',  value_text:'?（动画揭晓）',          note:'临界角比较'},
+    {label_text:'(ii) 夹角 sin',  value_text:'?（动画完毕揭晓）',       note:'AC 出射定律'},
+    {label_text:'数值',           value_text:'?（动画完毕揭晓）',       note:'动画揭晓'},
+    {label_text:'方法',           value_text:'?（动画揭晓）',           note:'三段几何光路'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(180,210,230,0.4)',border:'#1d1d1f',type:'rect'}, text:'棱镜（玻璃）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'入射光（水平）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'D 点折射光'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'E 点全反射光'},
+    {swatch:{bg:'#9d3fbf',border:'#9d3fbf',type:'rect'}, text:'F 点出射光'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'法线（虚线）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2020新课标II-Q16-直角棱镜全反射出射'
+});
+</script>
+</body>
+</html>
