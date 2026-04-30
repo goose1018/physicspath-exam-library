@@ -192,6 +192,7 @@ const REAL_PROBLEMS = [
   { id:'2021-gk1-q16', year:2021, paper:'gk1', no:'16', module:'振动波动', tplId:null, title:'简谐横波 A/B 质点 · t₁ 后到波峰',                  summary:'每隔 0.6s 同位移同向 → T/2=0.6 → T=1.2s, λ=24cm，Δφ=4π/3；(1) Δt_min=2T/3=0.8s；(2) y_B(t₁)=-0.5cm。', diff:'难', heat:140, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q16/index.html', paid:true },
   // ── 2021 全国乙卷 ──
   { id:'2021-gk2-q01', year:2021, paper:'gk2', no:'1',  module:'力学',    tplId:null, title:'弹簧滑块小车 · 动量与机械能守恒',                  summary:'光滑地面 + 内摩擦：撤推力后水平外力为零→p 守恒；内摩擦做功→机械能不守恒。答案 B。', diff:'易', heat:130, hasAnim:true, htmlPath:'2021_全国乙卷/questions/q01/index.html' },
+  { id:'2021-gk2-q02', year:2021, paper:'gk2', no:'2',  module:'电磁学',  tplId:null, title:'接地板上方负电荷 · M/N 处电场力与电势能',         summary:'N 等势面密 → E_N>E_M → F_M<F_N；M 距板近 → φ_M>φ_N → E_p_M>E_p_N。答案 A。', diff:'中', heat:120, hasAnim:true, htmlPath:'2021_全国乙卷/questions/q02/index.html' },
   // ── 2020 新课标 II 卷 ──
   { id:'2020-xkbII-q03', year:2020, paper:'xkbII', no:'3',  module:'力学',    tplId:null, title:'摩托车越野跨坑 · 平抛 E₂/E₁',                      summary:'坑宽 3h, a 比 b 高 0.5h；E₁ 落 c (h, h)：t₁=√(2h/g), v₀₁=√(gh/2), E₁=mgh/4；E₂ 到 b (3h, 0.5h)：t₂=√(h/g), v₀₂=3√(gh), E₂=9mgh/2；比值 18。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2020_新课标II/questions/q03/index.html' },
   { id:'2020-xkbII-q07', year:2020, paper:'xkbII', no:'7',  module:'电磁学',  tplId:null, title:'圆环异种电荷 4 点 · 场强电势比较',               summary:'上半 +Q 下半 -Q；4 点 a/b/c/d 等距 r₀；y 轴对称 → E_a=E_b（向下）+ V_a=V_b；水平翻转+电荷反号反对称 → E_c=E_d（向下）；沿 E 方向 V 降 → V_c>V_d。答案 ABC。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标II/questions/q07/index.html' },
@@ -351,6 +352,7 @@ const PROBLEM_META = {
   ]},
   // 2021 全国乙卷
   '2021-gk2-q01': { type:'choice-single', answer:'B' },
+  '2021-gk2-q02': { type:'choice-single', answer:'A' },
   // 2020 新课标 II 卷
   '2020-xkbII-q03': { type:'choice-single', answer:'B' },
   '2020-xkbII-q07': { type:'choice-multi',  answer:'ABC' },

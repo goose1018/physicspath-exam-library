@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国乙 · 第 2 题 · 接地板+负电荷 等势面 M/N</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：接地金属平板（板上 φ=0）+ 上方固定负电荷 −Q。
+// 等势面：相邻间电势差相等。M 在远离负电荷处（板附近，等势面较稀疏），
+//         N 在靠近负电荷处（等势面较密集）。
+//
+// (i) 电场强度 E ∝ 1/(等势面间距)：N 处等势面密 → E_N > E_M
+//     电场力 F = qE（试探电荷 q>0）→ F_M < F_N
+// (ii) 电势：电场线由板（高电势 0）指向负电荷（电势更低/负）
+//      沿电场线方向 φ 降低；M 距板近、N 距负电荷近 → φ_M > φ_N
+//      正电荷电势能 E_p = qφ → E_p_M > E_p_N
+// 答案 A：F_M < F_N 且 E_p_M > E_p_N
+
+const T_TOTAL = 10.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // ① 0~0.10 装置（板 + 负电荷 + 等势面 + M/N）
+  // ② 0.10~0.30 (i) 电场强度：N 处等势面密 → E_N > E_M → F_M < F_N
+  // ③ 0.30~0.55 (ii) 电势比较：M 距板近 → φ_M > φ_N → E_p_M > E_p_N
+  // ④ 0.55~0.80 综合 → 答案 A
+  // ⑤ 0.80~1.0 4 选项 + 答案徽章
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.55) phase = 2;
+  else if(u < 0.80) phase = 3;
+  else phase = 4;
+  return {phase, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawField(ctx, 14, 14, W*0.56-21, H-28, state);
+  drawCalc (ctx, W*0.56+7, 14, W*0.44-21, H-28, state);
+}
+
+function drawField(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('接地金属板（板上 φ=0）+ 上方固定负电荷 + 等势面（蓝虚线）', panelX+12, panelY+18);
+
+  const cx = panelX + panelW/2;
+  const board_y = panelY + panelH*0.78;
+  const charge_x = cx + 60, charge_y = panelY + panelH*0.30;
+
+  // 板（黑粗线 + 接地符号）
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(panelX+30, board_y); ctx.lineTo(panelX+panelW-30, board_y);
+  ctx.stroke();
+  // 接地符号
+  ctx.lineWidth = 1.6;
+  for(let i=0; i<3; i++){
+    ctx.beginPath();
+    ctx.moveTo(cx-10+i*4, board_y+8+i*4);
+    ctx.lineTo(cx+10-i*4, board_y+8+i*4);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(cx, board_y); ctx.lineTo(cx, board_y+8);
+  ctx.stroke();
+
+  // 负电荷（圆 + 减号）
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.arc(charge_x, charge_y, 10, 0, Math.PI*2);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('−', charge_x-4, charge_y+5);
+
+  // 等势面（蓝虚线）— 5 圈，靠近电荷密、远处稀
+  // 等势面间电势差相等。设负电荷势 φ_q = -kq/r（r 是到电荷距离），
+  // 等势面 φ_i (i=1..5)，远离电荷的 φ 大、靠近 φ 小（更负）。
+  // 间距越大说明距离差越大，对应等势面密集（E 大）。
+  // 视觉上画 6 条（包括板上 φ=0 那条）
+  const equipotentials = [
+    {phi:0, type:'plane'},   // 板上（直线）
+    {phi:1, type:'curve', r_ref:160},
+    {phi:2, type:'curve', r_ref:120},
+    {phi:3, type:'curve', r_ref:90},
+    {phi:4, type:'curve', r_ref:65},
+    {phi:5, type:'curve', r_ref:45},
+    {phi:6, type:'curve', r_ref:28}
+  ];
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.4;
+  ctx.setLineDash([5,4]);
+  equipotentials.forEach(eq => {
+    if(eq.type === 'plane') return;   // 板直线不再画
+    ctx.beginPath();
+    // 等势面：以负电荷为中心的圆，但被板"扁平化"（接地导致镜像电荷效应）
+    // 简化：画椭圆（横轴稍大）+ 不超过板
+    const r = eq.r_ref;
+    const segs = 60;
+    let first = true;
+    for(let i=0; i<=segs; i++){
+      const ang = -Math.PI/2 + (Math.PI/2 + 0.3) * (i/segs - 0.5)*2;   // 上半圆稍斜
+      // 椭圆方程：靠负电荷为中心
+      const x_off = r*Math.sin(ang);
+      const y_off = -r*Math.cos(ang)*0.85;   // y 略压扁
+      const px = charge_x + x_off;
+      const py = charge_y + y_off;
+      if(py >= board_y - 4) continue;   // 不画到板下
+      if(first){ ctx.moveTo(px, py); first = false; }
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // M、N 两点
+  // M：远离负电荷（在第 2 等势面附近，靠近板左侧）
+  const M_x = charge_x - 110, M_y = charge_y + 105;
+  // N：靠近负电荷（更上方更近）
+  const N_x = charge_x - 30, N_y = charge_y + 80;
+  // 都在某等势面附近（视觉上等势面是同一条以保证"M、N 在同一组等势面分析中"）
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(M_x, M_y, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('M', M_x-12, M_y+18);
+
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(N_x, N_y, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 14px "Cambria Math",Georgia,serif';
+  ctx.fillText('N', N_x+8, N_y+18);
+
+  // (i) 电场强度比较：phase>=1 高亮 N 处密集 vs M 处稀疏
+  if(state.phase >= 1){
+    // N 周围圈一个橙色环
+    ctx.strokeStyle = 'rgba(194,97,31,0.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(N_x, N_y, 22, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '800 11px "Noto Sans SC",sans-serif';
+    if(state.phase === 1){
+      ctx.fillText('N: 等势面密 → E_N 大', N_x-16, N_y-30);
+      ctx.fillText('M: 等势面疏 → E_M 小', M_x-22, M_y-12);
+    }
+  }
+
+  // (ii) 电势比较：phase>=2 高亮 M 距板近（φ_M 高）vs N 距负电荷近（φ_N 低）
+  if(state.phase >= 2){
+    ctx.strokeStyle = 'rgba(122,79,156,0.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(M_x, M_y, 22, 0, Math.PI*2); ctx.stroke();
+    if(state.phase === 2 || state.phase === 3){
+      ctx.fillStyle = '#7a4f9c';
+      ctx.font = '800 11px "Noto Sans SC",sans-serif';
+      ctx.fillText('M 距板近 → φ_M 高', M_x-30, board_y - 4);
+      ctx.fillText('N 距负电荷近 → φ_N 低', N_x-12, charge_y + 32);
+    }
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 装置：金属板接地 (φ=0) + 上方负电荷；等势面相邻 Δφ 相等',
+    '阶段 ② (i) E ∝ 1/d_等势面：N 处密 → E_N > E_M → F_M < F_N',
+    '阶段 ③ (ii) 电势：M 距板近 (φ_M 高) > N 距负电荷近 (φ_N 低) → E_p_M > E_p_N',
+    '阶段 ④ 综合：F_M < F_N 且 E_p_M > E_p_N → 答案 A',
+    '阶段 ⑤ 4 选项判定 → A'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('等势面密度 + 电场线方向', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 19;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px ui-monospace,monospace';
+
+  const steps = [
+    {showAt:0.10, text:'相邻等势面 Δφ 相等'},
+    {showAt:0.13, text:'E = -dφ/dn ∝ 1/d_等势面'},
+    {showAt:0.30, text:'(i) 等势面密度比较：'},
+    {showAt:0.34, text:'  N 周围密 → E_N 大'},
+    {showAt:0.38, text:'  M 周围疏 → E_M 小'},
+    {showAt:0.42, text:'  ⇒ F_M < F_N'},
+    {showAt:0.55, text:'(ii) 电场线方向（板→负电荷）：'},
+    {showAt:0.58, text:'  φ 沿电场线降低'},
+    {showAt:0.62, text:'  板 (φ=0) → 负电荷 (φ<0)'},
+    {showAt:0.66, text:'  M 距板近 → φ_M ≈ 0（较高）'},
+    {showAt:0.70, text:'  N 距负电荷近 → φ_N (较低)'},
+    {showAt:0.74, text:'  E_p = q·φ (q>0)'},
+    {showAt:0.77, text:'  ⇒ E_p_M > E_p_N'},
+    {showAt:0.86, text:'综合：F_M<F_N 且 E_p_M>E_p_N'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('F_M < F_N') || s.text.includes('E_p_M > E_p_N') || s.text.includes('综合');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 11px ui-monospace,monospace' : '700 11px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项
+  const judgments = [
+    {opt:'A · F_M<F_N, E_p_M>E_p_N',  verdict:'对 ✓',          correct:true,  showAt:0.92},
+    {opt:'B · F_M<F_N, E_p_M<E_p_N',  verdict:'错（E_p 反向）', correct:false, showAt:0.91},
+    {opt:'C · F_M>F_N, E_p_M>E_p_N',  verdict:'错（F 反向）',   correct:false, showAt:0.91},
+    {opt:'D · F_M>F_N, E_p_M<E_p_N',  verdict:'错',             correct:false, showAt:0.91}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 10.5px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+13);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-138, panelY+panelH-44, 126, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 A', panelX+panelW-86, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 6 分',
+  title: '接地板上方负电荷 · M/N 处电场力与电势能',
+  subtitle: '由等势面密度比较 E，由电场线方向比较 φ，得 F 与 E_p 的关系。',
+  deliv: {
+    title: '等势面密度 + 电场线方向',
+    sub: 'N 等势面密 → E_N>E_M；M 距板近 → φ_M>φ_N（q>0 → E_p_M>E_p_N）'
+  },
+  originalProblem: {
+    meta: '2021 全国乙卷 · 单选 · 第 2 题 · 6 分',
+    image: '../../source/images/image6.png',
+    text: `如图（a），在一块很大的接地金属平板的上方固定一负电荷。由于静电感应，在金属平板上表面产生感应电荷，金属板上方电场的等势面如图（b）中虚线所示，相邻等势面间的电势差都相等。若将一正试探电荷先后放于 M 和 N 处，该试探电荷受到的电场力大小分别为 F_M 和 F_N，相应的电势能分别为 E_p_M 和 E_p_N，则（  ）`,
+    subQuestions: [
+      'A. F_M < F_N，E_p_M > E_p_N',
+      'B. F_M < F_N，E_p_M < E_p_N',
+      'C. F_M > F_N，E_p_M > E_p_N',
+      'D. F_M > F_N，E_p_M < E_p_N'
+    ],
+    officialAnswer: 'A · 由等势面疏密判断电场强度：N 处等势面密集 → E_N 较大；M 处等势面稀疏 → E_M 较小，故试探电荷受电场力 F_M < F_N。\n\n电场线方向：金属板 (接地，φ=0) 指向负电荷 (φ<0)，沿电场线方向电势降低。M 距板近 → φ_M 接近 0（较高），N 距负电荷近 → φ_N 更低（更负）。试探电荷为正 q>0，电势能 E_p = q·φ → E_p_M > E_p_N。\n\n综上 F_M < F_N 且 E_p_M > E_p_N，故选 A。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置图',label_short:'装置',
+     formula_tex: String.raw`\text{接地板 } \varphi=0 + \text{ 上方负电荷}`,
+     note:'相邻等势面间电势差相等；M、N 在等势面图上不同位置。'},
+    {label:'阶段 ② (i) 电场强度', label_short:'(i)',
+     formula_tex: String.raw`E\propto \dfrac{1}{d_{\text{等势面}}}`,
+     note:'等势面越密集，电场强度越大；F=qE 大小由密度决定。'},
+    {label:'阶段 ③ (ii) 电势比较', label_short:'(ii)',
+     formula_tex: String.raw`E_p = q\varphi\;\;(q>0)`,
+     note:'电场线由板（φ=0）指向负电荷（φ<0）；沿电场线 φ 降低。'},
+    {label:'阶段 ④ 综合', label_short:'综',
+     formula_tex: String.raw`\text{综合密度与方向 → 4 选项匹配}`,
+     note:'综合 (i)(ii) 两条结论与 4 选项匹配（详见右栏）。'},
+    {label:'阶段 ⑤ 答案', label_short:'答',
+     formula_tex: String.raw`\text{4 选项中唯一匹配 (i)(ii) 的选项}`,
+     note:'综合判断结果详见右栏 verdict 与答案徽章。'}
+  ],
+  stats: [
+    {label:'板电势 φ_板',     fmt:()=>'0（接地）'},
+    {label:'负电荷电势',      fmt:()=>'< 0'},
+    {label:'等势面 Δφ',       fmt:()=>'相等'},
+    {label:'(i) F 比较',       fmt:s=>(s.u>=0.42 ? 'F_M < F_N' : '?')},
+    {label:'(ii) φ 比较',      fmt:s=>(s.u>=0.70 ? 'φ_M > φ_N' : '?')},
+    {label:'(ii) E_p 比较',    fmt:s=>(s.u>=0.77 ? 'E_p_M > E_p_N' : '?')},
+    {label:'答案',             fmt:s=>(s.u>=0.92 ? 'A' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'F_M<F_N + E_p_M>E_p_N ✓', note:'(i) 等势面密度 + (ii) 电势方向'},
+    {label_text:'B 错', value_text:'E_p 反向',  note:'φ_M>φ_N → E_p_M>E_p_N'},
+    {label_text:'C 错', value_text:'F 反向',    note:'N 等势面密 → E_N>E_M'},
+    {label_text:'D 错', value_text:'F+E_p 都反', note:''}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'金属板（接地）'},
+    {swatch:{bg:'#fff',border:'#1d1d1f',type:'dot'},      text:'负电荷'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'等势面（虚线）'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'dot'},   text:'M、N 试探电荷位置'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'(i) E 强度强调'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'rect'}, text:'(ii) 电势强调'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国乙-Q2-接地板负电荷MN'
+});
+</script>
+</body>
+</html>

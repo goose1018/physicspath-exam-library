@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国乙 · 第 1 题 · 弹簧滑块小车 动量/机械能</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：光滑水平地面上的小车 M（含挡板），弹簧 k 固定在车左挡板，连滑块 m。
+// 滑块与车厢底板有摩擦 μ。撤去推力后滑块在车厢底板上有相对滑动。
+// 系统：小车+弹簧+滑块。在地面参考系（惯性系）中分析。
+//
+// 外力分析（撤去推力后）：
+//   重力 + 支持力（垂直，水平分量为零）；地面光滑 → 无地面摩擦
+//   水平方向系统外力为零 → 系统总动量守恒
+// 内力（滑块与车厢底板摩擦）：相对滑动 → 摩擦力做功（生热）→ 系统总机械能不守恒
+// 答案 B（动量守恒、机械能不守恒）
+
+const M_car = 4;           // 小车质量（kg）
+const m_block = 1;         // 滑块质量
+const v_init_block = 4;    // 撤去推力后滑块初速 m/s（向右）
+const v_init_car = -1;     // 小车初速 m/s（动量守恒：m·v_b + M·v_c = 0 → 4·1 + (-1)·4 = 0 ✓）
+const mu = 0.20;
+const g = 9.8;
+const a_friction_block = mu * g;   // 滑块减速度（车厢摩擦向左）
+const a_friction_car = mu*m_block*g / M_car;   // 小车加速度（摩擦反作用 ← 向右）
+// 直到共同速度：m·v_b - μmg·t = M·v_c + μmg·t/M·M ... 直接用动量守恒
+// p_total = m·v_init_block + M·v_init_car = 1·4 + 4·(-1) = 0
+// 共同速度 v_common = 0
+// 时间 t_common：v_b - a_block·t = v_c + a_car·t
+//   4 - μg·t = -1 + (μmg/M)·t
+//   5 = (μg + μmg/M)·t = μg(1 + m/M)·t = 0.2·9.8·1.25·t = 2.45·t
+//   t = 5/2.45 ≈ 2.04 s
+const t_to_stop = (v_init_block - v_init_car) / (mu*g*(1 + m_block/M_car));   // 直到共速
+
+const T_TOTAL = 11.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // ① 0~0.10 装置（弹簧压缩，准备撤推力）
+  // ② 0.10~0.50 撤推力 → 滑块向右、车向左（相对滑动 + 摩擦）
+  // ③ 0.50~0.65 共同速度（停止于地面参考系，p_total=0）
+  // ④ 0.65~0.85 总判：p 守恒、E 不守恒
+  // ⑤ 0.85~1.0 答案徽章 + 选项判定
+  let v_b = 0, v_c = 0;
+  let block_dx = 0, car_dx = 0;
+  if(u < 0.10){
+    phase = 0;
+  } else if(u < 0.50){
+    phase = 1;
+    const tau = (u - 0.10) / 0.40;
+    const t_real = Math.min(tau * t_to_stop, t_to_stop);
+    v_b = v_init_block - a_friction_block * t_real;
+    v_c = v_init_car + a_friction_car * t_real;
+    block_dx = v_init_block * t_real - 0.5 * a_friction_block * t_real * t_real;
+    car_dx = v_init_car * t_real + 0.5 * a_friction_car * t_real * t_real;
+  } else {
+    if(u < 0.65) phase = 2;
+    else if(u < 0.85) phase = 3;
+    else phase = 4;
+    v_b = 0; v_c = 0;
+    block_dx = v_init_block * t_to_stop - 0.5 * a_friction_block * t_to_stop * t_to_stop;
+    car_dx = v_init_car * t_to_stop + 0.5 * a_friction_car * t_to_stop * t_to_stop;
+  }
+  return {phase, v_b, v_c, block_dx, car_dx, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawSetup(ctx, 14, 14, W*0.58-21, H-28, state);
+  drawCalc (ctx, W*0.58+7, 14, W*0.42-21, H-28, state);
+}
+
+function drawSetup(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('光滑地面 + 小车 M(含挡板) + 弹簧 + 滑块 m（车厢底板有摩擦 μ）', panelX+12, panelY+18);
+
+  // 比例尺：物理 1m = sx 像素
+  const sx = (panelW - 100) / 5;   // 视觉范围 5m
+  const baseY = panelY + panelH*0.55;
+  const ground_y = baseY + 32;
+
+  // 地面（光滑用平滑斜线）
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(panelX+10, ground_y, panelW - 20, 5);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 0.8;
+  for(let xi = panelX+14; xi < panelX+panelW-14; xi += 9){
+    ctx.beginPath(); ctx.moveTo(xi, ground_y+5); ctx.lineTo(xi-5, ground_y+11); ctx.stroke();
+  }
+  ctx.fillStyle = '#86868b';
+  ctx.font = '600 9.5px ui-monospace,monospace';
+  ctx.fillText('光滑水平地面', panelX+12, ground_y+22);
+
+  // 小车（沿 x 移动 car_dx 米）
+  const car_baseX = panelX + 80 + state.car_dx * sx;
+  const carWidth = 220, carHeight = 50;
+  // 车底
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.rect(car_baseX, baseY, carWidth, 7);
+  ctx.fill(); ctx.stroke();
+  // 左右挡板
+  ctx.beginPath();
+  ctx.rect(car_baseX, baseY - carHeight, 6, carHeight + 7);
+  ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.rect(car_baseX + carWidth - 6, baseY - carHeight, 6, carHeight + 7);
+  ctx.fill(); ctx.stroke();
+  // 车轮
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(car_baseX + 30, baseY + 7 + 8, 8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(car_baseX + carWidth - 30, baseY + 7 + 8, 8, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+  // 弹簧（从车左挡板到滑块左侧）
+  // 滑块位置：相对车厢底板由 block_dx - car_dx 决定（相对滑动距离）
+  const block_relX = car_baseX + 12 + (state.block_dx - state.car_dx) * sx;
+  const blockSize = 36;
+  const block_left = block_relX;
+  const block_right = block_relX + blockSize;
+  // 弹簧从 car_baseX+6 到 block_left
+  drawSpring(ctx, car_baseX + 6, baseY - 20, block_left, baseY - 20, state.phase >= 1 ? 8 : 12);
+
+  // 滑块
+  ctx.fillStyle = '#e8a878';
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.6;
+  ctx.fillRect(block_left, baseY - blockSize, blockSize, blockSize);
+  ctx.strokeRect(block_left, baseY - blockSize, blockSize, blockSize);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '800 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('m', block_left + 12, baseY - blockSize/2 + 4);
+
+  // 小车 M 标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('M', car_baseX + carWidth - 22, baseY - 28);
+
+  // 推力箭头（phase 0 显示）
+  if(state.phase === 0){
+    PPath.arrow(ctx, car_baseX - 32, baseY - 25, car_baseX - 4, baseY - 25, '#c2611f', 2.4);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '800 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('推力 (即将撤去)', car_baseX - 60, baseY - 32);
+  }
+
+  // 速度矢量（phase>=1）
+  if(state.phase >= 1){
+    if(Math.abs(state.v_b) > 0.05){
+      const vSc = 8;
+      PPath.arrow(ctx, block_left + blockSize/2, baseY - blockSize - 12,
+                  block_left + blockSize/2 + state.v_b*vSc, baseY - blockSize - 12, '#16613f', 2);
+      ctx.fillStyle = '#16613f';
+      ctx.font = 'italic 800 11px "Cambria Math",Georgia,serif';
+      ctx.fillText('v_m', block_left + blockSize/2 + 6, baseY - blockSize - 16);
+    }
+    if(Math.abs(state.v_c) > 0.05){
+      const vSc = 8;
+      PPath.arrow(ctx, car_baseX + carWidth/2, ground_y + 28,
+                  car_baseX + carWidth/2 + state.v_c*vSc, ground_y + 28, '#3f6f8f', 2);
+      ctx.fillStyle = '#3f6f8f';
+      ctx.font = 'italic 800 11px "Cambria Math",Georgia,serif';
+      ctx.fillText('v_M', car_baseX + carWidth/2 - 18, ground_y + 26);
+    }
+  }
+
+  // 摩擦发热表示（phase==1，相对滑动时）
+  if(state.phase === 1 && Math.abs(state.v_b - state.v_c) > 0.05){
+    // 在滑块底部画几条波纹表示摩擦发热
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.2;
+    for(let i = 0; i < 3; i++){
+      ctx.beginPath();
+      const yh = baseY - 4 + i*3;
+      ctx.moveTo(block_left + 4, yh);
+      for(let xi = 0; xi <= blockSize - 8; xi += 4){
+        ctx.lineTo(block_left + 4 + xi, yh + Math.sin(state.t*8 + xi*0.4)*1.2);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 9.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('摩擦生热 → ΔE_机 < 0', block_left + 8, baseY + 22);
+  }
+
+  // 阶段说明（仅描述现象，结论由右栏 verdict 与答案徽章揭示）
+  const phaseTexts = [
+    '阶段 ① 撤推力前：弹簧被压缩在车厢中部',
+    '阶段 ② 撤推力 → 滑块向右、车厢向左（相对滑动 + 摩擦）',
+    '阶段 ③ 共同速度（地面系中 v_共 = 0，因 p_总 = 0）',
+    '阶段 ④ 总判：分析水平外力 vs 内摩擦做功',
+    '阶段 ⑤ 综合 4 选项判定（详见右栏）'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawSpring(ctx, x1, y, x2, y2, coils){
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(x1, y);
+  const len = x2 - x1;
+  const segLen = len / (coils*2);
+  for(let i = 0; i < coils*2; i++){
+    const xi = x1 + (i+1)*segLen;
+    const yi = y + ((i%2===0) ? -7 : 7);
+    ctx.lineTo(xi, yi);
+  }
+  ctx.lineTo(x2, y);
+  ctx.stroke();
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('系统外力 + 内力分析', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 19;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px ui-monospace,monospace';
+
+  const steps = [
+    {showAt:0.10, text:'系统：M + 弹簧 + m'},
+    {showAt:0.15, text:'撤推力后水平外力：0'},
+    {showAt:0.18, text:'  （地面光滑 → 无地面摩擦）'},
+    {showAt:0.30, text:'内力：滑块/车厢底板摩擦'},
+    {showAt:0.34, text:'  → 相对滑动 → 摩擦力做功'},
+    {showAt:0.55, text:'⇒ 总动量 p 守恒'},
+    {showAt:0.60, text:'  m·v_m + M·v_M = const'},
+    {showAt:0.65, text:'⇒ 总机械能 E 不守恒'},
+    {showAt:0.70, text:'  ΔE_机 = -Q_摩擦 < 0'},
+    {showAt:0.91, text:'∴ 动量守恒 + 机械能不守恒 → B'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('动量') && s.text.includes('守恒') || s.text.includes('→ B');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 11px ui-monospace,monospace' : '700 11px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项
+  const judgments = [
+    {opt:'A · 动量、机械能都守恒', verdict:'错（机械能不守恒）',         correct:false, showAt:0.91},
+    {opt:'B · 动量守恒、机械能不',  verdict:'对 ✓',                       correct:true,  showAt:0.92},
+    {opt:'C · 动量不守恒、机械能',  verdict:'错（无水平外力 → p 守恒）',   correct:false, showAt:0.91},
+    {opt:'D · 都不守恒',           verdict:'错',                         correct:false, showAt:0.91}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+13);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 B · p 守恒，E 不守恒', panelX+panelW-148, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '弹簧滑块小车系统 · 动量与机械能守恒',
+  subtitle: '光滑地面、车内有摩擦；撤推力后系统动量与机械能是否守恒？',
+  deliv: {
+    title: '系统外力/内力分析',
+    sub: '水平外力为零 → p 守恒；内摩擦做功 → E_机 不守恒'
+  },
+  originalProblem: {
+    meta: '2021 全国乙卷 · 单选 · 第 1 题 · 6 分',
+    image: '../../source/images/image1.png',
+    text: `如图，光滑水平地面上有一小车，一轻弹簧的一端与车厢的挡板相连，另一端与滑块相连，滑块与车厢的水平底板间有摩擦。用力向右推动车厢使弹簧压缩，撤去推力时滑块在车厢底板上有相对滑动。在地面参考系（可视为惯性系）中，从撤去推力开始，小车、弹簧和滑块组成的系统（  ）`,
+    subQuestions: [
+      'A. 动量守恒，机械能守恒',
+      'B. 动量守恒，机械能不守恒',
+      'C. 动量不守恒，机械能守恒',
+      'D. 动量不守恒，机械能不守恒'
+    ],
+    officialAnswer: 'B · 因为水平地面光滑，从撤去推力开始，系统所受外力（重力、支持力）的水平分量为零 → 系统总动量守恒。但滑块与车厢底板间有摩擦且发生相对滑动，摩擦力做负功 → 系统总机械能减小（部分转化为摩擦热）→ 机械能不守恒。故选 B。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 撤推力前',label_short:'前',
+     formula_tex: String.raw`\text{弹簧压缩，滑块靠右挡板}`,
+     note:'施加向右推力使弹簧压缩；滑块、车厢相对静止。'},
+    {label:'阶段 ② 撤推力',label_short:'撤',
+     formula_tex: String.raw`\text{滑块右、车左、底板摩擦做功}`,
+     note:'弹簧释放推动滑块向右；车厢反向（弹簧反力）。底板与滑块相对滑动 → 摩擦做功。'},
+    {label:'阶段 ③ 共同速度',label_short:'共',
+     formula_tex: String.raw`v_{\text{共}}=\dfrac{m v_m + M v_M}{m+M}`,
+     note:'初始 p_总 = m·v_m + M·v_M = 0，故最终共同速度也为 0。'},
+    {label:'阶段 ④ 外力 / 内力',label_short:'判',
+     formula_tex: String.raw`F_{\text{外},x}=0;\;\;f_{\text{内}}\;\text{做功生热}`,
+     note:'分析水平外力（地面光滑→为零）与内摩擦力（相对滑动→做功）；结论见右栏。'},
+    {label:'阶段 ⑤ 综合判断',label_short:'综',
+     formula_tex: String.raw`\text{结合外力/内力分析 4 选项}`,
+     note:'综合判断：详见右栏 verdict 与答案徽章。'}
+  ],
+  stats: [
+    {label:'地面摩擦',     fmt:()=>'光滑（无）'},
+    {label:'底板摩擦',     fmt:()=>'有 μ'},
+    {label:'水平外力',     fmt:s=>(s.u>=0.18 ? '0' : '?')},
+    {label:'p 总',         fmt:s=>(s.u>=0.55 ? '守恒' : '?')},
+    {label:'E 总',         fmt:s=>(s.u>=0.65 ? '不守恒（摩擦）' : '?')},
+    {label:'答案',          fmt:s=>(s.u>=0.92 ? 'B' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'p 守 + E 守',     note:'摩擦做功 E 不守恒'},
+    {label_text:'B 对', value_text:'p 守 + E 不守 ✓', note:'外力为零 + 内摩擦'},
+    {label_text:'C 错', value_text:'p 不守 + E 守',   note:'无水平外力 → p 守恒'},
+    {label_text:'D 错', value_text:'都不守',          note:'p 守恒'}
+  ],
+  legend: [
+    {swatch:{bg:'#fff',border:'#1d1d1f',type:'rect'},   text:'小车 M（含挡板/轮）'},
+    {swatch:{bg:'#e8a878',border:'#1d1d1f',type:'rect'}, text:'滑块 m'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'弹簧'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'滑块速度 v_m'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'小车速度 v_M'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'摩擦生热 / 推力'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国乙-Q1-弹簧滑块小车'
+});
+</script>
+</body>
+</html>
