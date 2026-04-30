@@ -190,6 +190,8 @@ const REAL_PROBLEMS = [
   { id:'2021-gk1-q13', year:2021, paper:'gk1', no:'13', module:'热学',    tplId:null, title:'V-t 图等压线 a/b/c 三点压强比',                    summary:'V-t 过 (t₀, 0) 直线 = 等压线；(1) a/b 同在 I → p_a/p_b=1；(2) b/c 同温 → 玻意耳定律 → p_b/p_c=V₂/V₁。', diff:'中', heat:115, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q13/index.html' },
   { id:'2021-gk1-q15', year:2021, paper:'gk1', no:'15', module:'光学',    tplId:null, title:'玻璃板光线 速度 + 时间范围',                       summary:'(1) v=c/n=2×10⁸ m/s；(2) θ_i=0° t_min=5×10⁻¹⁰ s；(3) θ_i→90° t_max=3√5×10⁻¹⁰ s≈6.71×10⁻¹⁰ s。', diff:'中', heat:120, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q15/index.html' },
   { id:'2021-gk1-q16', year:2021, paper:'gk1', no:'16', module:'振动波动', tplId:null, title:'简谐横波 A/B 质点 · t₁ 后到波峰',                  summary:'每隔 0.6s 同位移同向 → T/2=0.6 → T=1.2s, λ=24cm，Δφ=4π/3；(1) Δt_min=2T/3=0.8s；(2) y_B(t₁)=-0.5cm。', diff:'难', heat:140, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q16/index.html', paid:true },
+  // ── 2021 全国乙卷 ──
+  { id:'2021-gk2-q01', year:2021, paper:'gk2', no:'1',  module:'力学',    tplId:null, title:'弹簧滑块小车 · 动量与机械能守恒',                  summary:'光滑地面 + 内摩擦：撤推力后水平外力为零→p 守恒；内摩擦做功→机械能不守恒。答案 B。', diff:'易', heat:130, hasAnim:true, htmlPath:'2021_全国乙卷/questions/q01/index.html' },
   // ── 2020 新课标 II 卷 ──
   { id:'2020-xkbII-q03', year:2020, paper:'xkbII', no:'3',  module:'力学',    tplId:null, title:'摩托车越野跨坑 · 平抛 E₂/E₁',                      summary:'坑宽 3h, a 比 b 高 0.5h；E₁ 落 c (h, h)：t₁=√(2h/g), v₀₁=√(gh/2), E₁=mgh/4；E₂ 到 b (3h, 0.5h)：t₂=√(h/g), v₀₂=3√(gh), E₂=9mgh/2；比值 18。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2020_新课标II/questions/q03/index.html' },
   { id:'2020-xkbII-q07', year:2020, paper:'xkbII', no:'7',  module:'电磁学',  tplId:null, title:'圆环异种电荷 4 点 · 场强电势比较',               summary:'上半 +Q 下半 -Q；4 点 a/b/c/d 等距 r₀；y 轴对称 → E_a=E_b（向下）+ V_a=V_b；水平翻转+电荷反号反对称 → E_c=E_d（向下）；沿 E 方向 V 降 → V_c>V_d。答案 ABC。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标II/questions/q07/index.html' },
@@ -198,9 +200,11 @@ const REAL_PROBLEMS = [
   // ── 2020 新课标 III 卷 ──
   { id:'2020-xkbIII-q01', year:2020, paper:'xkbIII', no:'1', module:'电磁学',  tplId:null, title:'玻璃棒线圈 + 金属圆环 · 楞次定律',                summary:'光滑玻璃棒左端线圈右端金属圆环。开关接通瞬间，I_线圈从 0 增大 → B↑ → Φ_环↑ → 楞次"增则斥" → 圆环受斥力远离线圈（向右）。M/N 端结果相同。答案 B。', diff:'易', heat:120, hasAnim:true, htmlPath:'2020_新课标III/questions/q01/index.html' },
   { id:'2020-xkbIII-q04', year:2020, paper:'xkbIII', no:'4', module:'力学',    tplId:null, title:'绳索 O 点平衡几何 · 求 β',                       summary:'墙左固定绳过 O 点接细线挂甲，另一端经光滑滑轮挂乙。甲乙等质量，α=70° 求 β。O 点 3 力平衡 → cot β=(1-cos α)/sin α=(1-cos 70°)/sin 70°≈0.700 → β≈55°。答案 B。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标III/questions/q04/index.html' },
+  { id:'2020-xkbIII-q16', year:2020, paper:'xkbIII', no:'16', module:'光学',   tplId:null, title:'三棱镜光路 · AC 与 BC 出射区域比值',              summary:'n=√3, ∠A=90°/∠B=30°。光平行 BC 从 AB 入射。i=60°→sin r=1/2→r=30°。临界角 ≈33.6°。DB 范围 BC 全反射后垂直 AC 出射 → AC 全部出射。AD 范围 AC 全反射后垂直 BC 出射 CF=AC/2。比值 AC:CF=2。', diff:'中', heat:115, hasAnim:true, htmlPath:'2020_新课标III/questions/q16/index.html' },
   // ── 2019 新课标 I 卷 ──
   { id:'2019-xkbI-q01', year:2019, paper:'xkbI', no:'1', module:'近代物理', tplId:null, title:'氢原子能级跃迁 · 可见光最少激发能',               summary:'E_n=-13.6/n² eV；可见光 1.63~3.10 eV。莱曼 n→1 全紫外、帕邢 n→3 全红外、巴尔末 n→2（3→2..6→2 都在范围）→ 必须激发到 n≥3。E_min=E_3-E_1=12.09 eV。答案 A。', diff:'中', heat:130, hasAnim:true, htmlPath:'2019_新课标I/questions/q01/index.html' },
   { id:'2019-xkbI-q05', year:2019, paper:'xkbI', no:'5', module:'力学',    tplId:null, title:'篮球扣篮上升 4 段时间比 t₂/t₁',                  summary:'垂直起跳上升 H, 4 等分 H/4。逆向自由落体反向，等距时间比 1:(√2-1):(√3-√2):(2-√3)。t₁=(2-√3)/2·T, t₂=1/2·T → t₂/t₁=1/(2-√3)=2+√3≈3.732。3<·<4。答案 C。', diff:'中', heat:120, hasAnim:true, htmlPath:'2019_新课标I/questions/q05/index.html' },
+  { id:'2019-xkbI-q16', year:2019, paper:'xkbI', no:'16', module:'光学',   tplId:null, title:'帆船桅杆 + 湖底激光折射',                         summary:'h₁=3m 桅杆、h₂=4m 水深、n=4/3。(i) 出射 53° (sin=0.8) 求 x：x₁=h₁tan53°=4, sin θ=0.6→tan θ=3/4→x₂=3, x=7m。(ii) 水中 45° 求 x\'：sin i\'=2√2/3, tan i\'=2√2, x₁\'=6√2, x₂\'=4, x\'=6√2-3≈5.5m。', diff:'中', heat:120, hasAnim:true, htmlPath:'2019_新课标I/questions/q16/index.html' },
   { id:'2023-xgk1-q07', year:2023, paper:'xgk1', no:'7',  module:'力学',    tplId:null, title:'W-x 图分段拉力 · 动能/功率/动量',                  summary:'½mv²=W−f·x，f=4N；F₁=6 加速 / F₂=3<f 减速；x=4 KE=2J；W_f(0→2)=8J；v_max=2√2 在 x=2m。答案 BC。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_新课标卷/questions/q07/index.html' },
   { id:'2023-xgk1-q08', year:2023, paper:'xgk1', no:'8',  module:'热学',    tplId:null, title:'三段绝热汽缸 + 弹簧 + 加热 f',                       summary:'加热 f → P₁ 推 g、弹簧推 P₂ 推 h；P₁ 平衡 P_f=P_g+F/A，P₂ 平衡 P_h=P_g+F/A → P_f=P_h；h 绝热被做正功 ΔU_h>0。答案 AD。', diff:'中', heat:135, hasAnim:true, htmlPath:'2023_新课标卷/questions/q08/index.html' },
   { id:'2023-xgk1-q11', year:2023, paper:'xgk1', no:'11', module:'力学',    tplId:null, title:'打水漂 · 最小水平抛速度',                            summary:'平抛 v_y=√(2gh)；落水夹角 tan α=v_y/v₀；α≤θ 临界条件 → v₀≥√(2gh)/tan θ；v₀_min=√(2gh)/tan θ。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_新课标卷/questions/q11/index.html' },
@@ -345,6 +349,8 @@ const PROBLEM_META = {
     {sub:'(1) Δt_min', val:'0.8 s'},
     {sub:'(2) y_B(t₁)', val:'-0.5 cm'}
   ]},
+  // 2021 全国乙卷
+  '2021-gk2-q01': { type:'choice-single', answer:'B' },
   // 2020 新课标 II 卷
   '2020-xkbII-q03': { type:'choice-single', answer:'B' },
   '2020-xkbII-q07': { type:'choice-multi',  answer:'ABC' },
@@ -353,9 +359,11 @@ const PROBLEM_META = {
   // 2020 新课标 III 卷
   '2020-xkbIII-q01': { type:'choice-single', answer:'B' },
   '2020-xkbIII-q04': { type:'choice-single', answer:'B' },
+  '2020-xkbIII-q16': { type:'calc',          answer:[{sub:'AC : CF',val:'2'}] },
   // 2019 新课标 I 卷
   '2019-xkbI-q01': { type:'choice-single', answer:'A' },
   '2019-xkbI-q05': { type:'choice-single', answer:'C' },
+  '2019-xkbI-q16': { type:'calc',          answer:[{sub:'(i) x',val:'7 m'},{sub:'(ii) x\'',val:'6√2−3 ≈ 5.5 m'}] },
   '2023-xgk1-q07': { type:'choice-multi',  answer:'BC' },
   '2023-xgk1-q08': { type:'choice-multi',  answer:'AD' },
   '2023-xgk1-q11': { type:'calc',          answer:[{sub:'v₀_min',val:'√(2gh)/tan θ'}] },

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2019 新课标Ⅰ · 第 16 题 · 帆船桅杆折射激光</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理（详见 phases[].formula_tex KaTeX 栏）：
+// 帆船桅杆顶端高出水面 h₁ = 3 m，水底 P 点深度 h₂ = 4 m，水折射率 n = 4/3。
+// (i) 出射光与竖直 53°（sin53°=0.8, cos53°=0.6, tan53°=4/3）从水面 A 点照桅杆顶
+//     A 到桅杆水平距离 x₁ = 3·tan53° = 4 m
+//     折射定律：n·sinθ = sin53° → sinθ = 0.6 → tanθ = 3/4 → θ = 37°
+//     A 到 P 水平距离 x₂ = 4·tan37° = 3 m
+//     P 到桅杆水平距离 x = x₁ + x₂ = 7 m
+// (ii) 船左行 x'，激光在水中与竖直 45°
+//     n·sin45° = sin i' → sin i' = (4/3)·(√2/2) = 2√2/3
+//     cos i' = √(1−8/9) = 1/3，tan i' = 2√2
+//     A' 到桅杆 x₁' = 3·tan i' = 6√2 m
+//     A' 到 P x₂' = 4·tan45° = 4 m
+//     x' + 7 = x₁' + x₂' = 6√2 + 4
+//     x' = 6√2 − 3 ≈ 5.485 m ≈ 5.5 m
+
+const N = 4/3;
+const h1 = 3;     // 桅杆顶高出水面
+const h2 = 4;     // P 点水深
+
+// (i) 53° 出射
+const SIN53 = 0.8, COS53 = 0.6, TAN53 = 4/3;
+const x1_i = h1 * TAN53;     // = 4
+const sin_theta_i = SIN53/N;     // = 0.6
+const cos_theta_i = Math.sqrt(1 - sin_theta_i*sin_theta_i);     // = 0.8
+const tan_theta_i = sin_theta_i/cos_theta_i;     // = 0.75
+const x2_i = h2 * tan_theta_i;     // = 3
+const x_total_i = x1_i + x2_i;     // = 7
+
+// (ii) 水中 45° 出射
+const sin_in_ii = Math.sqrt(2)/2;     // sin 45°
+const sin_out_ii = N * sin_in_ii;     // = 2√2/3
+const cos_out_ii = Math.sqrt(1 - sin_out_ii*sin_out_ii);     // = 1/3
+const tan_out_ii = sin_out_ii/cos_out_ii;     // = 2√2
+const x1_ii = h1 * tan_out_ii;     // = 6√2
+const x2_ii = h2 * 1;     // tan45°=1, = 4
+const x_prime = (x1_ii + x2_ii) - x_total_i;     // = 6√2 - 3 ≈ 5.485
+
+const T_total = 11.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.15){ phase = 1; prog = u/0.15; }
+  else if(u < 0.40){ phase = 2; prog = (u-0.15)/0.25; }
+  else if(u < 0.55){ phase = 3; prog = (u-0.40)/0.15; }
+  else if(u < 0.80){ phase = 4; prog = (u-0.55)/0.25; }
+  else { phase = 5; prog = (u-0.80)/0.20; }
+
+  return {
+    phase, prog, u, t,
+    showI: phase >= 2,
+    showXi: phase >= 3,
+    showII: phase >= 4,
+    showAnswer: phase >= 5
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 几何坐标系：水面 y=0，水下为正 y，水上为负 y（物理）
+  // canvas 系：水面 y_water 像素位置；mPerPx：物理 1 m → 像素
+  const padL = 60, padR = 50, padT = 40, padB = 60;
+  const W2 = W - padL - padR;
+  const H2 = H - padT - padB;
+  // 水面位置（中央）
+  const yWater = padT + H2 * 0.40;
+  const mPerPx = Math.min(W2 / 16, H2 / 9.5);     // 让 (x≈10m, h₁+h₂=7m) 大致填满
+
+  // P 点位置：先确定情况 (ii) 的水中入射点 A' 与 桅杆位置
+  // 桅杆位置（情况 ii 后状态时船左行了 x'≈5.5m，但桅杆相对 P 距离不变 = 7m）
+  // 不对，桅杆是船上的，船左行后桅杆也左行
+  // 实际：保持 P 点固定，桅杆在情况 (i) 距 P 水平 7 m，情况 (ii) 船左行 x'，桅杆距 P 水平 7+x'
+  // canvas 上：P 在右侧某 x 位置，桅杆在 P 左侧（情况 i 时距 7 m，情况 ii 时距 7+5.485 ≈ 12.485 m）
+  const Px_phys = 14;     // P 在物理 x = 14 m（足够右）
+  const Px = padL + Px_phys * mPerPx;
+  const Py = yWater + h2 * mPerPx;
+
+  // 水
+  ctx.fillStyle = 'rgba(120,180,200,0.25)';
+  ctx.fillRect(padL, yWater, W2, H2 - (yWater - padT));
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(padL, yWater); ctx.lineTo(padL + W2, yWater);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('水面', padL + 4, yWater - 4);
+
+  // 湖底
+  ctx.fillStyle = '#9c8d72';
+  ctx.fillRect(padL, Py + 8, W2, padT + H2 - (Py + 8 - padT));
+  ctx.strokeStyle = '#6c5d44'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, Py + 8); ctx.lineTo(padL + W2, Py + 8);
+  ctx.stroke();
+
+  // P 点
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath(); ctx.arc(Px, Py, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 13px Georgia,serif';
+  ctx.fillText('P', Px + 8, Py + 4);
+
+  // 桅杆位置
+  // 情况 (i)：桅杆距 P 水平 x_total_i = 7 m
+  // 情况 (ii)：桅杆距 P 水平 x_total_i + x_prime ≈ 12.485 m
+  // 动画：phase 1-3 显示情况 i 的桅杆，phase 4-5 显示船左移到情况 ii 的桅杆
+  let mastDist;     // 桅杆到 P 的水平距离（米）
+  if(state.phase <= 3){
+    mastDist = x_total_i;     // = 7
+  } else if(state.phase === 4){
+    // 船左移动画
+    mastDist = x_total_i + state.prog * x_prime;
+  } else {
+    mastDist = x_total_i + x_prime;
+  }
+  const Mx = Px - mastDist * mPerPx;
+  // 桅杆顶
+  const MtopY = yWater - h1 * mPerPx;
+
+  // 帆船船体（小三角）
+  ctx.fillStyle = '#5d6964';
+  ctx.beginPath();
+  ctx.moveTo(Mx - 18, yWater);
+  ctx.lineTo(Mx + 18, yWater);
+  ctx.lineTo(Mx + 12, yWater + 8);
+  ctx.lineTo(Mx - 12, yWater + 8);
+  ctx.closePath();
+  ctx.fill();
+  // 桅杆（竖直）
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(Mx, yWater); ctx.lineTo(Mx, MtopY);
+  ctx.stroke();
+  // 帆（小三角）
+  ctx.fillStyle = 'rgba(180,180,180,0.6)';
+  ctx.beginPath();
+  ctx.moveTo(Mx, MtopY + 6);
+  ctx.lineTo(Mx + 22, yWater - 4);
+  ctx.lineTo(Mx, yWater - 4);
+  ctx.closePath();
+  ctx.fill();
+  // 桅杆顶点 + 标
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(Mx, MtopY, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText('h₁=3m', Mx - 32, MtopY - 8);
+
+  // 标 h₂ = 4m
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(Px + 22, yWater); ctx.lineTo(Px + 22, Py);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText('h₂=4m', Px + 26, (yWater + Py)/2 + 4);
+
+  // ─── 情况 (i) 光路：从 P 出发，经水面 A 折射，照桅杆顶 ───
+  if(state.showI){
+    // A 在水面，水中入射角 θ=37°（sinθ=0.6, tanθ=3/4）
+    // P 到 A 水平距离 x₂_i = 3 m，A 在 P 左侧 3 m
+    // canvas: Ax = Px - x2_i·mPerPx
+    const Ax_i = Px - x2_i * mPerPx;
+    const Ay_i = yWater;
+    // 水下：从 P 到 A
+    const animA = state.phase === 2 ? Math.min(1, state.prog * 2) : 1;
+    ctx.strokeStyle = '#9d3fbf'; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(Px, Py);
+    ctx.lineTo(Px + (Ax_i - Px)*animA, Py + (Ay_i - Py)*animA);
+    ctx.stroke();
+    // 水上：从 A 到桅杆顶
+    if(animA >= 1){
+      const animB = state.phase === 2 ? Math.min(1, (state.prog - 0.5)*2) : 1;
+      if(animB > 0){
+        ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(Ax_i, Ay_i);
+        ctx.lineTo(Ax_i + (Mx - Ax_i)*animB, Ay_i + (MtopY - Ay_i)*animB);
+        ctx.stroke();
+      }
+    }
+    // 法线（A 处垂直水面）
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(Ax_i, Ay_i - 30); ctx.lineTo(Ax_i, Ay_i + 30);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 短标 53° + 37°
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10.5px "Cambria Math",serif';
+    ctx.fillText('53°', Ax_i + 4, Ay_i - 14);
+    ctx.fillStyle = '#9d3fbf';
+    ctx.fillText('37°', Ax_i - 22, Ay_i + 18);
+    // A 点
+    ctx.fillStyle = '#1d1d1f';
+    ctx.beginPath(); ctx.arc(Ax_i, Ay_i, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.font = '700 11px Georgia,serif';
+    ctx.fillText('A', Ax_i - 12, Ay_i - 6);
+  }
+
+  // 阶段 ③ 标 x = 7m（P 到桅杆水平距离）
+  if(state.showXi){
+    // 用棕色横线在水面下方标
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.4; ctx.setLineDash([4,3]);
+    const yMark = yWater + 18;
+    ctx.beginPath();
+    ctx.moveTo(Px, yMark); ctx.lineTo(Px - x_total_i*mPerPx, yMark);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Cambria Math",serif';
+    ctx.fillText('x = 7 m', Px - x_total_i*mPerPx/2 - 14, yMark + 14);
+  }
+
+  // ─── 情况 (ii) 光路：从 P 出发，水中 45°，经水面 A' 折射照新桅杆顶 ───
+  if(state.showII){
+    // A' 在水面，水中入射角 45°
+    // P 到 A' 水平距离 x₂' = 4 m
+    const Ax_ii = Px - x2_ii * mPerPx;
+    const Ay_ii = yWater;
+    const animA = state.phase === 4 ? Math.min(1, (state.prog - 0.5)*2) : (state.phase === 5 ? 1 : 0);
+    if(state.phase >= 4 && state.prog >= (state.phase === 4 ? 0.5 : 0)){
+      ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(Px, Py);
+      ctx.lineTo(Px + (Ax_ii - Px)*animA, Py + (Ay_ii - Py)*animA);
+      ctx.stroke();
+      if(animA >= 1){
+        // 水上：从 A' 到新桅杆顶（mastDist 当前值即新桅杆位置）
+        ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(Ax_ii, Ay_ii);
+        ctx.lineTo(Mx, MtopY);
+        ctx.stroke();
+      }
+      // 法线
+      ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(Ax_ii, Ay_ii - 30); ctx.lineTo(Ax_ii, Ay_ii + 30);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // A' 点
+      ctx.fillStyle = '#1d1d1f';
+      ctx.beginPath(); ctx.arc(Ax_ii, Ay_ii, 3.5, 0, Math.PI*2); ctx.fill();
+      ctx.font = '700 11px Georgia,serif';
+      ctx.fillText('A\'', Ax_ii - 14, Ay_ii - 6);
+      ctx.fillStyle = '#3f6f8f';
+      ctx.font = '700 10.5px "Cambria Math",serif';
+      ctx.fillText('45°', Ax_ii - 24, Ay_ii + 18);
+    }
+  }
+
+  // 阶段 ⑤ 标 x' ≈ 5.5 m（船左移距离）
+  if(state.showAnswer){
+    // 船的初始位置（情况 i）：Px - 7·mPerPx
+    const M_init_x = Px - x_total_i * mPerPx;
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1.4; ctx.setLineDash([4,3]);
+    const yMark2 = yWater + 38;
+    ctx.beginPath();
+    ctx.moveTo(M_init_x, yMark2); ctx.lineTo(Mx, yMark2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 12px "Cambria Math",serif';
+    ctx.fillText('x\' = 6√2−3 ≈ 5.5 m', (M_init_x + Mx)/2 - 50, yMark2 + 14);
+  }
+
+  // 阶段标
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  const phaseLabel = state.phase === 1 ? '阶段 ① 装置（桅杆 h₁=3m, P 水深 h₂=4m, n=4/3）'
+                    : state.phase === 2 ? '阶段 ② (i) P → 水面 A → 桅杆顶（出射 53°）'
+                    : state.phase === 3 ? '阶段 ③ (i) x = x₁ + x₂ = 4 + 3 = 7 m'
+                    : state.phase === 4 ? '阶段 ④ (ii) 船左行，水中 45° 重新照桅杆顶'
+                    : '阶段 ⑤ (ii) x\' = 6√2 − 3 ≈ 5.5 m';
+  ctx.fillText(phaseLabel, padL, padT - 12);
+
+  // 答案徽章（仅 showAnswer）
+  if(state.showAnswer){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(W - 200, padT, 185, 50, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('(i) x = 7 m', W - 192, padT + 20);
+    ctx.fillText('(ii) x\' ≈ 5.5 m', W - 192, padT + 40);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2019 新课标Ⅰ卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 16 题 · 选考',
+  title: '帆船桅杆 + 湖底激光折射',
+  subtitle: 'h₁=3m 桅杆 · h₂=4m 水深 · n=4/3 · (i) 出射 53° 求 x · (ii) 水中 45° 求船左行 x\'',
+  deliv: {
+    title: '两次折射几何 · x 与 x\'',
+    sub: '(i) 53°→37° → x = x₁+x₂  ·  (ii) 水中 45° → x\' = (x₁\'+x₂\') − x'
+  },
+  originalProblem: {
+    meta: '2019 新课标Ⅰ卷 · 计算 · 第 16 题 · 选考',
+    text: `如图，一艘帆船静止在湖面上，帆船的竖直桅杆顶端高出水面 3 m。距水面 4 m 的湖底 P 点发出的激光束，从水面出射后恰好照射到桅杆顶端，该出射光束与竖直方向的夹角为 53°（取 sin 53° = 0.8）。已知水的折射率为 4/3。\n（i）求桅杆到 P 点的水平距离；\n（ⅱ）船向左行驶一段距离后停止，调整由 P 点发出的激光束方向，当其与竖直方向夹角为 45° 时，从水面射出后仍照射在桅杆顶端，求船行驶的距离。`,
+    image: '../../source/images/image87.png',
+    subQuestions: [
+      '(i) 桅杆到 P 点水平距离 x',
+      '(ii) 船左行距离 x\''
+    ],
+    officialAnswer: '(i) 设 A 为水面出射点。x₁ = h₁·tan 53° = 3·(4/3) = 4 m。由折射定律 n·sin θ = sin 53° → sin θ = 0.6 → tan θ = 3/4，所以 x₂ = h₂·tan θ = 4·(3/4) = 3 m。x = x₁ + x₂ = 7 m。\n(ii) 水中 45°：n·sin 45° = sin i\' → sin i\' = (4/3)·(√2/2) = 2√2/3，cos i\' = √(1 − 8/9) = 1/3，tan i\' = 2√2。x₁\' = h₁·tan i\' = 6√2 m，x₂\' = h₂·tan 45° = 4 m。船左行 x\' 满足 x\' + x = x₁\' + x₂\' → x\' = (6√2 + 4) − 7 = 6√2 − 3 ≈ 5.485 m ≈ 5.5 m。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置', label_short:'装置',
+     formula_tex: String.raw`h_1 = 3\,\text{m},\;\; h_2 = 4\,\text{m},\;\; n = \tfrac{4}{3}`,
+     note:'帆船桅杆顶端高出水面 3 m，湖底 P 点深 4 m，水折射率 4/3。'},
+    {label:'阶段 ② (i) 出射 53°', label_short:'(i) 53°',
+     formula_tex: String.raw`x_1 = h_1 \tan 53° = 4\,\text{m},\;\; n\sin\theta = \sin 53° \Rightarrow \tan\theta = \tfrac{3}{4}`,
+     note:'A 为水面出射点。出射 53°（sin 53°=0.8），由 tan 53°=4/3 得 x₁ = 3·(4/3) = 4 m。折射定律给水中入射角 sin θ=0.6, tan θ=3/4。'},
+    {label:'阶段 ③ (i) x = 7 m', label_short:'x',
+     formula_tex: String.raw`x_2 = h_2 \tan\theta = 4 \cdot \tfrac{3}{4} = 3\,\text{m},\;\; x = x_1 + x_2 = 7\,\text{m}`,
+     note:'P 到 A 水平距离 x₂ = 3 m。桅杆到 P 总距离 x = x₁ + x₂ = 7 m。'},
+    {label:'阶段 ④ (ii) 水中 45°', label_short:'(ii) 45°',
+     formula_tex: String.raw`n\sin 45° = \sin i' \Rightarrow \sin i' = \tfrac{2\sqrt{2}}{3},\;\; \tan i' = 2\sqrt{2}`,
+     note:'水中入射角 45°，由折射定律 sin i\' = (4/3)·(√2/2) = 2√2/3，cos i\' = 1/3，tan i\' = 2√2。'},
+    {label:'阶段 ⑤ x\' ≈ 5.5 m', label_short:'答',
+     formula_tex: String.raw`x_1' + x_2' = h_1 \tan i' + h_2 \tan 45° = 6\sqrt{2} + 4,\;\; \boxed{\;x' = (6\sqrt{2}+4) - 7 = 6\sqrt{2}-3 \approx 5.5\,\text{m}\;}`,
+     note:'x₁\' = 6√2 m，x₂\' = 4 m。船左行 x\' 满足 x\' + x = x₁\' + x₂\'，所以 x\' = 6√2 − 3 ≈ 5.485 m ≈ 5.5 m。'}
+  ],
+  stats: [
+    {label:'桅杆 h₁',          fmt:()=>'3 m'},
+    {label:'P 水深 h₂',         fmt:()=>'4 m'},
+    {label:'折射率 n',          fmt:()=>'4/3'},
+    {label:'(i) 出射角',         fmt:()=>'53°'},
+    {label:'(i) 水中 θ',         fmt:s=>s.showI?'37°':'?'},
+    {label:'(i) x₁',            fmt:s=>s.showI?'4 m':'?'},
+    {label:'(i) x₂',            fmt:s=>s.showI?'3 m':'?'},
+    {label:'(i) x',             fmt:s=>s.showXi?'7 m':'?'},
+    {label:'(ii) 水中 i',        fmt:s=>s.showII?'45°':'?'},
+    {label:'(ii) tan i\'',      fmt:s=>s.showII?'2√2':'?'},
+    {label:'(ii) x\'',          fmt:s=>s.showAnswer?'6√2−3 ≈ 5.5 m':'?'}
+  ],
+  conclusions: [
+    {label_text:'(i) x',         value_text:'?（动画揭晓）',          note:'tan 53° + 折射 + tan θ'},
+    {label_text:'(ii) tan i\'',  value_text:'?（动画揭晓）',          note:'n·sin 45° = sin i\''},
+    {label_text:'(ii) x\'',      value_text:'?（动画完毕揭晓）',       note:'船左行距离'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(120,180,200,0.25)',border:'#3f6f8f',type:'rect'}, text:'湖水（n=4/3）'},
+    {swatch:{bg:'#9c8d72',border:'#6c5d44',type:'rect'}, text:'湖底 + P 点'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'帆船 + 桅杆'},
+    {swatch:{bg:'#9d3fbf',border:'#9d3fbf',type:'rect'}, text:'(i) 水中光路 P→A'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'(i) 水上光路 A→桅杆顶'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'(ii) 水中光路 P→A\''},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'(ii) 水上光路 A\'→新桅杆顶'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2019新课标I-Q16-帆船桅杆折射激光'
+});
+</script>
+</body>
+</html>
