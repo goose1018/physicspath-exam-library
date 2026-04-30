@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 16 题 · 简谐横波 A/B 质点（计算）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：简谐横波沿 +x 传播，v=20 cm/s，A=1 cm，λ>20 cm，无衰减。
+// A、B 平衡位置 x=0、x_B=16 cm。t=0 时位移大小相等方向相同、运动方向相反。
+// 此后每隔 Δt=0.6 s 位移再次相等同向。
+//
+// 推导：y_A(t)=y_B(t) 的间隔 = T/2 → T=2·0.6=1.2 s → λ=vT=24 cm（>20 ✓）
+// 相位差 Δφ=2π·16/λ=2π·16/24=4π/3（B 落后 A）
+// t=0 时位移同向且 A 上升、B 下降（运动方向相反）→ α_A=π/6（or 7π/6 取 π/6 配选）
+// y_A(0)=A·sin(π/6)=0.5; y_B(0)=A·sin(π/6-4π/3)=A·sin(-7π/6)=A·sin(5π/6)=0.5 ✓
+//
+// (1) t₁ 时 A 在波峰（相位 π/2），B 当前相位 = π/2 − 4π/3 = -5π/6
+//     B 到波峰需相位增加到 π/2 → Δφ_BtoPeak = π/2-(-5π/6)+2kπ = 4π/3+2kπ
+//     最小时间 = (4π/3)·T/(2π) = 2T/3 = 0.8 s
+// (2) t₁ 时 y_B = A·sin(-5π/6) = -A·sin(5π/6) = -A/2 = -0.5 cm
+
+const v_wave = 20;        // cm/s
+const A_amp = 1;          // cm
+const x_B = 16;           // cm
+const dt_cond = 0.6;      // s
+const T_period = 2 * dt_cond;   // 1.2 s
+const lambda = v_wave * T_period;   // 24 cm
+const dphi = 2*Math.PI * x_B / lambda;   // 4π/3
+const omega = 2*Math.PI / T_period;
+const t_to_B_peak = (4*Math.PI/3) / omega;   // 0.8 s
+const y_B_t1 = -A_amp * Math.sin(5*Math.PI/6);   // -0.5 cm
+
+const T_TOTAL = 13.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // ① 0~0.10 装置
+  // ② 0.10~0.30 条件分析（每 0.6s 同位移同向 → T=1.2s, λ=24cm）
+  // ③ 0.30~0.55 t=0 时刻：位移同向、运动反向（演示 A 上升 B 下降）
+  // ④ 0.55~0.78 t₁ 时刻：A 在波峰 → 求 B 位移 + 到波峰最少时间
+  // ⑤ 0.78~1.0 综合 + 答案
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.55) phase = 2;
+  else if(u < 0.78) phase = 3;
+  else phase = 4;
+  // 时间动画：phase 2 显示 t=0 时刻；phase 3+4 显示 t₁ 时刻；
+  // 在 phase 2 添加内部时间动画（0~0.6s 演示同位移条件）
+  let time_show = 0;
+  if(phase === 2){
+    // 0 → 0.6s 演示
+    time_show = (u - 0.30) / 0.25 * 0.6;
+  } else if(phase >= 3){
+    // t₁ 设为某个 A 在波峰的时刻：t₁ = T/4 - α/ω = T/4 - π/6/(2π/T) = T/4 - T/12 = T/6
+    // 即 t₁ ≈ 0.2 s（A 从 π/6 到 π/2 需要 π/3 相位 = T/6 ≈ 0.2s）
+    time_show = T_period/6;   // 0.2s
+  }
+  return {phase, time_show, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawWave(ctx, 14, 14, W*0.58-21, H-28, state);
+  drawCalc(ctx, W*0.58+7, 14, W*0.42-21, H-28, state);
+}
+
+function drawWave(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('简谐横波 v=20 cm/s 向 +x 传播 · A(0), B(16 cm)', panelX+12, panelY+18);
+
+  // 坐标系：x 横轴 [-4, 28]cm；y 纵轴 [-1.5, 1.5]cm
+  const padL = 50, padR = 24, padT = 36, padB = 80;
+  const cw = panelW - padL - padR;
+  const ch = panelH - padT - padB;
+  const xMin = -4, xMax = 28;
+  const yMin = -1.5, yMax = 1.5;
+  const X = (xx) => panelX + padL + (xx - xMin)/(xMax - xMin)*cw;
+  const Y = (yy) => panelY + padT + (yMax - yy)/(yMax - yMin)*ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(X(xMin), Y(0)); ctx.lineTo(X(xMax), Y(0));
+  ctx.moveTo(X(0), Y(yMin)); ctx.lineTo(X(0), Y(yMax));
+  ctx.stroke();
+  PPath.arrow(ctx, X(xMax-1), Y(0), X(xMax), Y(0), '#86868b', 1);
+  PPath.arrow(ctx, X(0), Y(yMax-0.1), X(0), Y(yMax), '#86868b', 1);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 12px "Cambria Math",Georgia,serif';
+  ctx.fillText('x/cm', X(xMax)+4, Y(0)+4);
+  ctx.fillText('y/cm', X(0)-26, Y(yMax)-2);
+
+  // 振幅刻度（±1cm）
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10px ui-monospace,monospace';
+  ctx.fillText('1', X(0)-14, Y(1)+3);
+  ctx.fillText('-1', X(0)-18, Y(-1)+3);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  ctx.moveTo(X(0)-3, Y(1)); ctx.lineTo(X(0)+3, Y(1));
+  ctx.moveTo(X(0)-3, Y(-1)); ctx.lineTo(X(0)+3, Y(-1));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 波形：根据 phase 决定是 t=0 还是 t=t₁ 的波形
+  // y(x, t) = A·sin(ωt + π/6 - 2π·x/λ)
+  if(state.phase >= 1){
+    const tNow = state.time_show;
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    let first = true;
+    for(let x = xMin; x <= xMax; x += 0.2){
+      const y = A_amp * Math.sin(omega*tNow + Math.PI/6 - 2*Math.PI*x/lambda);
+      const px = X(x), py = Y(y);
+      if(first){ ctx.moveTo(px, py); first = false; }
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    // 时间标签
+    ctx.fillStyle = '#3f6f8f';
+    ctx.font = 'italic 800 11px "Cambria Math",Georgia,serif';
+    let tLabel = '';
+    if(state.phase === 1) tLabel = 't = 0';
+    else if(state.phase === 2) tLabel = 't = '+state.time_show.toFixed(2)+' s';
+    else tLabel = 't = t₁ (A 在波峰)';
+    ctx.fillText(tLabel, X(xMax)-110, Y(yMax)+8);
+  }
+
+  // A 点（x=0）
+  const tNow = state.phase >= 1 ? state.time_show : 0;
+  const y_A_now = A_amp * Math.sin(omega*tNow + Math.PI/6);
+  const y_B_now = A_amp * Math.sin(omega*tNow + Math.PI/6 - dphi);
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(X(0), Y(y_A_now), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('A', X(0)-12, Y(y_A_now)-8);
+  // B 点
+  ctx.fillStyle = '#7a4f9c';
+  ctx.beginPath(); ctx.arc(X(x_B), Y(y_B_now), 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#7a4f9c';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('B', X(x_B)+8, Y(y_B_now)-8);
+
+  // x_B=16 标记
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText('x_B=16 cm', X(x_B)-22, Y(0)+18);
+
+  // phase >= 2: 显示运动方向箭头
+  if(state.phase >= 2){
+    // A 速度（dy/dt = ω cos(...))
+    const v_A = A_amp * omega * Math.cos(omega*tNow + Math.PI/6);
+    const v_B = A_amp * omega * Math.cos(omega*tNow + Math.PI/6 - dphi);
+    const vScale = 6;
+    if(Math.abs(v_A) > 0.01){
+      PPath.arrow(ctx, X(0), Y(y_A_now), X(0), Y(y_A_now) - v_A*vScale, '#16613f', 1.8);
+    }
+    if(Math.abs(v_B) > 0.01){
+      PPath.arrow(ctx, X(x_B), Y(y_B_now), X(x_B), Y(y_B_now) - v_B*vScale, '#16613f', 1.8);
+    }
+  }
+
+  // phase >= 3: 标 t₁ 时刻 A 在波峰、B 当前位置 + B 到波峰提示
+  if(state.phase >= 3){
+    // 标"A 在波峰"
+    ctx.fillStyle = '#16613f';
+    ctx.font = '800 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('A 在波峰 (y=1)', X(0)-8, Y(y_A_now)-22);
+    // 标 B 当前位移
+    ctx.fillStyle = '#7a4f9c';
+    if(state.phase === 4){
+      ctx.fillText('y_B = '+y_B_now.toFixed(2)+' cm', X(x_B)+10, Y(y_B_now)+18);
+    } else {
+      ctx.fillText('y_B = ?', X(x_B)+10, Y(y_B_now)+18);
+    }
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 装置：A 在 x=0，B 在 x_B=16 cm；波 v=20 cm/s 向 +x',
+    '阶段 ② 由"每 0.6s 位移同向"得 T/2=0.6s → T=1.2s, λ=24cm',
+    '阶段 ③ t=0 起每隔 T/2 出现"位移同向"（动画演示）+ 运动反向 (A 上 B 下)',
+    '阶段 ④ t=t₁ 时 A 在波峰；相位差 Δφ=4π/3 → 求 y_B 与到波峰时间',
+    '阶段 ⑤ 综合：t₁ 时 A 在波峰，求 B 位移与到波峰最少时间（详见右栏）'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('波动方程 + 相位差', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 19;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt:0.10, text:'同位移同向间隔 = T/2'},
+    {showAt:0.13, text:'  → T = 2·0.6 = 1.2 s'},
+    {showAt:0.18, text:'λ = vT = 20·1.2 = 24 cm > 20 ✓'},
+    {showAt:0.23, text:'相位差 Δφ = 2π·x_B/λ = 4π/3'},
+    {showAt:0.34, text:'t=0 时刻：A 上升、B 下降'},
+    {showAt:0.38, text:'  α_A = π/6'},
+    {showAt:0.42, text:'  y_A(0) = sin(π/6) = 0.5 cm'},
+    {showAt:0.46, text:'  y_B(0) = sin(π/6-4π/3)'},
+    {showAt:0.50, text:'    = sin(-7π/6) = 0.5 cm ✓'},
+    {showAt:0.60, text:'(2) t₁ 时 A 在波峰 → 相位 π/2'},
+    {showAt:0.64, text:'  B 相位 = π/2 - 4π/3 = -5π/6'},
+    {showAt:0.68, text:'  y_B(t₁) = A·sin(-5π/6)'},
+    {showAt:0.72, text:'    = -0.5 cm'},
+    {showAt:0.78, text:'(1) B 到波峰：相位 +4π/3'},
+    {showAt:0.82, text:'  Δt_min = (4π/3)·T/(2π)'},
+    {showAt:0.86, text:'    = 2T/3 = 0.8 s'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('= 0.5 cm') || s.text.includes('-0.5 cm') || s.text.includes('0.8 s');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 10.5px ui-monospace,monospace' : '700 10.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+12, panelY+panelH-78, panelW-24, 66, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案：', panelX+18, panelY+panelH-60);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 10.5px ui-monospace,monospace';
+    ctx.fillText('(1) Δt_min = 0.8 s', panelX+18, panelY+panelH-42);
+    ctx.fillText('(2) y_B(t₁) = -0.5 cm', panelX+18, panelY+panelH-24);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '选考 3-4 · 第 16 题 · 10 分',
+  title: '简谐横波 A/B 质点 · t₁ 后 B 到波峰时间 + B 位移',
+  subtitle: 'v=20 cm/s 向 +x 传，A=1 cm，A、B 平衡位置 0/16 cm；由 t=0 与 Δt=0.6s 条件求 T 与 λ。',
+  deliv: {
+    title: '波动方程 + 同位移同向条件',
+    sub: 'T/2 = Δt → T=1.2s, λ=24cm；Δφ=4π/3；(1) 0.8s；(2) -0.5cm'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 选考 3-4 · 第 16 题 · 10 分',
+    text: `均匀介质中质点 A、B 的平衡位置位于 x 轴上，坐标分别为 0 和 x_B=16 cm。某简谐横波沿 x 轴正方向传播，波速为 v=20 cm/s，波长大于 20 cm，振幅为 y=1 cm，且传播时无衰减。t=0 时刻 A、B 偏离平衡位置的位移大小相等、方向相同，运动方向相反，此后每隔 Δt=0.6 s 两者偏离平衡位置的位移大小相等、方向相同。已知在 t₁ 时刻（t₁>0），质点 A 位于波峰。求：\n（i）从 t₁ 时刻开始，质点 B 最少要经过多长时间位于波峰；\n（ii）t₁ 时刻质点 B 偏离平衡位置的位移。`,
+    subQuestions: [
+      '(i) 从 t₁ 起 B 最少经过多长时间位于波峰',
+      '(ii) t₁ 时刻 B 偏离平衡位置的位移'
+    ],
+    officialAnswer: `**(i)** 0.8 s\n\n**(ii)** -0.5 cm\n\n**推导**：\n\n由"每隔 Δt=0.6 s 位移大小相等、方向相同"得 y_A(t)=y_B(t) 的相邻间隔 = T/2，故 T=2·Δt=1.2 s；λ=vT=20·1.2=24 cm（>20 ✓）。相位差 Δφ=2π·x_B/λ=2π·16/24=4π/3（B 落后 A）。\n\nt=0 时位移同向 + 运动反向，取 A 处相位 α=π/6（A 上升 v_A=ω·cos(π/6)>0；B 处相位 α-4π/3=-7π/6，sin(-7π/6)=sin(5π/6)=1/2，v_B=ω·cos(-7π/6)<0 ✓），y_A(0)=y_B(0)=0.5 cm。\n\n**(ii)** t₁ 时 A 在波峰 → A 相位 π/2，故 B 相位 = π/2 − 4π/3 = -5π/6。y_B(t₁)=A·sin(-5π/6)=A·(-1/2)=-0.5 cm。\n\n**(i)** B 到波峰：相位需达 π/2 → 相位增量 = π/2 − (-5π/6) = 4π/3。最少时间 Δt_min = (4π/3)·T/(2π) = 2T/3 = 0.8 s。`
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置',label_short:'装置',
+     formula_tex: String.raw`v=20\,\text{cm/s},\;A=1\,\text{cm},\;\lambda>20\,\text{cm}`,
+     note:'A 在 x=0，B 在 x_B=16 cm；简谐横波沿 +x 方向传播。'},
+    {label:'阶段 ② 由 Δt 求 T、λ',label_short:'T,λ',
+     formula_tex: String.raw`y_A=y_B\;\text{间隔}=\tfrac{T}{2}\Rightarrow T=2\Delta t`,
+     note:'位移大小相等同向相邻时刻相隔 T/2，故 T=2·0.6=1.2 s，λ=vT=24 cm（满足 >20）。'},
+    {label:'阶段 ③ t=0 同向反速',label_short:'t=0',
+     formula_tex: String.raw`\Delta\varphi=\dfrac{2\pi x_B}{\lambda}=\dfrac{4\pi}{3}`,
+     note:'相位差 4π/3；选 A 相位 π/6 使位移同向且运动反向（A 上升 B 下降）。'},
+    {label:'阶段 ④ t₁ 时刻',label_short:'t₁',
+     formula_tex: String.raw`\varphi_A=\dfrac{\pi}{2}\Rightarrow \varphi_B=\dfrac{\pi}{2}-\dfrac{4\pi}{3}=-\dfrac{5\pi}{6}`,
+     note:'A 在波峰则相位 π/2；B 处相位差落后 4π/3。'},
+    {label:'阶段 ⑤ 综合',label_short:'综合',
+     formula_tex: String.raw`\Delta t_{\min}=\dfrac{2T}{3},\;\;y_B(t_1)=A\sin(-\tfrac{5\pi}{6})`,
+     note:'由相位差与 ω 推得 (1)(2)，具体数值详见右栏推导步骤。'}
+  ],
+  stats: [
+    {label:'v',           fmt:()=>'20 cm/s'},
+    {label:'A 振幅',      fmt:()=>'1 cm'},
+    {label:'x_B',         fmt:()=>'16 cm'},
+    {label:'Δt 条件',     fmt:()=>'0.6 s'},
+    {label:'(中) T',      fmt:s=>(s.u>=0.13 ? '1.2 s'  : '?')},
+    {label:'(中) λ',      fmt:s=>(s.u>=0.18 ? '24 cm'  : '?')},
+    {label:'相位差 Δφ',   fmt:s=>(s.u>=0.23 ? '4π/3'   : '?')},
+    {label:'(2) y_B(t₁)', fmt:s=>(s.u>=0.72 ? '-0.5 cm' : '?')},
+    {label:'(1) Δt_min',  fmt:s=>(s.u>=0.86 ? '0.8 s'   : '?')}
+  ],
+  conclusions: [
+    {label_text:'(1) Δt_min', value_text:'0.8 s',     note:'2T/3，B 到波峰最少时间'},
+    {label_text:'(2) y_B(t₁)', value_text:'-0.5 cm', note:'A·sin(-5π/6)'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'波形 y(x, t)'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'},  text:'质点 A (x=0)'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'dot'},  text:'质点 B (x=16 cm)'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'瞬时速度方向'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q16-横波AB质点'
+});
+</script>
+</body>
+</html>

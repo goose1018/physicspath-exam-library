@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 13 题 · V-t 图等压线（填空）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：V-t 图（V 体积、t 摄氏温度）。两条直线 I 和 II 都通过绝对零度
+// (t₀ = -273.15°C, V=0) — 即等压线（盖吕萨克定律 V/T=const，过 (t₀, 0) 直线）
+// V₁ = I 与纵轴交点（t=0 时 V）；V₂ = II 与纵轴交点（V₂ < V₁）
+// a, b 在直线 I 上；c 在直线 II 上；b 与 c 在同一温度 t₁
+//
+// (1) a, b 同在 I 上 → 压强相同 → p_a/p_b = 1
+// (2) b 在 I（压强 p_I）, c 在 II（压强 p_II），同温度 t₁
+//     等温变化：p·V = const → p_b·V_b = p_c·V_c → p_b/p_c = V_c/V_b
+//     V 比例：直线 I 与 II 都过 (t₀, 0)，斜率 V₁/(0-t₀) 与 V₂/(0-t₀)
+//     在 t=t₁：V_b = V₁(1 - t₁/t₀)，V_c = V₂(1 - t₁/t₀)，故 V_b/V_c = V₁/V₂
+//     ⇒ p_b/p_c = V_c/V_b = V₂/V₁
+// 答案：(1) 1；(2) V₂/V₁
+
+const T_TOTAL = 10.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // ① 0~0.10 V-t 图 + 5 标点
+  // ② 0.10~0.30 等压线（直线过绝对零度）
+  // ③ 0.30~0.55 (1) a, b 同在 I → p_a/p_b
+  // ④ 0.55~0.85 (2) b/c 等温 → p_b/p_c
+  // ⑤ 0.85~1.0 答案徽章
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.55) phase = 2;
+  else if(u < 0.85) phase = 3;
+  else phase = 4;
+  return {phase, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawGraph(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawCalc (ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawGraph(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('V-t 图（两条等压线 I 与 II）', panelX+12, panelY+18);
+
+  // 坐标系：t 横轴 [-300, 200] °C，V 纵轴 [0, 8] 单位
+  const padL = 60, padR = 30, padT = 38, padB = 50;
+  const cw = panelW - padL - padR;
+  const ch = panelH - padT - padB;
+  const x0_axis = panelX + padL;   // V 轴位置（绝对零度 -273.15 不在坐标内）
+  const y0_axis = panelY + padT + ch;   // t 轴位置（V=0 处）
+  // t 范围：t_axis 上 -300 到 +200
+  const tMin = -300, tMax = 200;
+  const Vmin = 0, Vmax = 8;
+  const X = (tt) => x0_axis + (tt - 0)/(tMax - tMin)*cw + (0 - tMin)/(tMax - tMin)*0;
+  // 简化：让原点 O (t=0) 落在 padL + (0-tMin)/(tMax-tMin)*cw 处
+  const Xt = (tt) => panelX + padL + (tt - tMin)/(tMax - tMin)*cw;
+  const Yv = (vv) => y0_axis - (vv - Vmin)/(Vmax - Vmin)*ch;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  // x 轴（t 轴）— 在 V=0
+  ctx.beginPath();
+  ctx.moveTo(panelX + padL, y0_axis); ctx.lineTo(panelX + panelW - padR, y0_axis);
+  ctx.stroke();
+  // y 轴（V 轴）— 在 t=0
+  ctx.beginPath();
+  ctx.moveTo(Xt(0), panelY + padT); ctx.lineTo(Xt(0), y0_axis);
+  ctx.stroke();
+  PPath.arrow(ctx, panelX + panelW - padR - 4, y0_axis, panelX + panelW - padR, y0_axis, '#86868b', 1);
+  PPath.arrow(ctx, Xt(0), panelY + padT + 4, Xt(0), panelY + padT, '#86868b', 1);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('V/m³', Xt(0)+5, panelY + padT - 2);
+  ctx.fillText('t/°C', panelX + panelW - padR + 4, y0_axis + 4);
+  // O 标
+  ctx.font = 'italic 600 11px Georgia,serif';
+  ctx.fillStyle = '#5d6964';
+  ctx.fillText('O', Xt(0) - 12, y0_axis + 14);
+  // t₀ 标 (-273.15)
+  ctx.fillText('t₀', Xt(-273.15) - 6, y0_axis + 14);
+  // t₁ 标 (假设 t₁ = 100°C)
+  ctx.fillText('t₁', Xt(100) - 6, y0_axis + 14);
+
+  // 两条等压线（I 和 II），都过 (t₀, 0)
+  // I 通过 (0, V₁=4) 和 (t₀, 0) → 斜率 V₁/(0-t₀)
+  const V1 = 4, V2 = 2;
+  const t0 = -273.15;
+  const t1 = 100;
+  // I 直线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(Xt(t0), Yv(0));
+  ctx.lineTo(Xt(t1), Yv(V1*(1 - t1/t0)));
+  ctx.stroke();
+  // II 直线
+  ctx.strokeStyle = '#7a4f9c'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(Xt(t0), Yv(0));
+  ctx.lineTo(Xt(t1), Yv(V2*(1 - t1/t0)));
+  ctx.stroke();
+
+  // 虚线延伸（从 0 到 t₀ 那段）
+  ctx.strokeStyle = 'rgba(63,111,143,0.45)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(Xt(t0), Yv(0));
+  ctx.lineTo(Xt(0), Yv(V1));
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(122,79,156,0.45)';
+  ctx.beginPath();
+  ctx.moveTo(Xt(t0), Yv(0));
+  ctx.lineTo(Xt(0), Yv(V2));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // V₁、V₂ 标记
+  ctx.fillStyle = '#3f6f8f';
+  ctx.beginPath(); ctx.arc(Xt(0), Yv(V1), 3.5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = 'italic 800 12px "Cambria Math",Georgia,serif';
+  ctx.fillText('V₁', Xt(0) - 22, Yv(V1) + 4);
+  ctx.fillStyle = '#7a4f9c';
+  ctx.beginPath(); ctx.arc(Xt(0), Yv(V2), 3.5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#7a4f9c';
+  ctx.fillText('V₂', Xt(0) - 22, Yv(V2) + 4);
+
+  // I、II 标
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 12px "Cambria Math",Georgia,serif';
+  ctx.fillText('I', Xt(60), Yv(V1*(1-60/t0)) - 8);
+  ctx.fillStyle = '#7a4f9c';
+  ctx.fillText('II', Xt(60), Yv(V2*(1-60/t0)) + 12);
+
+  // a 点（在 I 上某 t 例如 t=20）
+  const t_a = 20;
+  const V_a = V1*(1 - t_a/t0);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Xt(t_a), Yv(V_a), 4.5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('a', Xt(t_a) + 5, Yv(V_a) + 16);
+
+  // b 点（在 I 上 t=t₁）
+  const V_b = V1*(1 - t1/t0);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Xt(t1), Yv(V_b), 4.5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('b', Xt(t1) + 6, Yv(V_b) + 4);
+
+  // c 点（在 II 上 t=t₁）
+  const V_c = V2*(1 - t1/t0);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(Xt(t1), Yv(V_c), 4.5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('c', Xt(t1) + 6, Yv(V_c) + 4);
+
+  // t=t₁ 的虚线
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(Xt(t1), y0_axis); ctx.lineTo(Xt(t1), Yv(V_b));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // phase>=2: 高亮 a-b 同压（蓝色等压线）
+  if(state.phase >= 2){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.moveTo(Xt(t_a), Yv(V_a)); ctx.lineTo(Xt(t1), Yv(V_b));
+    ctx.stroke();
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('a, b 同在 I → 同压强', Xt(t_a)+8, Yv(V_a)-12);
+  }
+
+  // phase>=3: 高亮 b-c 等温
+  if(state.phase >= 3){
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.moveTo(Xt(t1), Yv(V_b)); ctx.lineTo(Xt(t1), Yv(V_c));
+    ctx.stroke();
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('b, c 同温 t₁ → p·V=const', Xt(t1)+10, (Yv(V_b)+Yv(V_c))/2);
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① V-t 图 + a/b/c 标点（I/II 等压线均过 (t₀, 0) 绝对零度）',
+    '阶段 ② 等压线特点：每条直线对应一个压强（盖吕萨克定律 V/T=const）',
+    '阶段 ③ (1) a 与 b 同在直线 I 上 → 同压强 → p_a/p_b=1',
+    '阶段 ④ (2) b 与 c 在同温 t₁，等温变化 p·V=const → 求压强比',
+    '阶段 ⑤ 综合答案'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('盖吕萨克 + 等温变化', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 20;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt:0.10, text:'V-t 图过 (t₀, 0) 直线 ⇔ 等压线'},
+    {showAt:0.13, text:'  (盖吕萨克 V/T = const，过原点)'},
+    {showAt:0.30, text:'(1) a, b 都在直线 I 上'},
+    {showAt:0.34, text:'  → 同等压线 → 压强相同'},
+    {showAt:0.40, text:'  → p_a/p_b = 1'},
+    {showAt:0.55, text:'(2) b 在 I（压强 p_I），c 在 II（p_II）'},
+    {showAt:0.60, text:'  b, c 同温 t₁ → 等温'},
+    {showAt:0.65, text:'  p_b·V_b = p_c·V_c'},
+    {showAt:0.70, text:'  V_b = V₁·(1-t₁/t₀)'},
+    {showAt:0.74, text:'  V_c = V₂·(1-t₁/t₀)'},
+    {showAt:0.78, text:'  V_b/V_c = V₁/V₂'},
+    {showAt:0.82, text:'  → p_b/p_c = V_c/V_b = V₂/V₁'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('p_a/p_b = 1') || s.text.includes('p_b/p_c = V_c/V_b');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 10.5px ui-monospace,monospace' : '700 10.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+12, panelY+panelH-78, panelW-24, 66, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案：', panelX+18, panelY+panelH-60);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 11px ui-monospace,monospace';
+    ctx.fillText('(1) p_a/p_b = 1', panelX+18, panelY+panelH-42);
+    ctx.fillText('(2) p_b/p_c = V₂/V₁', panelX+18, panelY+panelH-24);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '选考 3-3 · 第 13 题 · 5 分',
+  title: 'V-t 图理想气体 · a/b/c 三点压强比',
+  subtitle: '两条等压线 I 与 II 均过绝对零度，a/b 在 I 上，c 在 II 上 b/c 同温 t₁。求 p_a/p_b 与 p_b/p_c。',
+  deliv: {
+    title: '盖吕萨克 + 等温变化',
+    sub: 'V-t 过 t₀ 直线 = 等压线；同温度由 p·V=const 求压强比'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 选考 3-3 · 第 13 题 · 5 分',
+    image: '../../source/images/image118.png',
+    text: `如图，一定量的理想气体经历的两个不同过程，分别由体积-温度（V-t）图上的两条直线 I 和 II 表示，V₁ 和 V₂ 分别为两直线与纵轴交点的纵坐标；t₀ 为它们的延长线与横轴交点的横坐标，t₀=-273.15°C；a、b 为直线 I 上的两点，c 为直线 II 上的一点，b 与 c 在同一温度 t₁。由图可知，气体在状态 a 和 b 的压强之比 p_a/p_b = ___________；气体在状态 b 和 c 的压强之比 p_b/p_c = ___________。`,
+    subQuestions: [
+      '(1) p_a/p_b = ?',
+      '(2) p_b/p_c = ?'
+    ],
+    officialAnswer: `**(1)** 1。\n\nV-t 图上过 (t₀=-273.15°C, V=0) 的直线对应等压过程（盖吕萨克定律 V/T=const，开尔文温度下过原点）。a 和 b 都在直线 I 上 → 它们对应同一压强 → p_a/p_b = 1。\n\n**(2)** V₂/V₁。\n\nb 在直线 I（压强为 p_I）上，c 在直线 II（压强为 p_II）上，且 b 和 c 在同一温度 t₁。由理想气体状态方程在等温下的玻意耳定律 p·V=const：\n  p_b · V_b = p_c · V_c\n直线 I 与 II 均过 (t₀, 0)：\n  V_b = V₁·(1 − t₁/t₀)\n  V_c = V₂·(1 − t₁/t₀)\n故 V_b/V_c = V₁/V₂。\n所以 p_b/p_c = V_c/V_b = V₂/V₁。`
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① V-t 图', label_short:'图',
+     formula_tex: String.raw`I, II : V\text{-}t\text{ 直线均过 } (t_0, 0)`,
+     note:'两条等压线 I 和 II，都过绝对零度 (t₀=-273.15°C, V=0)。'},
+    {label:'阶段 ② 等压线性质',label_short:'等压',
+     formula_tex: String.raw`\dfrac{V}{T}=\text{const}\Leftrightarrow V\text{-}t\;\text{过原点}`,
+     note:'盖吕萨克定律：恒压下 V 正比于绝对温度 T；V-t 图上为过 (t₀, 0) 直线。'},
+    {label:'阶段 ③ (1) a/b 同压',label_short:'(1)',
+     formula_tex: String.raw`a, b\in I \Rightarrow p_a=p_b`,
+     note:'a 与 b 都在直线 I 上 → 同压强 → 比值为 1。'},
+    {label:'阶段 ④ (2) b/c 等温',label_short:'(2)',
+     formula_tex: String.raw`p_b V_b = p_c V_c \Rightarrow \dfrac{p_b}{p_c}=\dfrac{V_c}{V_b}`,
+     note:'b 与 c 同温度 t₁，玻意耳定律给出压强比；由直线方程 V_b/V_c=V₁/V₂。'},
+    {label:'阶段 ⑤ 综合',label_short:'综合',
+     formula_tex: String.raw`(1)\;1;\quad (2)\;\dfrac{V_2}{V_1}`,
+     note:'(1) a/b 同压 → 比值 1；(2) p_b/p_c = V_c/V_b = V₂/V₁。'}
+  ],
+  stats: [
+    {label:'I 等压线',  fmt:()=>'V=V₁(1-t/t₀)'},
+    {label:'II 等压线', fmt:()=>'V=V₂(1-t/t₀)'},
+    {label:'a 位置',    fmt:()=>'I 上 t<t₁'},
+    {label:'b 位置',    fmt:()=>'I 上 t=t₁'},
+    {label:'c 位置',    fmt:()=>'II 上 t=t₁'},
+    {label:'(1) 比值',  fmt:s=>(s.u>=0.40 ? '1' : '?')},
+    {label:'(2) 比值',  fmt:s=>(s.u>=0.82 ? 'V₂/V₁' : '?')}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'p_a/p_b = 1',     note:'a/b 同在等压线 I'},
+    {label_text:'(2)', value_text:'p_b/p_c = V₂/V₁', note:'等温 + 直线方程'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'等压线 I（高 V）'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'rect'}, text:'等压线 II（低 V）'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'dot'},  text:'a / b / c 状态点'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'同压强强调（a, b）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'同温度强调（b, c）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q13-V-t 图等压线'
+});
+</script>
+</body>
+</html>

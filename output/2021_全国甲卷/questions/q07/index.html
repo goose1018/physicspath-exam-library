@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 7 题 · 斜面上滑下滑（多选）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：物体 m 从斜面（倾角 θ）底端沿斜面向上滑动，初动能 E₁。
+// 上滑→速度=0→下滑回底端，末动能 E₂；已知 E₁=3E₂（题面给定，对应原图 image36/37 截图）。
+// 设 θ=45°（与 E₁/E₂=3 联合给出 μ=0.5）。
+//
+// 上滑：a_up = g(sinθ + μcosθ)（重力沿斜面分量 + 摩擦力都阻碍上滑）
+// 下滑：a_down = g(sinθ − μcosθ)
+// 上滑距离 s：动能定理 −E₁ = −m·a_up·s → s = E₁/(m·g·(sinθ+μcosθ))
+// 末动能 E₂ = m·a_down·s = E₁ · (sinθ−μcosθ)/(sinθ+μcosθ)
+//
+// 设 E₁/E₂ = k = 3 → (sinθ+μcosθ)/(sinθ−μcosθ) = 3 → μ·cosθ·(k+1)=sinθ·(k−1)
+//   → μ = (k−1)/(k+1) · tanθ = (2/4)·1 = 0.5（θ=45°）
+// 通用 a_down 表达式：a_down = 2g·sinθ·E₂/(E₁+E₂)
+//
+// A 错：上滑距离 s 的表达式不是 (E₁−E₂)/(2mg sinθ)（题中错位选项）
+// B 对：a_down = 2g·sinθ·E₂/(E₁+E₂)（化简后无需明知 μ）
+// C 对：θ=45°、E₁=3E₂ 联立 → μ=0.5
+// D 错：t_up = v₀/a_up；t_down = v_d/a_down；
+//   t_up/t_down = (√(E₁/E₂))·(a_down/a_up) = √k · (1/k) = 1/√k < 1
+//   → t_up < t_down，上滑时间比下滑时间短（D 说"长"错）
+
+const m = 1.0;
+const g = 9.8;
+const theta_deg = 45;
+const theta = theta_deg * Math.PI/180;
+const mu = 0.5;
+const E1 = 1.5;          // J
+const a_up = g * (Math.sin(theta) + mu*Math.cos(theta));
+const a_down = g * (Math.sin(theta) - mu*Math.cos(theta));
+const v0 = Math.sqrt(2*E1/m);
+const s_dist = v0*v0 / (2*a_up);
+const v_d = Math.sqrt(2*a_down*s_dist);
+const E2 = 0.5*m*v_d*v_d;
+const t_up = v0 / a_up;
+const t_down = v_d / a_down;
+
+const T_TOTAL = 9.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // ① 0~0.18 题面静止
+  // ② 0.18~0.42 上滑（演示），u_up 0~1
+  // ③ 0.42~0.46 顶点停顿
+  // ④ 0.46~0.78 下滑，u_down 0~1
+  // ⑤ 0.78~1.0 总判 + 选项
+  let pos_along = 0;
+  let isUp = true;
+  let v_now = 0;
+  if(u < 0.18){ phase = 0; pos_along = 0; v_now = v0; isUp = true; }
+  else if(u < 0.42){
+    phase = 1;
+    const tau = (u - 0.18) / 0.24;
+    // 真实运动学：x(t) = v0·t' - (1/2)a_up·t'²，t' = tau·t_up
+    const tp = tau * t_up;
+    pos_along = Math.max(0, v0*tp - 0.5*a_up*tp*tp);
+    v_now = Math.max(0, v0 - a_up*tp);
+    isUp = true;
+  } else if(u < 0.46){
+    phase = 2;
+    pos_along = s_dist;
+    v_now = 0;
+    isUp = true;
+  } else if(u < 0.78){
+    phase = 3;
+    const tau = (u - 0.46) / 0.32;
+    const tp = tau * t_down;
+    pos_along = Math.max(0, s_dist - 0.5*a_down*tp*tp);
+    v_now = a_down*tp;
+    isUp = false;
+  } else {
+    phase = 4;
+    pos_along = 0;
+    v_now = v_d;
+    isUp = false;
+  }
+  return {phase, pos_along, v_now, isUp, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawSlope(ctx, 14, 14, W*0.50-21, H-28, state);
+  drawCalc (ctx, W*0.50+7, 14, W*0.50-21, H-28, state);
+}
+
+function drawSlope(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('斜面（倾角 θ=45°）· 物块上滑→静止→下滑', panelX+12, panelY+18);
+
+  // 斜面几何（视觉用斜面长度比物理长度大，留空间）
+  const baseY = panelY + panelH - 60;
+  const baseLeftX = panelX + 50;
+  const slopeLenPx = panelW * 0.65;
+  const dx = slopeLenPx * Math.cos(theta);
+  const dy = slopeLenPx * Math.sin(theta);
+  const topX = baseLeftX + dx;
+  const topY = baseY - dy;
+
+  // 地面 + 斜面三角形
+  ctx.fillStyle = '#dad6c8';
+  ctx.beginPath();
+  ctx.moveTo(baseLeftX, baseY);
+  ctx.lineTo(topX, topY);
+  ctx.lineTo(topX, baseY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  // 倾角弧
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(baseLeftX, baseY, 24, -theta, 0, false);
+  ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('θ', baseLeftX+30, baseY-4);
+
+  // 物块位置（沿斜面，pos_along ∈ [0, s_dist]，映射到像素 [0, slopeLenPx*s_dist/某基准]）
+  // 但 s_dist 较小，让物块在视觉上能滑到斜面中部即可
+  const visualLen = slopeLenPx * 0.85;   // 物块最远（顶点 s_dist）落在 0.85·slopeLenPx 处
+  const posPx = (state.pos_along / s_dist) * visualLen;
+  const ux = Math.cos(theta), uy = -Math.sin(theta);
+  const nx = -uy, ny = ux;   // 法线（朝斜面外侧）
+  const blockX = baseLeftX + ux*posPx;
+  const blockY = baseY + uy*posPx;
+  // 物块（在斜面"上方"）
+  const blkOff = 9;
+  const bx = blockX + nx*blkOff;
+  const by = blockY + ny*blkOff;
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.rotate(Math.atan2(uy, ux));
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(-13, -10, 26, 20);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(-13, -10, 26, 20);
+  ctx.restore();
+
+  // 速度矢量（沿斜面方向）
+  if(Math.abs(state.v_now) > 0.05){
+    const vMag = 30;
+    const vScale = state.v_now/v0 * vMag;
+    const sign = state.isUp ? 1 : -1;
+    PPath.arrow(ctx, bx, by,
+                bx + sign*ux*vScale, by + sign*uy*vScale,
+                state.isUp ? '#16613f' : '#3f6f8f', 2.4);
+    ctx.fillStyle = state.isUp ? '#16613f' : '#3f6f8f';
+    ctx.font = 'italic 800 12px "Cambria Math",Georgia,serif';
+    ctx.fillText('v', bx + sign*ux*vScale*0.55 + nx*8, by + sign*uy*vScale*0.55 + ny*8);
+  }
+
+  // 重力 mg 矢量（始终向下）
+  PPath.arrow(ctx, bx, by, bx, by + 30, '#5d6068', 1.6);
+  ctx.fillStyle = '#5d6068';
+  ctx.font = '700 10.5px "Cambria Math",serif';
+  ctx.fillText('mg', bx + 4, by + 22);
+
+  // 摩擦力（沿斜面，与运动反向；phase=2 静止时不画）
+  if(state.phase !== 2 && state.phase !== 0){
+    const fMag = 18;
+    const fSign = state.isUp ? -1 : 1;   // 上滑摩擦向下；下滑摩擦向上
+    PPath.arrow(ctx, bx, by, bx + fSign*ux*fMag, by + fSign*uy*fMag, '#c2611f', 1.8);
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 10.5px "Cambria Math",serif';
+    ctx.fillText('f', bx + fSign*ux*fMag*0.6 + 4, by + fSign*uy*fMag*0.6 - 4);
+  }
+
+  // 顶点 + 底端标记
+  ctx.fillStyle = '#94a09b';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText('底端', baseLeftX-8, baseY+18);
+  // 顶点（最远点 s_dist 投影；phase>=2 才显示，且对齐物块法线偏移位置）
+  if(state.phase >= 2){
+    const topReachX = baseLeftX + ux*visualLen + nx*blkOff;
+    const topReachY = baseY + uy*visualLen + ny*blkOff;
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.arc(topReachX, topReachY, 10, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText('最高点 s', topReachX+10, topReachY-6);
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 物块在底端，初动能 E₁',
+    '阶段 ② 上滑（v↓，重力+摩擦同向阻碍 → a_up = g(sinθ+μcosθ)）',
+    '阶段 ③ 速度=0，到达最高点 s',
+    '阶段 ④ 下滑（重力沿斜面下，摩擦向上 → a_down = g(sinθ−μcosθ)）',
+    '阶段 ⑤ 回到底端，末动能 E₂'
+  ];
+  ctx.fillStyle = state.isUp ? '#16613f' : (state.phase === 2 ? '#94a09b' : '#3f6f8f');
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-26);
+  ctx.fillStyle = '#86868b';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(`pos = ${state.pos_along.toFixed(3)} m · v = ${state.v_now.toFixed(2)} m/s`, panelX+12, panelY+panelH-10);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('动能定理 + 牛顿第二定律', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 21;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt: 0.05, text: 'a_up   = g(sinθ + μcosθ)'},
+    {showAt: 0.05, text: 'a_down = g(sinθ − μcosθ)'},
+    {showAt: 0.20, text: '上滑：−E₁ = −m·a_up·s'},
+    {showAt: 0.22, text: '  ⇒ s = E₁/(m·g(sinθ+μcosθ))'},
+    {showAt: 0.50, text: '下滑：E₂ = m·a_down·s'},
+    {showAt: 0.55, text: '  ⇒ E₂/E₁ = (sinθ−μcosθ)/(sinθ+μcosθ)'},
+    {showAt: 0.62, text: '  ⇒ a_down = 2g·sinθ·E₂/(E₁+E₂)'},
+    {showAt: 0.70, text: '题给 θ=45°、E₁/E₂=3'},
+    {showAt: 0.74, text: '  ⇒ μ = (E₁−E₂)/(E₁+E₂) · tanθ'},
+    {showAt: 0.77, text: '       = (2/4)·1 = 0.5'},
+    {showAt: 0.84, text: '时间比 t_up/t_down = (v₀/v_d)·(a_down/a_up)'},
+    {showAt: 0.86, text: '              = √k · 1/k = 1/√k < 1'},
+    {showAt: 0.88, text: '  ⇒ 上滑时间比下滑短'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '700 10.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项判定（多选 BC，错项推到 0.91 防反向剧透）
+  const judgments = [
+    {opt:'A · s = (E₁−E₂)/(2mg sinθ)', verdict:'错（公式不对）',         correct:false, showAt:0.91},
+    {opt:'B · a_down=2g sinθ·E₂/(E₁+E₂)', verdict:'对 ✓',                  correct:true,  showAt:0.92},
+    {opt:'C · μ = 0.5',                verdict:'对 ✓（θ=45° 且 E₁=3E₂）',  correct:true,  showAt:0.92},
+    {opt:'D · t_上 > t_下',            verdict:'错（实际 t_上<t_下=1/√k）', correct:false, showAt:0.91}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+13);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-138, panelY+panelH-44, 126, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BC', panelX+panelW-86, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 7 题 · 6 分',
+  title: '斜面物块上滑下滑 · 动能比 E₁=3E₂',
+  subtitle: '物块沿斜面上滑减速到零再下滑回底端；4 选项关于距离/加速度/μ/时间。',
+  deliv: {
+    title: '动能定理 + 上下滑加速度对照',
+    sub: 'a_up = g(sinθ+μcosθ)、a_down = g(sinθ−μcosθ)；E₂/E₁=(sinθ−μcosθ)/(sinθ+μcosθ)'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 多选 · 第 7 题 · 6 分',
+    text: `一质量为 m 的物体自倾角为 θ 的固定斜面底端沿斜面向上滑动。该物体开始滑动时的动能为 E₁，向上滑动一段距离后速度减小为零，此后物体向下滑动，到达斜面底端时动能为 E₂。已知 E₁ = 3E₂、θ=45°，重力加速度大小为 g。则（    ）`,
+    subQuestions: [
+      'A. 物体向上滑动的距离为 (E₁−E₂)/(2mg sinθ)',
+      'B. 物体向下滑动时的加速度大小为 2g sinθ·E₂/(E₁+E₂)',
+      'C. 物体与斜面间的动摩擦因数等于 0.5',
+      'D. 物体向上滑动所用的时间比向下滑动的时间长'
+    ],
+    officialAnswer: 'BC · 设上滑加速度 a_up=g(sinθ+μcosθ)、下滑加速度 a_down=g(sinθ−μcosθ)。\n\n动能定理：上滑 −E₁ = −m·a_up·s ⇒ s = E₁/(m·g(sinθ+μcosθ))；下滑 E₂ = m·a_down·s ⇒ E₂/E₁ = (sinθ−μcosθ)/(sinθ+μcosθ)。\n\nA：s 的正确表达式上式，与 (E₁−E₂)/(2mg sinθ) 不符 → 错。\n\nB：消去 μ ⇒ a_down = 2g·sinθ·E₂/(E₁+E₂) → 对。\n\nC：θ=45°、E₁/E₂=3 ⇒ μ=(E₁−E₂)/(E₁+E₂)·tanθ = (2/4)·1 = 0.5 → 对。\n\nD：v₀=√(2E₁/m)、v_d=√(2E₂/m)；t_up = v₀/a_up，t_down = v_d/a_down；比值 t_up/t_down = √(E₁/E₂)·a_down/a_up = √3·(1/3) = 1/√3 < 1 → 上滑时间比下滑短，D 错。\n\n综上，B、C 正确。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 底端待发',           label_short:'底端',
+     formula_tex: String.raw`E_1=\tfrac{1}{2}mv_0^2,\;v_0=\sqrt{2E_1/m}`,
+     note:'物块在斜面底端，初动能 E₁，准备沿斜面上滑。'},
+    {label:'阶段 ② 上滑（重力+摩擦阻碍）', label_short:'上滑',
+     formula_tex: String.raw`a_{up}=g(\sin\theta+\mu\cos\theta)`,
+     note:'上滑时摩擦力沿斜面向下、与重力沿斜面分量同向，共同减速。'},
+    {label:'阶段 ③ 顶点 v=0',            label_short:'顶点',
+     formula_tex: String.raw`s=\dfrac{E_1}{m\cdot g(\sin\theta+\mu\cos\theta)}`,
+     note:'上滑距离 s（动能定理）。'},
+    {label:'阶段 ④ 下滑（摩擦反向）',    label_short:'下滑',
+     formula_tex: String.raw`a_{down}=g(\sin\theta-\mu\cos\theta)`,
+     note:'下滑时摩擦力沿斜面向上、阻碍下滑。'},
+    {label:'阶段 ⑤ 回到底端 · 末动能 E₂', label_short:'底端',
+     formula_tex: String.raw`E_2=m\cdot a_{down}\cdot s,\;\;\dfrac{E_2}{E_1}=\dfrac{\sin\theta-\mu\cos\theta}{\sin\theta+\mu\cos\theta}`,
+     note:'下滑动能定理 → E₂/E₁ 比值仅由 θ 与 μ 决定。'}
+  ],
+  stats: [
+    {label:'倾角 θ',          fmt:()=>theta_deg+'°'},
+    {label:'E₁/E₂',           fmt:()=>'3'},
+    {label:'a_up',            fmt:s=>(s.u>=0.20 ? a_up.toFixed(2)+' m/s²'   : '?')},
+    {label:'a_down',          fmt:s=>(s.u>=0.62 ? a_down.toFixed(2)+' m/s²' : '?')},
+    {label:'μ 动摩擦因数',    fmt:s=>(s.u>=0.77 ? mu.toFixed(2)             : '?')},
+    {label:'上滑距离 s',      fmt:s=>(s.u>=0.22 ? s_dist.toFixed(3)+' m'    : '?')},
+    {label:'t_up',            fmt:s=>(s.u>=0.86 ? t_up.toFixed(3)+' s'      : '?')},
+    {label:'t_down',          fmt:s=>(s.u>=0.86 ? t_down.toFixed(3)+' s'    : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'(E₁−E₂)/(2mg sinθ)', note:'公式不正确'},
+    {label_text:'B 对', value_text:'2g sinθ·E₂/(E₁+E₂) ✓', note:'消去 μ 后通用式'},
+    {label_text:'C 对', value_text:'μ=0.5 ✓',           note:'θ=45° 且 E₁=3E₂'},
+    {label_text:'D 错', value_text:'t_上<t_下',          note:'比值 1/√k < 1'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'物块'},
+    {swatch:{bg:'#dad6c8',border:'#5d6964',type:'rect'}, text:'斜面'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'上滑速度（向上）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'下滑速度（向下）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'摩擦力 f'},
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'重力 mg'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q7-斜面上下滑'
+});
+</script>
+</body>
+</html>

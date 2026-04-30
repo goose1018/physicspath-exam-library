@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 11 题 · 50 减速带斜面（计算）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：光滑斜面（倾角 θ）上 50 个减速带，相邻间距 d，宽度 « d。
+// 无动力小车 m 从距第 1 减速带 L 处由静止释放。第 30 后相邻减速带间平均速度相同（稳态）。
+// 第 50 后立即进入与斜面光滑连接水平面，继续滑 s 停下，水平摩擦因数 μ。
+//
+// (1) 稳态：减速带前 v₂，减速带后 v₁（v₁<v₂）；下一段斜面 d：(1/2)mv₂² = (1/2)mv₁² + mg·d·sinθ
+//     过减速带损失 ΔE₂ = (1/2)mv₂² − (1/2)mv₁² = m·g·d·sinθ
+//
+// (2) 第 50 后水平摩擦：0 = (1/2)mv₁² − μmg·s → v₁² = 2μg·s
+//     释放→过完第 30 个减速带（共斜面下滑 L+29d、过 30 个减速带）：
+//     (1/2)mv₁² − 0 = mg·sinθ·(L+29d) − 30·ΔE₁
+//     30·ΔE₁ = mg·sinθ·(L+29d) − μmg·s
+//     ΔE₁ = m[g·sinθ·(L+29d) − μg·s] / 30
+//
+// (3) ΔE₁ > ΔE₂ ⇒ [g·sinθ·(L+29d) − μg·s]/30 > g·d·sinθ
+//     ⇒ sinθ·(L+29d) − μs > 30·d·sinθ
+//     ⇒ sinθ·L > d·sinθ + μs
+//     ⇒ L > d + μs/sinθ
+
+// 视觉演示（用具体数字）
+const m_v = 1, g_v = 9.8;
+const theta_v = 25 * Math.PI/180;     // 斜面倾角 25°
+const d_v = 0.30;                       // 减速带间距 m
+const L_v = 0.40;                       // 释放点距第 1 减速带 m
+const N_BANDS = 50;
+const dE_steady = m_v*g_v*d_v*Math.sin(theta_v);   // 稳态损失（每带）
+// 假设给定 v_1 (终速)，反推
+const v_1 = 1.0;   // 第 50 后速度 m/s（设定）
+const v_2 = Math.sqrt(v_1*v_1 + 2*g_v*d_v*Math.sin(theta_v));   // 稳态减速带前速度
+
+const T_TOTAL = 14.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // 5 阶段：① 装置（0~0.10）；② 释放→前 30 减速带（0.10~0.45）；
+  // ③ 30~50 稳态（0.45~0.65）；④ 出 50 后水平面 → 停（0.65~0.80）；⑤ 推导（0.80~1.0）
+  let bandIdx = 0;   // 当前已通过减速带数
+  let onFloor = false;
+  if(u < 0.10){ phase = 0; bandIdx = 0; }
+  else if(u < 0.45){
+    phase = 1;
+    const tau = (u - 0.10) / 0.35;
+    bandIdx = Math.min(30, Math.floor(tau * 30));
+  } else if(u < 0.65){
+    phase = 2;
+    const tau = (u - 0.45) / 0.20;
+    bandIdx = 30 + Math.min(20, Math.floor(tau * 20));
+  } else if(u < 0.80){
+    phase = 3;
+    bandIdx = 50;
+    onFloor = true;
+  } else {
+    phase = 4;
+    bandIdx = 50;
+    onFloor = true;
+  }
+  return {phase, bandIdx, onFloor, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawTrack(ctx, 14, 14, W*0.58-21, H-28, state);
+  drawCalc (ctx, W*0.58+7, 14, W*0.42-21, H-28, state);
+}
+
+function drawTrack(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('光滑斜面 + 50 个减速带 + 水平面 · 无动力小车', panelX+12, panelY+18);
+
+  // 斜面布局：左上释放点，右下减速带终点，再水平向右
+  const topX = panelX + 30, topY = panelY + 50;
+  const slopeRunX = panelW - 90, slopeRunY = (panelW - 90) * Math.tan(theta_v);
+  const botX = topX + slopeRunX, botY = topY + slopeRunY;
+  const floorEndX = panelX + panelW - 16;
+  const floorY = botY;
+  // 斜面（粗线）
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(topX, topY); ctx.lineTo(botX, botY);
+  ctx.stroke();
+  // 水平面
+  ctx.beginPath();
+  ctx.moveTo(botX, botY); ctx.lineTo(floorEndX, floorY);
+  ctx.stroke();
+  // 阴影斜线（地面）
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 0.8;
+  for(let xx = botX; xx < floorEndX; xx += 8){
+    ctx.beginPath(); ctx.moveTo(xx, floorY); ctx.lineTo(xx-4, floorY+6); ctx.stroke();
+  }
+
+  // θ 角弧
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(botX, botY, 22, Math.PI - theta_v, Math.PI, false);
+  ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('θ', botX-30, botY-5);
+
+  // 50 个减速带（沿斜面，从顶端 +L 起每 d 一个）
+  // 视觉缩放：斜面长度 = √(slopeRunX² + slopeRunY²)；用比例尺把物理 L+50d 映射到斜面上
+  const slopeLen = Math.hypot(slopeRunX, slopeRunY);
+  const physicalLen = L_v + (N_BANDS-1)*d_v + d_v*0.4;   // 略多缓冲
+  const scaleS = slopeLen * 0.95 / physicalLen;
+  const ux = (botX - topX)/slopeLen, uy = (botY - topY)/slopeLen;
+  // 斜面外法线（指向斜面"上方"，即车在斜面上的那一侧）
+  // 在 canvas y 向下坐标系下：ux>0, uy>0（斜面右下）；外法线应指向右上 = (uy, -ux)
+  const nx = uy, ny = -ux;
+
+  // 减速带绘制
+  for(let i = 1; i <= N_BANDS; i++){
+    const sAlong = (L_v + (i-1)*d_v) * scaleS;
+    const bx = topX + ux*sAlong;
+    const by = topY + uy*sAlong;
+    const passed = state.bandIdx >= i;
+    ctx.fillStyle = passed ? '#c2611f' : '#5d6964';
+    ctx.beginPath();
+    ctx.arc(bx + nx*3, by + ny*3, 2.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 标注 L（释放点到第 1 个减速带）
+  const x1 = topX + ux*(L_v*scaleS);
+  const y1 = topY + uy*(L_v*scaleS);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  ctx.moveTo(topX + nx*16, topY + ny*16); ctx.lineTo(x1 + nx*16, y1 + ny*16);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 800 12px "Cambria Math",Georgia,serif';
+  ctx.fillText('L', (topX+x1)/2 + nx*22, (topY+y1)/2 + ny*22);
+
+  // 小车位置
+  let carX, carY, carRot = 0;
+  if(state.onFloor){
+    // 第 50 后水平段：从底端向右滑行 s 后停下；phase 3 滑行，phase 4 保持停止位置
+    const finalDist = floorEndX - botX - 30;
+    const sAfter50 = state.u < 0.65 ? 0 : (state.u < 0.80 ? (state.u - 0.65)/0.15 * finalDist : finalDist);
+    carX = botX + 18 + sAfter50;
+    carY = floorY - 10;
+    carRot = 0;
+  } else {
+    // 在斜面上：当前位置 = L + (bandIdx-1)*d + 在带间的偏移（视觉处理）
+    let sAlong;
+    if(state.bandIdx === 0){
+      // phase 0 释放点
+      sAlong = 0;
+    } else {
+      // 经过第 bandIdx 个减速带，在 bandIdx 与 bandIdx+1 间
+      const baseS = L_v + (state.bandIdx - 0.5)*d_v;
+      sAlong = baseS * scaleS;
+    }
+    if(state.bandIdx === 0) sAlong = 0;
+    carX = topX + ux*sAlong + nx*10;
+    carY = topY + uy*sAlong + ny*10;
+    carRot = Math.atan2(uy, ux);
+  }
+  ctx.save();
+  ctx.translate(carX, carY);
+  ctx.rotate(carRot);
+  // 车身
+  ctx.fillStyle = '#1d1d1f';
+  ctx.fillRect(-14, -7, 28, 10);
+  // 车顶
+  ctx.fillRect(-9, -12, 16, 5);
+  // 车轮
+  ctx.fillStyle = '#5d6964';
+  ctx.beginPath(); ctx.arc(-8, 4, 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(8, 4, 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 装置：50 个减速带间距 d；小车从顶端距第 1 减速带 L 处释放',
+    '阶段 ② 前 30 个减速带（速度递增到稳态前）',
+    '阶段 ③ 第 30~50 个减速带（稳态：v₁→v₂→v₁ 循环；过减速带损失 ΔE₂=mgd·sinθ）',
+    '阶段 ④ 第 50 后水平面摩擦减速 → 滑行 s 停下',
+    '阶段 ⑤ 推导 ΔE₂ / ΔE₁ / 第三问 L 条件'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-26);
+  ctx.fillStyle = '#86868b';
+  ctx.font = '600 10.5px ui-monospace,monospace';
+  ctx.fillText(`已通过减速带：${state.bandIdx} / ${N_BANDS}`, panelX+12, panelY+panelH-10);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量守恒 + 动能定理 + 不等式', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 20;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt:0.45, text:'(1) 稳态：减速带前后 v₂ → v₁'},
+    {showAt:0.48, text:'  下坡 d: (1/2)mv₂²=(1/2)mv₁²+mgd sinθ'},
+    {showAt:0.52, text:'  ΔE₂ = (1/2)m(v₂²−v₁²) = mgd sinθ'},
+    {showAt:0.66, text:'(2) 水平面停：0 = (1/2)mv₁² − μmgs'},
+    {showAt:0.69, text:'  ⇒ v₁² = 2μgs'},
+    {showAt:0.72, text:'  释放→过完第 30 减速带：'},
+    {showAt:0.75, text:'  (1/2)mv₁²=mg sinθ·(L+29d)−30·ΔE₁'},
+    {showAt:0.78, text:'  ΔE₁ = m[g sinθ(L+29d) − μgs]/30'},
+    {showAt:0.86, text:'(3) ΔE₁ > ΔE₂：'},
+    {showAt:0.88, text:'  sinθ·(L+29d) − μs > 30·d·sinθ'},
+    {showAt:0.90, text:'  ⇒ L > d + μs/sinθ'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('ΔE₂ =') || s.text.includes('ΔE₁ =') || s.text.includes('L > d');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 10.5px ui-monospace,monospace' : '700 10.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 答案徽章
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+12, panelY+panelH-90, panelW-24, 78, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案：', panelX+18, panelY+panelH-72);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 10.5px ui-monospace,monospace';
+    ctx.fillText('(1) ΔE₂ = m·g·d·sinθ', panelX+18, panelY+panelH-56);
+    ctx.fillText('(2) ΔE₁ = m[g sinθ(L+29d) − μgs]/30', panelX+18, panelY+panelH-40);
+    ctx.fillText('(3) L > d + μs/sinθ', panelX+18, panelY+panelH-24);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 11 题 · 14 分',
+  title: '50 个减速带斜面 · 平均能量损失对比',
+  subtitle: '光滑斜面上 50 个减速带，30 个后达到稳态。求过减速带损失能量与初始位置 L 条件。',
+  deliv: {
+    title: '稳态能量 + 动能定理',
+    sub: '(1) ΔE₂=mgd sinθ；(2) ΔE₁ 由动能定理；(3) ΔE₁>ΔE₂ → L 范围'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 计算 · 第 11 题 · 14 分',
+    image: '../../source/images/image84.png',
+    text: `如图，一倾角为 θ 的光滑斜面上有 50 个减速带（图中未完全画出），相邻减速带间的距离均为 d，减速带的宽度远小于 d；一质量为 m 的无动力小车（可视为质点）从距第一个减速带 L 处由静止释放。已知小车通过减速带损失的机械能与到达减速带时的速度有关。观察发现，小车通过第 30 个减速带后，在相邻减速带间的平均速度均相同。小车通过第 50 个减速带后立刻进入与斜面光滑连接的水平地面，继续滑行距离 s 后停下。已知小车与地面间的动摩擦因数为 μ，重力加速度大小为 g。`,
+    subQuestions: [
+      '(1) 求小车通过第 30 个减速带后，经过每一个减速带时损失的机械能；',
+      '(2) 求小车通过前 30 个减速带的过程中在每一个减速带上平均损失的机械能；',
+      '(3) 若小车在前 30 个减速带上平均每一个损失的机械能大于之后每一个减速带上损失的机械能，则 L 应满足什么条件？'
+    ],
+    officialAnswer: `**(1)** 第 30 减速带后进入稳态：相邻减速带间平均速度相同 ⇒ 过减速带前 v₂、过减速带后 v₁ 都不变。下一段斜面下滑距离 d，由动能定理 (1/2)mv₂² = (1/2)mv₁² + mgd·sinθ。每过一个减速带损失：
+
+  ΔE₂ = (1/2)mv₂² − (1/2)mv₁² = m·g·d·sinθ
+
+**(2)** 第 50 减速带后水平面摩擦减速到停：0 = (1/2)mv₁² − μmgs ⇒ v₁² = 2μgs。
+释放到过完第 30 减速带（共下滑 L+29d、经过 30 个减速带），由动能定理：
+  (1/2)mv₁² − 0 = mg·sinθ·(L+29d) − 30·ΔE₁
+解得：
+
+  ΔE₁ = m[g·sinθ·(L+29d) − μgs] / 30
+
+**(3)** ΔE₁ > ΔE₂ ⇒ [g·sinθ·(L+29d) − μgs] / 30 > g·d·sinθ
+⇒ sinθ·L + 29d·sinθ − μs > 30d·sinθ
+⇒ sinθ·L > d·sinθ + μs
+
+  ⇒ L > d + μs/sinθ`
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置',         label_short:'装置',
+     formula_tex: String.raw`\theta,\;d,\;L,\;m,\;\mu,\;s\;\text{已知}`,
+     note:'光滑斜面上 50 个减速带，间距 d；小车 m 无动力，从顶端距第 1 减速带 L 处释放。'},
+    {label:'阶段 ② 前 30 减速带', label_short:'前 30',
+     formula_tex: String.raw`E_k\uparrow\;\text{(尚未稳态)}`,
+     note:'经过前 30 个减速带过程中，速度尚未稳定，每次过减速带的损失也不同。'},
+    {label:'阶段 ③ 30~50 稳态',   label_short:'稳态',
+     formula_tex: String.raw`v_2\to v_1\to v_2;\;\;\Delta E_2=mgd\sin\theta`,
+     note:'稳态下相邻减速带间平均速度相同，过减速带前后速度循环 v₂↔v₁，每次损失 ΔE₂=mgd sinθ。'},
+    {label:'阶段 ④ 水平摩擦停',   label_short:'停',
+     formula_tex: String.raw`v_1^{2}=2\mu g s`,
+     note:'第 50 后进入水平面，摩擦做负功直到停止：得到 v₁² 与 μ、g、s 的关系。'},
+    {label:'阶段 ⑤ 三问解答',     label_short:'答案',
+     formula_tex: String.raw`\Delta E_2=mgd\sin\theta;\;\Delta E_1=\dfrac{m[g\sin\theta(L+29d)-\mu g s]}{30};\;L>d+\dfrac{\mu s}{\sin\theta}`,
+     note:'综合 (1)(2)(3) 三问的最终答案。'}
+  ],
+  stats: [
+    {label:'倾角 θ',     fmt:()=>'25°（演示）'},
+    {label:'间距 d',     fmt:()=>'示意'},
+    {label:'减速带数',    fmt:()=>'50'},
+    {label:'前 30 是否稳态', fmt:()=>'否'},
+    {label:'30 后稳态',    fmt:()=>'是'},
+    {label:'ΔE₂ (1)',    fmt:s=>(s.u>=0.52 ? 'm·g·d·sinθ'                    : '?')},
+    {label:'ΔE₁ (2)',    fmt:s=>(s.u>=0.78 ? 'm[g·sinθ·(L+29d)−μgs]/30'      : '?')},
+    {label:'L 条件 (3)', fmt:s=>(s.u>=0.90 ? 'L > d + μs/sinθ'                : '?')}
+  ],
+  conclusions: [
+    {label_text:'(1) ΔE₂',     value_text:'mgd·sinθ',                       note:'稳态下每过一个减速带损失'},
+    {label_text:'(2) ΔE₁',     value_text:'m[g sinθ(L+29d)−μgs]/30',         note:'前 30 平均每个损失'},
+    {label_text:'(3) L 条件',  value_text:'L > d + μs/sinθ',                  note:'前 30 平均损失 > 稳态损失'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'无动力小车'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'光滑斜面 + 水平面'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'dot'},  text:'未通过减速带'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'},  text:'已通过减速带'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q11-50减速带斜面'
+});
+</script>
+</body>
+</html>

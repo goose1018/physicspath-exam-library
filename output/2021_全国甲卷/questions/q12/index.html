@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 12 题 · 双挡板电场磁场（计算）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：双挡板（左 PQ、右 MN，长 l 间距 l）；P/M 上沿同一水平线；上方 E 向下；
+// 挡板间 B 垂直纸面向外。粒子 m, q>0 自电场中某处水平向右 v₀ 出发，恰好 P 入磁场，
+// 入磁场时速度与 PQ 夹角 60°。从 Q/N 间出磁场，未与挡板碰撞。
+//
+// (1) 类平抛：v_x=v₀ 不变；v_y=at，加速度 a=qE/m。入 P 时 v 与 PQ（向下）夹角 60°：
+//     tan60°=v_x/v_y → v_y=v₀/√3。t=v_y/a=mv₀/(√3qE)；y=½at²=½·v_y²/a=v₀²/(2a·3)·m=mv₀²/(6qE)
+//
+// (2) 进入磁场速度大小 v=√(v_x²+v_y²)=2v₀/√3。
+//     磁场中圆周：r=mv/(qB)。圆心位置（用 P=(0,0)、x 右、y 下）：
+//     v=(sin60°, cos60°)·v=(√3/2, 1/2)·v；F=qv×B（B=+z 出纸面）→F方向 (1/2, -√3/2)·qvB（右上）
+//     圆心 C=P+r·F̂=(r/2, -r√3/2)。在物理 y 向下中心是 P 的右上（在磁场上方）。
+//     粒子在磁场中圆弧从 P 走到 (x_exit, l)。
+//   r_min: 粒子刚好从 Q=(0,l) 出 → 由圆方程 r²=(r/2)²+(l−r√3/2)²·... 解 r=l/√3
+//   r_max: 粒子刚好从 N=(l,l) 出 → 解出 r=l(√3+1)
+//   B = mv/(qr)，故 B_max=2mv₀/(ql)、B_min=(3-√3)mv₀/(3ql)
+//   B ∈ [(3-√3)mv₀/(3ql), 2mv₀/(ql)]
+//
+// (3) 粒子从 QN 中点 (l/2, l) 出 → 圆方程解 r=5l(2√3+1)/22
+//     轨迹与 MN（x=l）最近距离：x_max = r/2（圆心 x=−r/2 + r·cos(s) 在 s=0° 取最大）
+//     d_MN = l − r/2 = l(39−10√3)/44
+
+const T_TOTAL = 14.0;
+
+const v0 = 1.0;
+const v_x = v0;
+const v_y_phys = v0 / Math.sqrt(3);   // 入 P 时竖直速度
+const v_mag = 2*v0 / Math.sqrt(3);     // 入磁场速度
+// 类平抛：t = v_y/a，但代码可视化只关注几何，t 取归一化
+// 用具体半径 r 作为参考（介于 r_min 与 r_max 中间，例如 r = l 或 (3) 答案的 r）
+const l = 1.0;   // 挡板长 = 间距，归一化 1
+const r_min = l / Math.sqrt(3);
+const r_max = l * (Math.sqrt(3) + 1);
+const r3 = 5*l*(2*Math.sqrt(3)+1)/22;   // (3) 中点出对应半径
+const d_MN = l - r3/2;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // ① 0~0.10 装置
+  // ② 0.10~0.30 类平抛入 P
+  // ③ 0.30~0.50 (1) 求发射点距离
+  // ④ 0.50~0.72 (2) 圆周 + B 范围（演示 r_min/r_max 临界）
+  // ⑤ 0.72~1.0  (3) 中点出 + 最近距离
+  let r_show = r_min;
+  if(u < 0.10){ phase = 0; }
+  else if(u < 0.30){ phase = 1; }
+  else if(u < 0.50){ phase = 2; }
+  else if(u < 0.72){
+    phase = 3;
+    // 演示 r 从 r_min → r_max 扫描
+    const tau = (u - 0.50) / 0.22;
+    r_show = r_min + tau*(r_max - r_min);
+  } else {
+    phase = 4;
+    r_show = r3;
+  }
+  return {phase, r_show, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawSetup(ctx, 14, 14, W*0.56-21, H-28, state);
+  drawCalc (ctx, W*0.56+7, 14, W*0.44-21, H-28, state);
+}
+
+function drawSetup(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('双挡板 PQ/MN（l × l）+ 上方 E 向下 + 板间 B 垂直纸面向外', panelX+12, panelY+18);
+
+  // 坐标系：物理 P=(0,0) 在视觉某点，l 单位 = sx 像素
+  const Px = panelX + panelW*0.32;
+  const Py = panelY + panelH*0.40;
+  const sx = Math.min(panelW*0.32, panelH*0.32);   // l 的像素长度
+  const X = (xx) => Px + xx*sx;
+  const Y = (yy) => Py + yy*sx;   // y 物理向下，视觉 +y 也向下
+
+  // 电场区域（P/M 水平线上方）— 浅黄底 + 向下 E 箭头
+  ctx.fillStyle = 'rgba(194,97,31,0.06)';
+  ctx.fillRect(panelX+30, panelY+30, panelW-60, Y(0) - panelY - 30);
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(panelX+30, Y(0)); ctx.lineTo(panelX+panelW-30, Y(0));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // E 向下箭头
+  for(let xi = panelX+60; xi < panelX+panelW-50; xi += 70){
+    PPath.arrow(ctx, xi, panelY+50, xi, panelY+85, 'rgba(194,97,31,0.6)', 1.4);
+  }
+  ctx.fillStyle = '#c2611f';
+  ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+  ctx.fillText('E', panelX + panelW - 40, panelY + 65);
+
+  // 磁场区域（PQ-MN 之间）— 浅蓝底 + · 网格
+  ctx.fillStyle = 'rgba(63,111,143,0.06)';
+  ctx.fillRect(X(0), Y(0), X(l)-X(0), Y(l)-Y(0));
+  // · 网格
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 11px "Cambria Math",serif';
+  for(let xi = X(0)+15; xi < X(l)-5; xi += 16){
+    for(let yi = Y(0)+18; yi < Y(l)-5; yi += 16){
+      ctx.fillText('·', xi, yi);
+    }
+  }
+
+  // 挡板 PQ (左) + MN (右)
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(0), Y(l));
+  ctx.moveTo(X(l), Y(0)); ctx.lineTo(X(l), Y(l));
+  ctx.stroke();
+
+  // P/M/Q/N 标
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 800 12px "Cambria Math",Georgia,serif';
+  ctx.fillText('P', X(0)-12, Y(0)+4);
+  ctx.fillText('M', X(l)+4, Y(0)+4);
+  ctx.fillText('Q', X(0)-12, Y(l)+5);
+  ctx.fillText('N', X(l)+4, Y(l)+5);
+
+  // l 标注
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 11px "Cambria Math",Georgia,serif';
+  ctx.fillText('l', X(0)-18, Y(l/2)+3);
+  ctx.fillText('l', X(l/2)-3, Y(l)+18);
+
+  // ── 类平抛轨迹（phase>=1）+ 发射点 ──
+  if(state.phase >= 1){
+    // 用类平抛参数显示：x_emit = -d_horiz, y = -d_vert
+    // 取 d_emit_y = mv₀²/(6qE) 视觉单位（这里用 0.5 l 视觉示意）
+    const launchHorizDist = sx * 0.85;   // 视觉水平距离
+    const launchVertDist = sx * 0.4;     // 视觉竖直距离
+    const launchX_phys = X(0) - launchHorizDist;
+    const launchY_phys = Y(0) - launchVertDist;
+    // 抛物线：从 launch 点到 P=(0,0)
+    ctx.strokeStyle = '#7a4f9c'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    const segs = 32;
+    for(let i=0; i<=segs; i++){
+      const tau = i/segs;
+      const px = launchX_phys + tau * launchHorizDist;
+      const py = launchY_phys + tau*tau * launchVertDist;
+      if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    // 发射点 + v₀ 箭头
+    ctx.fillStyle = '#7a4f9c';
+    ctx.beginPath(); ctx.arc(launchX_phys, launchY_phys, 4, 0, Math.PI*2); ctx.fill();
+    PPath.arrow(ctx, launchX_phys, launchY_phys, launchX_phys+22, launchY_phys, '#7a4f9c', 1.8);
+    ctx.fillStyle = '#7a4f9c';
+    ctx.font = 'italic 700 11px "Cambria Math",Georgia,serif';
+    ctx.fillText('v₀', launchX_phys+8, launchY_phys-4);
+    ctx.fillText('发射点', launchX_phys-30, launchY_phys+15);
+  }
+
+  // ── 磁场圆弧（phase>=3）──
+  if(state.phase >= 3){
+    const r = state.r_show;
+    // 圆心 C_phys = (-r/2, -r√3/2) — 但物理 y 是向下 — 这里用代码中物理 y 向下（同 canvas）
+    // 即 C 在 P 右上方：Cx_phys = -r/2 + r = r/2 (其实之前计算 C_phys=(-r/2, +r√3/2) 时是 y 向下的物理坐标，圆心在 P 上方+)
+    // 让我重新厘清：
+    // 物理 P=(0,0)，y 向下为正。v at P 向右下 = (v_x, +v_y)。F=qv×B 中 B=+z（出纸面）。
+    // F=q(v_y B, -v_x B, 0)。v_x>0, v_y>0, B>0 → F_x>0（右）, F_y<0（向上=y_phys 减小=画面上方）
+    // 所以圆心在 P 的右上方：C_x = +r·(F_x/|F|), C_y = +r·(F_y/|F|)
+    // |F| = qvB，F̂=(v_y/v, -v_x/v)= (1/2, -√3/2)（用 v=(√3/2,1/2)·|v|，则 v_y/|v|=1/2, v_x/|v|=√3/2，F̂=(v_y/v, -v_x/v)=(1/2, -√3/2)）
+    // C = P + r·F̂ = (r/2, -r√3/2)。在 canvas y 向下中：C_y=-r√3/2 < 0 → 画面上方。
+    const Cx = X(r/2), Cy = Y(-r*Math.sqrt(3)/2);
+    // 画完整圆（淡虚线）以示位置
+    ctx.strokeStyle = 'rgba(122,79,156,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.arc(Cx, Cy, r*sx, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 标圆心
+    ctx.fillStyle = '#7a4f9c';
+    ctx.beginPath(); ctx.arc(Cx, Cy, 3, 0, Math.PI*2); ctx.fill();
+
+    // 实际轨迹：从 P 到 exit（顺时针在 math 即 CCW 在 canvas y 向下）
+    // P 相对 C 角度（math y-up，相对 C 用 math 系）：
+    //   P-C math = (P_phys - C_phys) 但 y 翻转 = (0-(r/2), -(0-(-r√3/2))) = (-r/2, -r√3/2) 数值
+    //   wait, 我需要先把 C 转 math 形式：C_math = (r/2, +r√3/2)（因 phys y_向下 → math y_向上 是 -y）
+    //   P_math = (0, 0). P-C math = (-r/2, -r√3/2)。其角度 = 180°+60° = 240°（math y-up）
+    //   粒子 CW 在 math（正电+B 出纸面）→ 角度从 240° 减少到 240°-Δ
+    // 对应 canvas（y 向下）画弧时：参数 ctx.arc(cx, cy, r, startAngle, endAngle) — angle 从 +x 轴起 CCW（在 canvas 中 CCW 即 y 向下视角的逆时针，顺时针在 math y-up）
+    // 我们需要 canvas 中 CCW（粒子 CCW 在 canvas y-down）= CW 在 math
+    // 起点 P_canvas 相对 C_canvas（cy=Y(-r√3/2)，即 phys y 负值，画在 canvas 上方）
+    //   P_canvas = (X(0), Y(0)). C_canvas = (Cx, Cy)。
+    //   delta = P - C = (X(0)-Cx, Y(0)-Cy) = (-r/2*sx, +r*sqrt(3)/2*sx)（canvas 像素，y 向下）
+    //   角度（canvas atan2）= atan2(+r√3/2*sx, -r/2*sx) = atan2(√3/2, -1/2) = 180° - 60° = 120°
+    // 粒子 CCW 在 canvas，从 120° 增加到 exit 角
+    const startAngle = Math.atan2(Y(0)-Cy, X(0)-Cx);
+    // exit 角度：取决于 r
+    // 在 canvas 系，找 (x_exit, y=l) 处的角度
+    // exit_x = -r/2 + r·cos(s_math); exit_y_phys = l = r√3/2 - r·sin(s_math)
+    // 对应 canvas y_down 同 phys y_down，所以 exit point canvas = (X(exit_x_phys), Y(l))
+    // 但我们要从 P 走 CCW 到 exit
+    let exit_x_phys;
+    if(state.phase === 4){
+      // (3) 中点出
+      exit_x_phys = l/2;
+    } else {
+      // (2) 阶段：演示从 r_min 到 r_max 的 exit_x
+      // 从 r 反推 exit_x
+      // 解 (exit_x + r/2)² + (l - r√3/2)² = r²
+      const rad = r*r - (l - r*Math.sqrt(3)/2)*(l - r*Math.sqrt(3)/2);
+      if(rad >= 0){
+        // 取 + 根
+        exit_x_phys = -r/2 + Math.sqrt(rad);
+      } else {
+        exit_x_phys = l;   // fallback
+      }
+      // clamp 到 [0, l]
+      exit_x_phys = Math.max(0, Math.min(l, exit_x_phys));
+    }
+    const endAngle = Math.atan2(Y(l)-Cy, X(exit_x_phys)-Cx);
+    ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.arc(Cx, Cy, r*sx, startAngle, endAngle, true);   // anticlockwise=true（canvas CCW = math CW）
+    ctx.stroke();
+
+    // 出射点
+    ctx.fillStyle = '#b4442e';
+    ctx.beginPath(); ctx.arc(X(exit_x_phys), Y(l), 4.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    if(state.phase === 4){
+      ctx.fillStyle = '#b4442e';
+      ctx.font = '800 11px "Noto Sans SC",sans-serif';
+      ctx.fillText('中点 (l/2, l)', X(exit_x_phys)+6, Y(l)+18);
+    }
+
+    // r 标注 — phase 3 扫描期不显数值（防剧透 r_min/r_max），仅 phase 4 显数值
+    ctx.fillStyle = '#7a4f9c';
+    ctx.font = 'italic 700 10.5px "Cambria Math",Georgia,serif';
+    if(state.phase === 4){
+      ctx.fillText('r='+state.r_show.toFixed(2)+'l', X(0)+8, Y(0)-8);
+    } else {
+      ctx.fillText('半径 r 演示扫描', X(0)+8, Y(0)-8);
+    }
+
+    // (3) 阶段：标注 x_max 与 d_MN
+    if(state.phase === 4){
+      const xMax_phys = state.r_show / 2;
+      // x_max 处的圆周点（s_math=0° 即 angle=0 from C in math）
+      // canvas 中：相对 C_canvas，angle_canvas = ?
+      // s_math=0° 对应 phys 点 C_phys + r·(cos 0, -sin 0)·... wait 让我直接用：
+      // 点 (xMax_phys, y_at_xMax_phys) where y_at_xMax = r√3/2（圆周右侧最远点 phys y=r√3/2）
+      const yAtXMax_phys = state.r_show * Math.sqrt(3)/2;
+      ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+      ctx.beginPath();
+      ctx.moveTo(X(xMax_phys), Y(yAtXMax_phys)); ctx.lineTo(X(l), Y(yAtXMax_phys));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#16613f';
+      ctx.font = '700 10px "Noto Sans SC",sans-serif';
+      // 数值标注与 stats / 答案徽章同步守卫
+      if(state.u >= 0.90){
+        ctx.fillText('d_MN ≈ '+d_MN.toFixed(3)+'l', (X(xMax_phys)+X(l))/2 - 30, Y(yAtXMax_phys)-4);
+      } else {
+        ctx.fillText('d_MN', (X(xMax_phys)+X(l))/2 - 12, Y(yAtXMax_phys)-4);
+      }
+    }
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 装置：上方 E 向下电场；下方 PQ-MN 间 B 垂直纸面外；粒子 q>0',
+    '阶段 ② 类平抛：水平 v₀ + 竖直加速 a=qE/m，到 P 时 v 与 PQ 角 60°',
+    '阶段 ③ (1) 求发射点到 P 距离（动能定理或运动学）',
+    '阶段 ④ (2) 磁场圆周 — 临界 r_min/r_max → B 范围',
+    '阶段 ⑤ (3) 中点出 → r 求出 → 最近距离 d_MN'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('类平抛 + 圆周 + 几何', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 18;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10px ui-monospace,monospace';
+
+  const steps = [
+    {showAt:0.30, text:'(1) 类平抛 v_x=v₀ 不变；v_y=at, a=qE/m'},
+    {showAt:0.32, text:'  入 P 时 v 与 PQ 60°：tan60°=v_x/v_y'},
+    {showAt:0.34, text:'  → v_y = v₀/√3'},
+    {showAt:0.40, text:'  y = v_y²·m/(2qE) = m·v₀²/(6qE) ✓'},
+    {showAt:0.50, text:'(2) v=√(v₀²+v₀²/3)=2v₀/√3；r=mv/(qB)'},
+    {showAt:0.55, text:'  圆心在 P 右上 (r/2, -r√3/2)'},
+    {showAt:0.60, text:'  r_min: 出 Q=(0,l) → r=l/√3'},
+    {showAt:0.62, text:'  r_max: 出 N=(l,l) → r=l(√3+1)'},
+    {showAt:0.65, text:'  B_max=2mv₀/(ql)'},
+    {showAt:0.68, text:'  B_min=(3-√3)mv₀/(3ql) ✓'},
+    {showAt:0.78, text:'(3) 中点出 (l/2, l)：'},
+    {showAt:0.82, text:'  解 r=5l(2√3+1)/22'},
+    {showAt:0.86, text:'  x_max=r/2 (圆右点)'},
+    {showAt:0.90, text:'  d_MN = l−r/2 = (39−10√3)l/44 ✓'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('✓');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 10px ui-monospace,monospace' : '700 10px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 答案徽章
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+12, panelY+panelH-100, panelW-24, 88, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案：', panelX+18, panelY+panelH-82);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 10px ui-monospace,monospace';
+    ctx.fillText('(1) mv₀² / (6qE)', panelX+18, panelY+panelH-66);
+    ctx.fillText('(2) (3-√3)mv₀/(3ql) ≤ B ≤ 2mv₀/(ql)', panelX+18, panelY+panelH-50);
+    ctx.fillText('(3) d_MN = (39-10√3) l / 44 ≈ 0.493 l', panelX+18, panelY+panelH-34);
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '600 9px ui-monospace,monospace';
+    ctx.fillText('对应中点出 r = 5(2√3+1) l / 22', panelX+18, panelY+panelH-18);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 12 题 · 20 分',
+  title: '双挡板电场+磁场 类平抛+圆周',
+  subtitle: '粒子先在电场中类平抛进入磁场 P，然后磁场圆周到 Q/N 间出。求发射点距离 / B 范围 / 中点出最近距离。',
+  deliv: {
+    title: '类平抛 + 圆周 + 圆方程',
+    sub: '(1) y=mv₀²/(6qE)；(2) B 临界 → r_min=l/√3, r_max=l(√3+1)；(3) 中点 r 解析'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 计算 · 第 12 题 · 20 分',
+    image: '../../source/images/image97.png',
+    text: `如图，长度均为 l 的两挡板竖直相对放置，间距也为 l，两挡板上边缘 P 和 M 处于同一水平线上，在该水平线的上方区域有方向竖直向下的匀强电场，电场强度大小为 E；两挡板间有垂直纸面向外、磁感应强度大小可调节的匀强磁场。一质量为 m，电荷量为 q（q>0）的粒子自电场中某处以大小为 v₀ 的速度水平向右发射，恰好从 P 点处射入磁场，从两挡板下边缘 Q 和 N 之间射出磁场，运动过程中粒子未与挡板碰撞。已知粒子射入磁场时的速度方向与 PQ 的夹角为 60°，不计重力。`,
+    subQuestions: [
+      '(1) 求粒子发射位置到 P 点的距离；',
+      '(2) 求磁感应强度大小的取值范围；',
+      '(3) 若粒子正好从 QN 的中点射出磁场，求粒子在磁场中的轨迹与挡板 MN 的最近距离。'
+    ],
+    officialAnswer: `**(1)** 粒子在电场中类平抛：水平 v_x = v₀ 保持不变，竖直加速度 a = qE/m。到 P 时 v 与 PQ（竖直向下）夹角 60°，由 tan60° = v_x/v_y 得 v_y = v₀/√3。由 v_y² = 2ay 得 y = v_y²/(2a) = (v₀²/3)·m/(2qE) = m·v₀²/(6qE)。
+
+**(2)** 入磁场速度 v = √(v_x² + v_y²) = 2v₀/√3。磁场圆周 r = mv/(qB)，圆心位于 P 的右上方 (r/2, -r√3/2)（设 P 为原点、x 右、y 下）。
+临界 1：粒子从 Q=(0,l) 出磁场（沿 PQ 板紧贴），由圆方程解得 r_min = l/√3 → B_max = mv/(qr_min) = 2mv₀/(ql)。
+临界 2：粒子从 N=(l,l) 出磁场，由圆方程解得 r_max = l(√3+1) → B_min = mv/(qr_max) = (3−√3)mv₀/(3ql)。
+故 B ∈ [(3−√3)mv₀/(3ql), 2mv₀/(ql)]。
+
+**(3)** 粒子从 QN 中点 (l/2, l) 出，代入圆方程 (l/2 + r/2)² + (l − r√3/2)² = r² 化简得 5l + 2r(1 − 2√3) = 0，解得 r = 5l(2√3+1)/22。轨迹中 x_max 在圆周最右点 s_math = 0° 处取得：x_max = r/2。轨迹与 MN（x=l）最近距离 d_MN = l − r/2 = l(39 − 10√3)/44 ≈ 0.493 l。`
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置', label_short:'装置',
+     formula_tex: String.raw`E\downarrow,\;B\otimes\to\odot,\;l\times l\;\text{挡板}`,
+     note:'上方 E 向下；挡板间 B 垂直纸面外；粒子从电场中水平向右发射、恰好从 P 入磁场。'},
+    {label:'阶段 ② 类平抛',label_short:'平抛',
+     formula_tex: String.raw`v_x=v_0,\;v_y=at,\;a=\dfrac{qE}{m}`,
+     note:'入 P 时 v 与 PQ 夹角 60°，由几何关系求 v_y 与 v_x 之比。'},
+    {label:'阶段 ③ (1) 距离',label_short:'(1)',
+     formula_tex: String.raw`y=\dfrac{v_y^{2}}{2a}`,
+     note:'由匀加速运动学 v_y²=2ay 直接求发射点到 P 的距离 y。'},
+    {label:'阶段 ④ (2) B 范围',label_short:'(2)',
+     formula_tex: String.raw`r=\dfrac{m v}{qB},\;v=\dfrac{2v_0}{\sqrt 3};\;\;r_{\min}=\tfrac{l}{\sqrt 3},\;r_{\max}=l(\sqrt 3+1)`,
+     note:'圆周运动，圆心在 P 右上。临界 1 沿 PQ 出 Q；临界 2 出 N。'},
+    {label:'阶段 ⑤ (3) 最近距离',label_short:'(3)',
+     formula_tex: String.raw`r=\dfrac{5l(2\sqrt3+1)}{22},\;d_{MN}=l-\tfrac{r}{2}=\dfrac{(39-10\sqrt 3)l}{44}`,
+     note:'中点出代入圆方程解 r；x_max=r/2 → d_MN=l−r/2。'}
+  ],
+  stats: [
+    {label:'v_y at P',  fmt:s=>(s.u>=0.34 ? 'v₀/√3' : '?')},
+    {label:'v at P',    fmt:s=>(s.u>=0.50 ? '2v₀/√3' : '?')},
+    {label:'(1) y',     fmt:s=>(s.u>=0.40 ? 'mv₀²/(6qE)' : '?')},
+    {label:'r_min',     fmt:s=>(s.u>=0.60 ? 'l/√3' : '?')},
+    {label:'r_max',     fmt:s=>(s.u>=0.62 ? 'l(√3+1)' : '?')},
+    {label:'(2) B_max', fmt:s=>(s.u>=0.65 ? '2mv₀/(ql)' : '?')},
+    {label:'(2) B_min', fmt:s=>(s.u>=0.68 ? '(3-√3)mv₀/(3ql)' : '?')},
+    {label:'(3) r',     fmt:s=>(s.u>=0.82 ? '5l(2√3+1)/22' : '?')},
+    {label:'(3) d_MN',  fmt:s=>(s.u>=0.90 ? '(39-10√3)l/44' : '?')}
+  ],
+  conclusions: [
+    {label_text:'(1)', value_text:'mv₀²/(6qE)',                  note:'类平抛运动学'},
+    {label_text:'(2)', value_text:'(3-√3)mv₀/(3ql) ≤ B ≤ 2mv₀/(ql)', note:'临界 r_min/r_max'},
+    {label_text:'(3)', value_text:'(39-10√3) l/44 ≈ 0.493 l',     note:'中点出 r 解析 + x_max=r/2'}
+  ],
+  legend: [
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'rect'}, text:'电场区抛物线轨迹'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'磁场区圆周轨迹'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁场 B（向外 ·）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'电场 E（向下）'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'挡板 PQ / MN'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q12-双挡板电场磁场'
+});
+</script>
+</body>
+</html>

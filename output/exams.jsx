@@ -186,10 +186,15 @@ const REAL_PROBLEMS = [
   { id:'2021-gk1-q07', year:2021, paper:'gk1', no:'7',  module:'力学',    tplId:null, title:'斜面物块上滑下滑 · E₁=3E₂',                        summary:'a_up=g(sinθ+μcosθ), a_down=g(sinθ−μcosθ)；θ=45° 且 E₁/E₂=3 → μ=0.5；B 对 a_down=2g sinθ E₂/(E₁+E₂)；D 错 t_上<t_下=1/√3。答案 BC。', diff:'中', heat:140, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q07/index.html' },
   { id:'2021-gk1-q08', year:2021, paper:'gk1', no:'8',  module:'电磁学',  tplId:null, title:'双线圈下落进磁场 · 加速度与匝数无关',              summary:'消去 N·A 后 F=B²lvm/(16ρ_m ρ_e)、a=g−B²lv/(16ρ_m ρ_e) 与匝数 N 无关。甲乙加速度恒等：F<mg 都加速 / F>mg 都减速 / F=mg 都匀速。C/D 不可能。答案 AB。', diff:'中', heat:135, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q08/index.html' },
   { id:'2021-gk1-q11', year:2021, paper:'gk1', no:'11', module:'力学',    tplId:null, title:'50 减速带斜面 · 平均能量损失对比',                summary:'(1) ΔE₂=mgd sinθ；(2) ΔE₁=m[g sinθ(L+29d)−μgs]/30；(3) ΔE₁>ΔE₂ → L>d+μs/sinθ。', diff:'难', heat:160, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q11/index.html', paid:true },
+  { id:'2021-gk1-q12', year:2021, paper:'gk1', no:'12', module:'电磁学',  tplId:null, title:'双挡板电场+磁场 类平抛+圆周',                      summary:'(1) y=mv₀²/(6qE)；(2) (3-√3)mv₀/(3ql)≤B≤2mv₀/(ql)；(3) r=5l(2√3+1)/22, d_MN=(39-10√3)l/44≈0.493l。', diff:'难', heat:175, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q12/index.html', paid:true },
+  { id:'2021-gk1-q13', year:2021, paper:'gk1', no:'13', module:'热学',    tplId:null, title:'V-t 图等压线 a/b/c 三点压强比',                    summary:'V-t 过 (t₀, 0) 直线 = 等压线；(1) a/b 同在 I → p_a/p_b=1；(2) b/c 同温 → 玻意耳定律 → p_b/p_c=V₂/V₁。', diff:'中', heat:115, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q13/index.html' },
+  { id:'2021-gk1-q15', year:2021, paper:'gk1', no:'15', module:'光学',    tplId:null, title:'玻璃板光线 速度 + 时间范围',                       summary:'(1) v=c/n=2×10⁸ m/s；(2) θ_i=0° t_min=5×10⁻¹⁰ s；(3) θ_i→90° t_max=3√5×10⁻¹⁰ s≈6.71×10⁻¹⁰ s。', diff:'中', heat:120, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q15/index.html' },
+  { id:'2021-gk1-q16', year:2021, paper:'gk1', no:'16', module:'振动波动', tplId:null, title:'简谐横波 A/B 质点 · t₁ 后到波峰',                  summary:'每隔 0.6s 同位移同向 → T/2=0.6 → T=1.2s, λ=24cm，Δφ=4π/3；(1) Δt_min=2T/3=0.8s；(2) y_B(t₁)=-0.5cm。', diff:'难', heat:140, hasAnim:true, htmlPath:'2021_全国甲卷/questions/q16/index.html', paid:true },
   // ── 2020 新课标 II 卷 ──
   { id:'2020-xkbII-q03', year:2020, paper:'xkbII', no:'3',  module:'力学',    tplId:null, title:'摩托车越野跨坑 · 平抛 E₂/E₁',                      summary:'坑宽 3h, a 比 b 高 0.5h；E₁ 落 c (h, h)：t₁=√(2h/g), v₀₁=√(gh/2), E₁=mgh/4；E₂ 到 b (3h, 0.5h)：t₂=√(h/g), v₀₂=3√(gh), E₂=9mgh/2；比值 18。答案 B。', diff:'中', heat:130, hasAnim:true, htmlPath:'2020_新课标II/questions/q03/index.html' },
   { id:'2020-xkbII-q07', year:2020, paper:'xkbII', no:'7',  module:'电磁学',  tplId:null, title:'圆环异种电荷 4 点 · 场强电势比较',               summary:'上半 +Q 下半 -Q；4 点 a/b/c/d 等距 r₀；y 轴对称 → E_a=E_b（向下）+ V_a=V_b；水平翻转+电荷反号反对称 → E_c=E_d（向下）；沿 E 方向 V 降 → V_c>V_d。答案 ABC。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标II/questions/q07/index.html' },
   { id:'2020-xkbII-q08', year:2020, paper:'xkbII', no:'8',  module:'力学',    tplId:null, title:'滑冰运动员推物块 8 次反弹 · 质量范围',           summary:'冰面无摩擦 + 挡板。m=4kg 物块，推后 v=5m/s。动量守恒递推 V_n=(2n-1)mv/M。第 7 次后能追上 V_7<v → M>52；第 8 次后追不上 V_8≥v → M≤60。范围 52<M≤60。答案 BC。', diff:'中', heat:135, hasAnim:true, htmlPath:'2020_新课标II/questions/q08/index.html' },
+  { id:'2020-xkbII-q16', year:2020, paper:'xkbII', no:'16', module:'光学',    tplId:null, title:'直角棱镜光路 · 折射+全反射+出射',                summary:'n=1.5, ∠A=30°, ∠C=90°。光与 BC 平行从 AB 入射 D。i=30°→sin r=1/3。E 处 θ=60°+r≈79.5° > 临界角 41.8° → 全反射。F 处 i\'=30°-r → sin r\'=(2√2-√3)/4 ≈ 0.274。', diff:'中', heat:120, hasAnim:true, htmlPath:'2020_新课标II/questions/q16/index.html' },
   // ── 2020 新课标 III 卷 ──
   { id:'2020-xkbIII-q01', year:2020, paper:'xkbIII', no:'1', module:'电磁学',  tplId:null, title:'玻璃棒线圈 + 金属圆环 · 楞次定律',                summary:'光滑玻璃棒左端线圈右端金属圆环。开关接通瞬间，I_线圈从 0 增大 → B↑ → Φ_环↑ → 楞次"增则斥" → 圆环受斥力远离线圈（向右）。M/N 端结果相同。答案 B。', diff:'易', heat:120, hasAnim:true, htmlPath:'2020_新课标III/questions/q01/index.html' },
   { id:'2020-xkbIII-q04', year:2020, paper:'xkbIII', no:'4', module:'力学',    tplId:null, title:'绳索 O 点平衡几何 · 求 β',                       summary:'墙左固定绳过 O 点接细线挂甲，另一端经光滑滑轮挂乙。甲乙等质量，α=70° 求 β。O 点 3 力平衡 → cot β=(1-cos α)/sin α=(1-cos 70°)/sin 70°≈0.700 → β≈55°。答案 B。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标III/questions/q04/index.html' },
@@ -204,6 +209,8 @@ const REAL_PROBLEMS = [
   { id:'2022-gk1-q01', year:2022, paper:'gk1',  no:'1',  module:'力学',    tplId:null, title:'圆弧雪道最小半径（动能定理+向心力）',              summary:'a→c 动能定理 v²=2gh；最低点 F_N−mg=mv²/r → F_N=mg(1+2h/r)；F_N≤k·mg → r_min=2h/(k−1)。答案 D。', diff:'中', heat:120, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q01/index.html' },
   { id:'2022-gk1-q02', year:2022, paper:'gk1',  no:'2',  module:'运动学',  tplId:null, title:'高速列车通过隧道最少时间',                          summary:'三阶段：减速 t₁=(v₀−v)/(2a)；隧道内匀速 t₂=(L+l)/v；加速 t₃=(v₀−v)/a；总和 t=3(v₀−v)/(2a)+(L+l)/v。答案 C。', diff:'中', heat:115, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q02/index.html' },
   { id:'2022-gk1-q03', year:2022, paper:'gk1',  no:'3',  module:'电磁学',  tplId:null, title:'三种线框感应电流比较',                              summary:'同导线 R∝L=8r:2πr:6r；面积 S=4r²:πr²:(3√3/2)r²；I=ε/R=S/L·(dB/dt) → 比 2:2:√3 → I₁=I₂>I₃。答案 C。', diff:'中', heat:110, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q03/index.html' },
+  { id:'2022-gk1-q05', year:2022, paper:'gk1',  no:'5',  module:'电磁学',  tplId:null, title:'带电粒子电磁场摆线轨迹',                            summary:'B 向里 + E 沿 +y，正电粒子从 O 静止；速度分解 v_+/-=±E/B → 漂移 −x 匀速 + 圆周；合成摆线 y_max=2R 每周期漂 −2πR。答案 B。', diff:'难', heat:135, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q05/index.html' },
+  { id:'2022-gk1-q06', year:2022, paper:'gk1',  no:'6',  module:'力学',    tplId:null, title:'双滑块+弹簧撤力分析',                                summary:'撤 F 前 F=2μmg、T=μmg；撤 F 瞬间 P：a=−2μg(最大)、Q：a=0；弹簧恢复原长瞬 |a_Q|_max=μg；过程 v_P ≤ v_Q。答案 AD。', diff:'中', heat:120, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q06/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -320,10 +327,29 @@ const PROBLEM_META = {
     {sub:'(2) ΔE₁', val:'m[g sinθ(L+29d) − μgs]/30'},
     {sub:'(3) L 条件', val:'L > d + μs/sinθ'}
   ]},
+  '2021-gk1-q12': { type:'calc', answer:[
+    {sub:'(1) 距离', val:'mv₀²/(6qE)'},
+    {sub:'(2) B 范围', val:'(3-√3)mv₀/(3ql) ≤ B ≤ 2mv₀/(ql)'},
+    {sub:'(3) d_MN', val:'(39-10√3)l/44 ≈ 0.493l'}
+  ]},
+  '2021-gk1-q13': { type:'calc', answer:[
+    {sub:'(1) p_a/p_b', val:'1'},
+    {sub:'(2) p_b/p_c', val:'V₂/V₁'}
+  ]},
+  '2021-gk1-q15': { type:'calc', answer:[
+    {sub:'(1) v', val:'2×10⁸ m/s'},
+    {sub:'(2) t_min', val:'5×10⁻¹⁰ s'},
+    {sub:'(3) t_max', val:'3√5×10⁻¹⁰ s ≈ 6.71×10⁻¹⁰ s'}
+  ]},
+  '2021-gk1-q16': { type:'calc', answer:[
+    {sub:'(1) Δt_min', val:'0.8 s'},
+    {sub:'(2) y_B(t₁)', val:'-0.5 cm'}
+  ]},
   // 2020 新课标 II 卷
   '2020-xkbII-q03': { type:'choice-single', answer:'B' },
   '2020-xkbII-q07': { type:'choice-multi',  answer:'ABC' },
   '2020-xkbII-q08': { type:'choice-multi',  answer:'BC' },
+  '2020-xkbII-q16': { type:'calc',          answer:[{sub:'(i)',val:'BC 边发生全反射'},{sub:'(ii) sin r\'',val:'(2√2−√3)/4 ≈ 0.274'}] },
   // 2020 新课标 III 卷
   '2020-xkbIII-q01': { type:'choice-single', answer:'B' },
   '2020-xkbIII-q04': { type:'choice-single', answer:'B' },
@@ -337,6 +363,8 @@ const PROBLEM_META = {
   '2022-gk1-q01':  { type:'choice-single', answer:'D' },
   '2022-gk1-q02':  { type:'choice-single', answer:'C' },
   '2022-gk1-q03':  { type:'choice-single', answer:'C' },
+  '2022-gk1-q05':  { type:'choice-single', answer:'B' },
+  '2022-gk1-q06':  { type:'choice-multi',  answer:['A','D'] },
 };
 
 // 按 year×paper 计数

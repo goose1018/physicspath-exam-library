@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 15 题 · 玻璃板光线（填空）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：玻璃板 n=1.5, d=10cm=0.1m，真空光速 c=3×10⁸ m/s。
+// (1) v_玻璃 = c/n = 3×10⁸/1.5 = 2×10⁸ m/s
+// (2) 入射角范围 [0°, 90°)：
+//   - θ_i=0° 垂直入射 → 光程 d → t_min = d/v = 0.1/(2×10⁸) = 5×10⁻¹⁰ s
+//   - θ_i→90° → 折射角 sin θ_r=1/n=2/3, cos θ_r=√5/3
+//     光程 d/cos θ_r = 0.1·3/√5 = 0.3/√5
+//     t_max = 0.3/(2×10⁸·√5) = 3√5×10⁻¹⁰ s ≈ 6.71×10⁻¹⁰ s（严格小于）
+// 范围：5×10⁻¹⁰ s ≤ t < 3√5×10⁻¹⁰ s
+
+const n_glass = 1.5;
+const d_glass = 0.1;       // m
+const c_light = 3e8;       // m/s
+const v_glass = c_light / n_glass;   // 2×10⁸
+const t_min = d_glass / v_glass;     // 5×10⁻¹⁰
+const sinThetaRMax = 1 / n_glass;     // 2/3
+const cosThetaRMax = Math.sqrt(1 - sinThetaRMax*sinThetaRMax);   // √5/3
+const t_max = (d_glass / cosThetaRMax) / v_glass;   // 3√5×10⁻¹⁰
+
+const T_TOTAL = 11.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // ① 0~0.10 装置
+  // ② 0.10~0.30 折射定律 + 速度
+  // ③ 0.30~0.55 (1) 答 v=c/n
+  // ④ 0.55~0.85 (2) 入射角扫描 + t_min/t_max
+  // ⑤ 0.85~1.0 综合
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.55) phase = 2;
+  else if(u < 0.85) phase = 3;
+  else phase = 4;
+  // 入射角扫描（仅 phase=3 + 4）
+  let theta_i_deg = 0;
+  if(phase === 3){
+    const tau = (u - 0.55) / 0.30;
+    theta_i_deg = tau * 85;   // 0° → 85°
+  } else if(phase === 4){
+    theta_i_deg = 60;   // 综合阶段固定示例
+  }
+  return {phase, theta_i_deg, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawGlass(ctx, 14, 14, W*0.55-21, H-28, state);
+  drawCalc (ctx, W*0.55+7, 14, W*0.45-21, H-28, state);
+}
+
+function drawGlass(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('玻璃板（n=1.5, d=10cm）+ 单色光通过', panelX+12, panelY+18);
+
+  // 玻璃板：上表面 y_top，下表面 y_bot，厚度 dPx
+  const cx = panelX + panelW/2;
+  const cy = panelY + panelH*0.50;
+  const dPx = panelH*0.30;   // 玻璃板视觉厚度
+  const y_top = cy - dPx/2;
+  const y_bot = cy + dPx/2;
+  const glassLeft = panelX + 30, glassRight = panelX + panelW - 30;
+
+  // 玻璃板（浅蓝）
+  ctx.fillStyle = 'rgba(63,111,143,0.10)';
+  ctx.fillRect(glassLeft, y_top, glassRight - glassLeft, dPx);
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(glassLeft, y_top); ctx.lineTo(glassRight, y_top);
+  ctx.moveTo(glassLeft, y_bot); ctx.lineTo(glassRight, y_bot);
+  ctx.stroke();
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('玻璃板', glassLeft+8, cy+4);
+
+  // d 标注
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 11px "Cambria Math",Georgia,serif';
+  ctx.fillText('d', glassRight + 10, cy + 4);
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  ctx.moveTo(glassRight + 6, y_top); ctx.lineTo(glassRight + 6, y_bot);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  PPath.arrow(ctx, glassRight + 6, y_top + 4, glassRight + 6, y_top + 1, '#94a09b', 1);
+  PPath.arrow(ctx, glassRight + 6, y_bot - 4, glassRight + 6, y_bot - 1, '#94a09b', 1);
+
+  // 入射点 (在 cx 处上表面)
+  const hitX_top = cx;
+
+  // ── phase>=2: 画入射光线 + 折射光线 ──
+  if(state.phase >= 2){
+    const theta_i = state.phase === 2 ? 30 * Math.PI/180 : state.theta_i_deg * Math.PI/180;
+    const sin_r = Math.sin(theta_i) / n_glass;
+    const cos_r = Math.sqrt(1 - sin_r*sin_r);
+    const tan_r = sin_r / cos_r;
+
+    // 入射光（从 hitX_top 上方延伸到玻璃板上表面）
+    const incomingLen = Math.min(panelH*0.18, 80);
+    const inDX = -Math.sin(theta_i) * incomingLen;
+    const inDY = -Math.cos(theta_i) * incomingLen;
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(hitX_top + inDX, y_top + inDY);   // 起点（上方）
+    ctx.lineTo(hitX_top, y_top);
+    ctx.stroke();
+    PPath.arrow(ctx, hitX_top + inDX*0.5, y_top + inDY*0.5, hitX_top + inDX*0.4, y_top + inDY*0.4, '#c2611f', 1.6);
+    // 入射方向向下（朝光的入射方向加箭头）
+    PPath.arrow(ctx, hitX_top - inDX*0.1 - inDX*0.05, y_top - inDY*0.1 - inDY*0.05, hitX_top, y_top, '#c2611f', 2);
+
+    // 折射光（玻璃板内）
+    const refractDX = Math.sin(theta_i)/n_glass * dPx / cos_r;   // 水平偏移 = d·tan(θ_r)
+    const exitX_bot = hitX_top + dPx * tan_r;
+    ctx.strokeStyle = '#7a4f9c'; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(hitX_top, y_top); ctx.lineTo(exitX_bot, y_bot);
+    ctx.stroke();
+
+    // 出射光（玻璃板下方，恢复入射角度方向，因为玻璃板下方也是真空）
+    const outLen = Math.min(panelH*0.18, 80);
+    const outDX = Math.sin(theta_i) * outLen;
+    const outDY = Math.cos(theta_i) * outLen;
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(exitX_bot, y_bot); ctx.lineTo(exitX_bot + outDX, y_bot + outDY);
+    ctx.stroke();
+    PPath.arrow(ctx, exitX_bot + outDX*0.6, y_bot + outDY*0.6, exitX_bot + outDX*0.7, y_bot + outDY*0.7, '#c2611f', 1.6);
+
+    // 法线（虚线）
+    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(hitX_top, y_top - 18); ctx.lineTo(hitX_top, y_top + 18);
+    ctx.moveTo(exitX_bot, y_bot - 18); ctx.lineTo(exitX_bot, y_bot + 18);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 角度标
+    if(state.phase >= 3){
+      ctx.fillStyle = '#c2611f';
+      ctx.font = 'italic 700 11px "Cambria Math",Georgia,serif';
+      ctx.fillText('θ_i = '+state.theta_i_deg.toFixed(0)+'°', hitX_top + 8, y_top - 8);
+      const theta_r_deg = Math.asin(sin_r) * 180/Math.PI;
+      ctx.fillStyle = '#7a4f9c';
+      ctx.fillText('θ_r = '+theta_r_deg.toFixed(1)+'°', hitX_top + 8, y_top + 26);
+    }
+
+    // 光程标
+    const pathLen_m = d_glass / cos_r;
+    const time_s = pathLen_m / v_glass;
+    // 数值与右栏 stats t_min(0.62)/t_max(0.82) 守卫同步
+    if(state.phase >= 3 && state.u >= 0.62){
+      ctx.fillStyle = '#16613f';
+      ctx.font = '700 10.5px ui-monospace,monospace';
+      ctx.fillText('光程 = d/cos θ_r = '+(pathLen_m*100).toFixed(2)+' cm', panelX+14, y_bot + 50);
+      ctx.fillText('t = 光程/v = '+(time_s*1e10).toFixed(3)+'×10⁻¹⁰ s', panelX+14, y_bot + 64);
+    }
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 玻璃板（n=1.5，厚 d=10cm）',
+    '阶段 ② 折射定律 + 玻璃中速度 v=c/n',
+    '阶段 ③ (1) v=c/n=2×10⁸ m/s',
+    '阶段 ④ (2) 入射角 0°→90°：t 在 [t_min, t_max) 之间',
+    '阶段 ⑤ 综合 — 速度与时间范围'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('折射定律 + 时间极值', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 19;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 10.5px ui-monospace,monospace';
+
+  const steps = [
+    {showAt:0.10, text:'n = 1.5, d = 10 cm = 0.1 m'},
+    {showAt:0.10, text:'c = 3×10⁸ m/s'},
+    {showAt:0.30, text:'(1) v_玻璃 = c/n'},
+    {showAt:0.34, text:'        = 3×10⁸/1.5'},
+    {showAt:0.38, text:'        = 2×10⁸ m/s'},
+    {showAt:0.55, text:'(2) 光程 = d/cos θ_r'},
+    {showAt:0.58, text:'  入射 θ_i=0° → θ_r=0° → 程=d'},
+    {showAt:0.62, text:'  t_min = d/v = 5×10⁻¹⁰ s'},
+    {showAt:0.70, text:'  入射 θ_i→90° → sin θ_r=1/n=2/3'},
+    {showAt:0.74, text:'  cos θ_r = √5/3'},
+    {showAt:0.78, text:'  程_max = 0.3/√5 m'},
+    {showAt:0.82, text:'  t_max = 程/v = 3√5×10⁻¹⁰ s'},
+    {showAt:0.85, text:'    ≈ 6.71×10⁻¹⁰ s（严格小于）'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('= 2×10⁸') || s.text.includes('= 5×10⁻¹⁰') || s.text.includes('= 3√5');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 10.5px ui-monospace,monospace' : '700 10.5px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+12, panelY+panelH-92, panelW-24, 80, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案：', panelX+18, panelY+panelH-74);
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 10.5px ui-monospace,monospace';
+    ctx.fillText('(1) v = 2×10⁸ m/s', panelX+18, panelY+panelH-58);
+    ctx.fillText('(2) 5×10⁻¹⁰ ≤ t < 3√5×10⁻¹⁰ s', panelX+18, panelY+panelH-40);
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '600 10px ui-monospace,monospace';
+    ctx.fillText('   ≈ 5×10⁻¹⁰ ≤ t < 6.71×10⁻¹⁰ s', panelX+18, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '选考 3-4 · 第 15 题 · 5 分',
+  title: '玻璃板光线传播 · 速度与时间范围',
+  subtitle: '单色光从玻璃板上表面入射；求板内速度与所有可能入射角下的传播时间范围。',
+  deliv: {
+    title: '折射定律 + 极值',
+    sub: '(1) v=c/n；(2) θ_i=0° 取 t_min, θ_i→90° 取 t_max'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 选考 3-4 · 第 15 题 · 5 分',
+    image: '../../source/images/image156.png',
+    text: `如图，单色光从折射率 n=1.5、厚度 d=10.0 cm 的玻璃板上表面射入。已知真空中的光速为 c=3×10⁸ m/s，则该单色光在玻璃板内传播的速度为 ___________ m/s；对于所有可能的入射角，该单色光通过玻璃板所用时间 t 的取值范围是 ___________ s ≤ t < ___________ s（不考虑反射）。`,
+    subQuestions: [
+      '(1) 玻璃板内传播速度 v = ?',
+      '(2) 时间范围下限 t_min = ?',
+      '(3) 时间范围上限 t_max = ?'
+    ],
+    officialAnswer: `**(1)** v = c/n = 3×10⁸/1.5 = 2×10⁸ m/s\n\n**(2)** 当入射角 θ_i = 0°（光垂直入射），光在玻璃板内沿垂直方向传播，光程 = d。t_min = d/v = 0.1/(2×10⁸) = 5×10⁻¹⁰ s。\n\n**(3)** 当入射角 θ_i → 90°（极限掠入射），由折射定律 sin 90°/sin θ_r = n 得 sin θ_r = 1/n = 2/3，cos θ_r = √(1−4/9) = √5/3。光在玻璃板内的光程 = d/cos θ_r = 0.1·3/√5 = 0.3/√5 m。t_max = (0.3/√5)/(2×10⁸) = 0.3/(2√5×10⁸) = 3√5×10⁻¹⁰ s ≈ 6.71×10⁻¹⁰ s（注意 θ_i 不能恰好为 90°，故 t < t_max 严格小于）。\n\n综上：5×10⁻¹⁰ s ≤ t < 3√5×10⁻¹⁰ s。`
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置',label_short:'装置',
+     formula_tex: String.raw`n=1.5,\; d=10\text{ cm},\; c=3\times10^{8}\text{ m/s}`,
+     note:'玻璃板厚 d、折射率 n；真空光速 c 已知。'},
+    {label:'阶段 ② 速度公式',label_short:'v',
+     formula_tex: String.raw`v=\dfrac{c}{n}`,
+     note:'介质中光速 = 真空光速 / 折射率。'},
+    {label:'阶段 ③ (1) 速度',label_short:'(1)',
+     formula_tex: String.raw`v=\dfrac{3\times10^{8}}{n}`,
+     note:'代入 n 得到玻璃板内单色光速度（数值见右栏）。'},
+    {label:'阶段 ④ (2) 时间极值',label_short:'(2)',
+     formula_tex: String.raw`\theta_i=0°:\,t_{\min}=\dfrac{d}{v};\quad \theta_i\to 90°:\,\sin\theta_r=\dfrac{1}{n}`,
+     note:'垂直入射光程最短；掠入射折射角达极限。'},
+    {label:'阶段 ⑤ 综合',label_short:'综合',
+     formula_tex: String.raw`5\times10^{-10}\le t<3\sqrt{5}\times10^{-10}\text{ s}`,
+     note:'(1) v=2×10⁸ m/s；(2) t_min=5×10⁻¹⁰, t_max=3√5×10⁻¹⁰。'}
+  ],
+  stats: [
+    {label:'n',           fmt:()=>'1.5'},
+    {label:'d',           fmt:()=>'10 cm'},
+    {label:'c',           fmt:()=>'3×10⁸ m/s'},
+    {label:'(1) v',       fmt:s=>(s.u>=0.38 ? '2×10⁸ m/s' : '?')},
+    {label:'(2) t_min',   fmt:s=>(s.u>=0.62 ? '5×10⁻¹⁰ s' : '?')},
+    {label:'(3) t_max',   fmt:s=>(s.u>=0.82 ? '3√5×10⁻¹⁰ s' : '?')}
+  ],
+  conclusions: [
+    {label_text:'(1) v',      value_text:'2×10⁸ m/s',                         note:'c/n'},
+    {label_text:'(2) t_min',  value_text:'5×10⁻¹⁰ s',                        note:'垂直入射 (θ_i=0°)'},
+    {label_text:'(3) t_max',  value_text:'3√5×10⁻¹⁰ s ≈ 6.71×10⁻¹⁰ s',         note:'掠入射 (θ_i→90°)'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(63,111,143,0.10)',border:'#3f6f8f',type:'rect'}, text:'玻璃板'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'入射光 / 出射光（真空中）'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'rect'}, text:'折射光（玻璃板内）'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'法线 / 厚度标注'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q15-玻璃板光线'
+});
+</script>
+</body>
+</html>

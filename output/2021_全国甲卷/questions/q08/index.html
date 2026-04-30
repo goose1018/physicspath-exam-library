@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国甲 · 第 8 题 · 双线圈下落进磁场（多选）</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：相同材料、边长相同、质量相等的两闭合正方形线圈甲、乙；
+// 甲匝数 N_甲 = 2·N_乙；导线横截面积不同。两线圈同时从同一高度由静止下落，
+// 进入垂直纸面向里的匀强磁场。求"下边入磁场、上边未入"期间可能情况。
+//
+// 关键推导（消去匝数与截面积）：
+//   ε = N·B·l·v
+//   R = ρ_e·(导线总长)/A = ρ_e·(4l·N)/A
+//   i = ε/R = (N·B·l·v) / (ρ_e·4l·N/A) = B·l·v·A / (4ρ_e)
+//   F = N·B·i·l = N·B·l · (B·l·v·A) / (4ρ_e) = N·B²·l²·v·A / (4ρ_e)
+//   质量相等 m = ρ_m·(总体积) = ρ_m·4l·N·A → N·A = m/(ρ_m·4l) — 与匝数 N 无关！
+//   ∴ F = B²·l²·v·(N·A)/(4ρ_e) = B²·l·v·m/(16·ρ_m·ρ_e) ← 与 N 无关
+//   加速度 a = g − F/m = g − B²·l·v/(16·ρ_m·ρ_e) — 与匝数 N 无关
+//
+// 由于甲乙加速度公式相同 → 甲乙加速度相等。
+// 两种可能：(a) F < mg 都加速；(b) F > mg 都减速；(c) F = mg 都匀速
+// → A 对（都加速）、B 对（都减速）、C/D 错（甲乙不会出现一加一减）
+// 答案：AB
+
+const T_TOTAL = 11.0;
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  // y_norm ∈ [0,1] — 0：起点（线圈下边在 startY+coilSize）；1：下边深入磁场至上边即将入但未入
+  // 0~0.5：自由下落（下边到 fieldTopY）；0.5~1.0：下边深入但上边未入（满足题面）
+  let y_norm = 0;
+  if(u < 0.16){ phase = 0; y_norm = 0; }
+  else if(u < 0.42){
+    phase = 1;
+    const tau = (u - 0.16) / 0.26;
+    y_norm = tau*tau * 0.5;   // 自由下落 (下边到 fieldTopY)
+  } else if(u < 0.65){
+    phase = 2;
+    const tau = (u - 0.42) / 0.23;
+    y_norm = 0.5 + tau*0.5;   // 下边深入 (上边逼近但未入)
+  } else if(u < 0.85){
+    phase = 3;
+    y_norm = 1.0;
+  } else {
+    phase = 4;
+    y_norm = 1.0;
+  }
+  return {phase, y_norm, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawSetup(ctx, 14, 14, W*0.50-21, H-28, state);
+  drawCalc (ctx, W*0.50+7, 14, W*0.50-21, H-28, state);
+}
+
+function drawSetup(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('两线圈下落 · 磁场垂直纸面向里', panelX+12, panelY+18);
+
+  // 布局：上方起点 → 中间磁场上边界 → 磁场区域
+  const startY = panelY + 36;
+  const fieldTopY = panelY + panelH*0.50;
+  const fieldBotY = panelY + panelH - 60;
+  const cx = panelX + panelW/2;
+
+  // 磁场区域（× × × ×）
+  ctx.fillStyle = 'rgba(63,111,143,0.06)';
+  ctx.fillRect(panelX+24, fieldTopY, panelW-48, fieldBotY - fieldTopY);
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.strokeRect(panelX+24, fieldTopY, panelW-48, fieldBotY - fieldTopY);
+  ctx.setLineDash([]);
+  // × 网格
+  ctx.fillStyle = '#3f6f8f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  for(let xi = panelX+34; xi < panelX+panelW-30; xi += 22){
+    for(let yi = fieldTopY + 14; yi < fieldBotY - 6; yi += 22){
+      ctx.fillText('×', xi, yi);
+    }
+  }
+  // 磁场上边线
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(panelX+24, fieldTopY); ctx.lineTo(panelX+panelW-24, fieldTopY); ctx.stroke();
+
+  // 双线圈位置（左甲，右乙；左右间距）
+  const coilSize = 36;
+  const sepX = 70;
+  const cxA = cx - sepX/2;
+  const cxB = cx + sepX/2;
+  // y_norm ∈ [0, 0.5]: 自由下落，下边从起点到 fieldTopY
+  // y_norm ∈ [0.5, 1]: 下边深入磁场 (0~0.85·coilSize)，上边距 fieldTopY 仍 ≥ 0.15·coilSize
+  const maxEntry = coilSize * 0.85;
+  let coilBotY;
+  if(state.y_norm <= 0.5){
+    coilBotY = (startY + coilSize) + (state.y_norm/0.5) * (fieldTopY - (startY + coilSize));
+  } else {
+    coilBotY = fieldTopY + ((state.y_norm - 0.5)/0.5) * maxEntry;
+  }
+  const coilTopY = coilBotY - coilSize;
+
+  // 线圈甲（左 · 实心黑边粗）
+  drawCoil(ctx, cxA - coilSize/2, coilTopY, coilSize, '甲', '#1d1d1f', 2);
+  // 线圈乙（右）
+  drawCoil(ctx, cxB - coilSize/2, coilTopY, coilSize, '乙', '#1d1d1f', 2);
+
+  // 速度矢量 v（phase>=1 始终向下，从下边底部往下画）
+  if(state.phase >= 1 && state.phase <= 2){
+    const vMag = state.phase === 1 ? 18 : 22;
+    PPath.arrow(ctx, cxA, coilBotY+4, cxA, coilBotY+4+vMag, '#16613f', 2);
+    PPath.arrow(ctx, cxB, coilBotY+4, cxB, coilBotY+4+vMag, '#16613f', 2);
+    ctx.fillStyle = '#16613f';
+    ctx.font = 'italic 800 11px "Cambria Math",serif';
+    ctx.fillText('v', cxA-12, coilBotY+18);
+    ctx.fillText('v', cxB+4, coilBotY+18);
+  }
+
+  // 重力 mg（phase>=1 始终显示，画在线圈中部右侧贴近）
+  if(state.phase >= 1){
+    const iY = (coilTopY + coilBotY)/2;
+    [cxA, cxB].forEach(cxc => {
+      PPath.arrow(ctx, cxc + coilSize/2 + 6, iY-6, cxc + coilSize/2 + 6, iY-6+18, '#5d6068', 1.6);
+      ctx.fillStyle = '#5d6068';
+      ctx.font = '700 10px "Cambria Math",serif';
+      ctx.fillText('mg', cxc + coilSize/2 + 10, iY+5);
+    });
+  }
+  // phase>=2：在磁场内下边进入，画安培力 F (向上) + 感应电流 i 标
+  if(state.phase >= 2){
+    const iY = (coilTopY + coilBotY)/2;
+    [cxA, cxB].forEach(cxc => {
+      // 安培力 F（向上）
+      PPath.arrow(ctx, cxc, coilBotY+5, cxc, coilBotY+5-26, '#c2611f', 2.4);
+      ctx.fillStyle = '#c2611f';
+      ctx.font = 'italic 800 12px "Cambria Math",serif';
+      ctx.fillText('F', cxc+5, coilBotY-12);
+    });
+    // i 标（提示有感应电流；具体方向由楞次定律）
+    ctx.fillStyle = '#7a4f9c';
+    ctx.font = 'italic 800 10px "Cambria Math",serif';
+    ctx.fillText('i', cxA + coilSize/2 - 6, iY+4);
+    ctx.fillText('i', cxB + coilSize/2 - 6, iY+4);
+  }
+
+  // 阶段说明
+  const phaseTexts = [
+    '阶段 ① 装置：甲（N 匝×2）、乙（N 匝），同质量、同边长，磁场垂直纸面向里',
+    '阶段 ② 自由下落（v=√(2gh) 进入磁场）',
+    '阶段 ③ 下边在磁场内，上边未入 — 感应电动势 ε=NBlv，安培力 F 向上',
+    '阶段 ④ 推导 F 与匝数 N 无关（用 m/(ρ_m·4l) = N·A）',
+    '阶段 ⑤ 比较 F 与 mg 的大小关系（详见右侧判定）'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[state.phase], panelX+12, panelY+panelH-12);
+}
+
+function drawCoil(ctx, x, y, sz, label, color, lw){
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath();
+  ctx.rect(x, y, sz, sz);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, x + sz/2 - 6, y + sz/2 + 4);
+}
+
+function drawCalc(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('消去 N 与 A：a 与匝数无关', panelX+12, panelY+18);
+
+  const u = state.u;
+  let yy = panelY + 50;
+  const lh = 21;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 11px ui-monospace,monospace';
+
+  const steps = [
+    {showAt: 0.05, text: 'ε = N·B·l·v'},
+    {showAt: 0.10, text: '导线总长 L = 4l·N'},
+    {showAt: 0.15, text: 'R = ρ_e·L/A = 4ρ_e·l·N/A'},
+    {showAt: 0.45, text: 'i = ε/R = B·l·v·A / (4ρ_e)'},
+    {showAt: 0.50, text: 'F = N·B·i·l = N·B²·l²·v·A/(4ρ_e)'},
+    {showAt: 0.66, text: '质量 m = ρ_m·L·A = ρ_m·4l·N·A'},
+    {showAt: 0.70, text: '⇒ N·A = m/(ρ_m·4l)'},
+    {showAt: 0.74, text: '代入 F：'},
+    {showAt: 0.76, text: '  F = B²·l²·v·(N·A)/(4ρ_e)'},
+    {showAt: 0.78, text: '    = B²·l·v·m / (16·ρ_m·ρ_e)'},
+    {showAt: 0.82, text: 'a = g − F/m = g − B²·l·v/(16ρ_m·ρ_e)'},
+    {showAt: 0.84, text: '⇒ a 与匝数 N 无关！'},
+    {showAt: 0.86, text: '甲乙加速度恒等：A/B 可能；C/D 不可能'}
+  ];
+  steps.forEach(s => {
+    if(u >= s.showAt){
+      const isResult = s.text.includes('无关') || s.text.includes('恒等');
+      ctx.fillStyle = isResult ? '#16613f' : '#1d1d1f';
+      ctx.font = isResult ? '900 11px ui-monospace,monospace' : '700 11px ui-monospace,monospace';
+      ctx.fillText(s.text, panelX+18, yy);
+      yy += lh;
+    }
+  });
+
+  // 4 选项判定（多选 AB）
+  const judgments = [
+    {opt:'A · 甲乙都加速',         verdict:'对 ✓（F<mg 时）',     correct:true,  showAt:0.92},
+    {opt:'B · 甲乙都减速',         verdict:'对 ✓（F>mg 时）',     correct:true,  showAt:0.92},
+    {opt:'C · 甲加速、乙减速',     verdict:'错（加速度相等）',     correct:false, showAt:0.91},
+    {opt:'D · 甲减速、乙加速',     verdict:'错（加速度相等）',     correct:false, showAt:0.91}
+  ];
+  let yj = panelY + panelH - 175;
+  judgments.forEach(j => {
+    if(u < j.showAt){
+      ctx.fillStyle = '#bdb6a4';
+      ctx.font = '700 11px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.opt + '  ?', panelX+14, yj);
+    } else {
+      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
+      ctx.font = `${j.correct?900:700} 11px "Noto Sans SC",sans-serif`;
+      ctx.fillText(j.opt, panelX+14, yj);
+      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
+      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(j.verdict, panelX+14, yj+13);
+    }
+    yj += 30;
+  });
+
+  if(u >= 0.92){
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-138, panelY+panelH-44, 126, 32, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 AB', panelX+panelW-86, panelY+panelH-22);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2021 全国甲卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 8 题 · 6 分',
+  title: '双线圈下落进磁场 · 加速度与匝数无关',
+  subtitle: '相同质量、相同边长、不同匝数与不同截面积的两闭合线圈下落进磁场，比较"下边入、上边未入"期间运动状态。',
+  deliv: {
+    title: '电磁感应 + 牛顿第二',
+    sub: '消去 N 与 A 后 a=g−B²v/(16ρ_m·ρ_e) 仅依赖于 v，匝数无关'
+  },
+  originalProblem: {
+    meta: '2021 全国甲卷 · 多选 · 第 8 题 · 6 分',
+    image: '../../source/images/image50.png',
+    text: `由相同材料的导线绕成边长相同的甲、乙两个正方形闭合线圈，两线圈的质量相等，但所用导线的横截面积不同，甲线圈的匝数是乙的 2 倍。现两线圈在竖直平面内从同一高度同时由静止开始下落，一段时间后进入一方向垂直于纸面的匀强磁场区域，磁场的上边界水平，如图所示。不计空气阻力，已知下落过程中线圈始终平行于纸面，上、下边保持水平。在线圈下边进入磁场后且上边进入磁场前，可能出现的是（    ）`,
+    subQuestions: [
+      'A. 甲和乙都加速运动',
+      'B. 甲和乙都减速运动',
+      'C. 甲加速运动，乙减速运动',
+      'D. 甲减速运动，乙加速运动'
+    ],
+    officialAnswer: 'AB · 设线圈到磁场的高度为 h、边长 l、磁感应强度 B、密度 ρ_m、电阻率 ρ_e。下边入磁场时速度 v=√(2gh)。\n\n感应电动势 ε=N·B·l·v；导线总长 L=4l·N，电阻 R=ρ_e·L/A=4ρ_e·l·N/A，故电流 i=ε/R=B·l·v·A/(4ρ_e)；安培力 F=N·B·i·l=N·B²·l²·v·A/(4ρ_e)。\n\n质量相等：m=ρ_m·L·A=ρ_m·4l·N·A，得 N·A=m/(ρ_m·4l)。代回 F：F=B²·l²·v·(N·A)/(4ρ_e)=B²·l·v·m/(16·ρ_m·ρ_e)，与匝数 N 无关。\n\n加速度 a=g−F/m=g−B²·l·v/(16ρ_m·ρ_e)，仅由共同的 m/l/B/ρ_m/ρ_e 与瞬时速度 v 决定。两线圈进入磁场时具有相同的加速度。当 F<mg 时都加速、F>mg 时都减速、F=mg 时都匀速。\n\n因此甲、乙两线圈不可能出现一加速一减速的情况，C、D 错；A、B 都为可能情况。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置图',         label_short:'装置',
+     formula_tex: String.raw`N_{\text{甲}}=2N_{\text{乙}},\;A_{\text{甲}}=\tfrac{1}{2}A_{\text{乙}}`,
+     note:'甲匝数是乙的 2 倍；同质量、同边长 → 截面积 A 反比于 N。'},
+    {label:'阶段 ② 自由下落',       label_short:'下落',
+     formula_tex: String.raw`v=\sqrt{2gh}`,
+     note:'两线圈同时由静止释放，自由下落到磁场上边界时速度相等。'},
+    {label:'阶段 ③ 下边入磁场',     label_short:'入场',
+     formula_tex: String.raw`\varepsilon=N\,B\,l\,v,\quad i=\dfrac{\varepsilon}{R},\quad F=N\,B\,i\,l`,
+     note:'下边在磁场内、上边未入时，感应电动势 ε、电流 i 与安培力 F 都是 v 的函数。'},
+    {label:'阶段 ④ 消去 N、A',      label_short:'消 N·A',
+     formula_tex: String.raw`m=\rho_m\cdot 4lN\!A\Rightarrow N\!A=\dfrac{m}{4\rho_m l};\;\;F=\dfrac{B^2\,l\,v\,m}{16\,\rho_m\,\rho_e}`,
+     note:'用质量相等条件消去 N·A 乘积，F 简化为只含质量、磁场、速度、边长与材料常数。'},
+    {label:'阶段 ⑤ 比较 F 与 mg',    label_short:'判定',
+     formula_tex: String.raw`a=g-\dfrac{F}{m}=g-\dfrac{B^{2}lv}{16\rho_m\rho_e}`,
+     note:'加速度公式与匝数 N 无关 → 甲乙加速度恒相等；具体加/减/匀速由 F 与 mg 大小关系决定（见右栏判定）。'}
+  ],
+  stats: [
+    {label:'N_甲 / N_乙',  fmt:()=>'2'},
+    {label:'A_甲 / A_乙',  fmt:()=>'1/2'},
+    {label:'m_甲 / m_乙',  fmt:()=>'1'},
+    {label:'l_甲 / l_乙',  fmt:()=>'1'},
+    {label:'ε ∝',          fmt:s=>(s.u>=0.05 ? 'N·B·l·v' : '?')},
+    {label:'R ∝',          fmt:s=>(s.u>=0.15 ? '4ρ_e l N/A' : '?')},
+    {label:'F ∝',          fmt:s=>(s.u>=0.50 ? 'N·B²·l²·v·A/(4ρ_e)' : '?')},
+    {label:'a (与 N 关系)', fmt:s=>(s.u>=0.84 ? '无关 ⇒ 相等' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'都加速 ✓', note:'F<mg 时（v 较小）'},
+    {label_text:'B 对', value_text:'都减速 ✓', note:'F>mg 时（v 较大）'},
+    {label_text:'C 错', value_text:'甲加乙减',  note:'加速度相等不可能'},
+    {label_text:'D 错', value_text:'甲减乙加',  note:'加速度相等不可能'}
+  ],
+  legend: [
+    {swatch:{bg:'#fff',border:'#1d1d1f',type:'rect'}, text:'线圈甲（左）/ 乙（右）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'磁场区域 × 向里'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'下落速度 v'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'安培力 F（向上）'},
+    {swatch:{bg:'#5d6068',border:'#5d6068',type:'rect'}, text:'重力 mg'},
+    {swatch:{bg:'#7a4f9c',border:'#7a4f9c',type:'rect'}, text:'感应电流 i'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国甲-Q8-双线圈下落'
+});
+</script>
+</body>
+</html>
