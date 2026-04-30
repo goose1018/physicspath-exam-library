@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2019 新课标Ⅰ · 第 5 题 · 篮球扣篮上升 4 段时间比</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 运动员垂直起跳，离地后重心上升的最大高度为 H。不计空气阻力。
+// 上升过程：匀减速运动 v(t) = v₀ - g·t，初速 v₀ = √(2gH)。
+//
+// 逆向看：上升过程 = 顶端自由落体的时间反向。
+// 自由落体（从顶端 v=0 开始下落 H）：连续相等位移 H/4 段时间比
+//   t_a : t_b : t_c : t_d = 1 : (√2−1) : (√3−√2) : (2−√3)
+//   （第 a 段顶→3H/4，第 d 段 H/4→0）
+//
+// 正向上升时间 = 逆向下落时间序列反向：
+//   正向第 1 段（0→H/4）= 逆向第 d 段 = (2−√3)/2 · T_total
+//   正向第 4 段（3H/4→H）= 逆向第 a 段 = 1/2 · T_total
+// （T_total = √(2H/g) 全程总时间）
+//
+// 比值：t₂/t₁ = [1/2] / [(2−√3)/2] = 1/(2−√3) = (2+√3) ≈ 3.732
+//
+// 选项：A 1<·<2 / B 2<·<3 / C 3<·<4 / D 4<·<5
+// 答案 C（3 < t₂/t₁ < 4）
+// ─────────────────────────────────────────────────────────────────────
+
+const RATIO = 2 + Math.sqrt(3);     // ≈ 3.732
+const SQRT2 = Math.sqrt(2);
+const SQRT3 = Math.sqrt(3);
+
+// 4 段时间比（占总时间 T_total 的比例）
+const T_RATIOS = [
+  (2 - SQRT3) / 2,           // t1 第 1 段（0→H/4 上升）
+  (SQRT3 - SQRT2) / 2,       // t 第 2 段
+  (SQRT2 - 1) / 2,           // t 第 3 段
+  1 / 2                      // t2 第 4 段（3H/4→H 上升）
+];
+
+const T_total = 9.0;
+// 阶段：① 装置 + 整体上升（u 0-0.30）
+//      ② 标 4 等分 + 重放（u 0.30-0.60）
+//      ③ 时间比对比柱（u 0.60-0.85）
+//      ④ 解 t₂/t₁ = 2+√3 + 答案 C（u 0.85-1.00）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.30){ phase = 1; prog = u/0.30; }
+  else if(u < 0.60){ phase = 2; prog = (u-0.30)/0.30; }
+  else if(u < 0.85){ phase = 3; prog = (u-0.60)/0.25; }
+  else { phase = 4; prog = (u-0.85)/0.15; }
+
+  // 篮球高度（归一化 0..1，1 = H 顶）
+  // 阶段 ①②③ 都做"整次上升动画"循环，阶段 ④ 静止顶
+  let yNorm, segIdx, isAtTop = false;
+  if(phase === 1){
+    // 第 1 次上升（0..1）
+    const tau = prog;     // 0..1 整次上升
+    yNorm = 1 - (1 - tau) * (1 - tau);     // 抛物线（开口向下）
+  } else if(phase === 2){
+    // 重放上升 + 4 等分标记
+    const tau = prog;
+    yNorm = 1 - (1 - tau) * (1 - tau);
+  } else if(phase === 3){
+    // 阶段 3：篮球停在顶
+    yNorm = 1;
+    isAtTop = true;
+  } else {
+    yNorm = 1;
+    isAtTop = true;
+  }
+  // 当前所处段：根据 yNorm 落在 [0, 0.25, 0.5, 0.75, 1]
+  if(yNorm < 0.25) segIdx = 0;
+  else if(yNorm < 0.5) segIdx = 1;
+  else if(yNorm < 0.75) segIdx = 2;
+  else segIdx = 3;
+
+  return {
+    phase, prog, u, t,
+    yNorm, segIdx, isAtTop,
+    showSegments: phase >= 2,
+    showBars: phase >= 3,
+    showAnswer: phase >= 4
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawJump(ctx, 14, 14, W*0.45 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.45 + 7, 14, W*0.55 - 21, H - 28, state);
+}
+
+function drawJump(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('运动员垂直起跳 · 上升 4 等分 H/4', panelX+12, panelY+18);
+
+  // 几何映射：地面在底，顶 H 在上
+  const padT = 50, padB = 70;
+  const yGround = panelY + panelH - padB;
+  const yTop = panelY + padT;
+  const xCenter = panelX + panelW * 0.55;
+
+  // 地面
+  ctx.fillStyle = '#9c8d72';
+  ctx.fillRect(panelX + 20, yGround, panelW - 40, 6);
+  ctx.strokeStyle = '#6c5d44'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 20, yGround); ctx.lineTo(panelX + panelW - 20, yGround);
+  ctx.stroke();
+
+  // 中央竖直参考线
+  ctx.strokeStyle = '#dad6c8'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath();
+  ctx.moveTo(xCenter, yGround); ctx.lineTo(xCenter, yTop);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 4 等分标记（阶段 ② 起显示）
+  if(state.showSegments){
+    const labels = ['0', 'H/4', 'H/2', '3H/4', 'H'];
+    for(let i=0; i<=4; i++){
+      const yy = yGround - (i/4) * (yGround - yTop);
+      ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(xCenter - 50, yy); ctx.lineTo(xCenter + 50, yy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#5d6964';
+      ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(labels[i], xCenter - 78, yy + 4);
+    }
+    // 段标号 ①②③④（在中央右侧）
+    for(let s=0; s<4; s++){
+      const yy = yGround - ((s + 0.5)/4) * (yGround - yTop);
+      const isCurrent = state.segIdx === s;
+      ctx.fillStyle = isCurrent ? '#c2611f' : '#5d6964';
+      ctx.font = `${isCurrent?900:700} 12px "Noto Sans SC",sans-serif`;
+      ctx.fillText(`${'①②③④'[s]} 段 ${s===0?'(t₁)':s===3?'(t₂)':''}`, xCenter + 60, yy + 4);
+    }
+  }
+
+  // 篮筐（标在 H 顶端）
+  const yHoop = yTop;
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(xCenter - 22, yHoop); ctx.lineTo(xCenter + 22, yHoop);
+  ctx.stroke();
+  // 篮筐网（虚线）
+  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  for(let i=0; i<=6; i++){
+    const xx = xCenter - 20 + i * 40/6;
+    ctx.beginPath();
+    ctx.moveTo(xx, yHoop); ctx.lineTo(xx, yHoop + 14);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // 篮球
+  const ballY = yGround - state.yNorm * (yGround - yTop);
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(xCenter, ballY, 9, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#7a3a0e'; ctx.lineWidth = 1.2; ctx.stroke();
+  // 球纹
+  ctx.beginPath(); ctx.moveTo(xCenter - 9, ballY); ctx.lineTo(xCenter + 9, ballY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(xCenter, ballY - 9); ctx.lineTo(xCenter, ballY + 9); ctx.stroke();
+
+  // 阶段 ① 运动员简笔（地面附近，仅装饰）
+  if(state.phase === 1 && state.prog < 0.15){
+    const px = xCenter;
+    const py = yGround - 5;
+    ctx.fillStyle = '#16613f';
+    ctx.beginPath(); ctx.arc(px - 25, py - 32, 5, 0, Math.PI*2); ctx.fill();      // 头
+    ctx.fillRect(px - 28, py - 27, 6, 16);     // 身
+    ctx.fillRect(px - 30, py - 11, 4, 6);      // 左腿
+    ctx.fillRect(px - 24, py - 11, 4, 6);      // 右腿
+  }
+
+  // 阶段标
+  const phaseLabel = state.phase === 1 ? '阶段 ① 离地起跳 · 上升到 H 顶'
+                    : state.phase === 2 ? '阶段 ② 4 等分 H/4 标尺'
+                    : state.phase === 3 ? '阶段 ③ 时间比柱图对比'
+                    : '阶段 ④ 解 t₂/t₁ = 2+√3 ≈ 3.73 → C';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-10);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('逆向看 = 自由落体 · 等距时间比', panelX+12, panelY+18);
+
+  let yy = panelY + 44;
+
+  if(state.showSegments){
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('上升过程视为顶端自由落体反向。', panelX+12, yy); yy += 14;
+    ctx.fillText('从静止下落，连续相等位移时间比：', panelX+12, yy); yy += 14;
+    ctx.fillText('t_a:t_b:t_c:t_d = 1 : (√2−1) : (√3−√2) : (2−√3)', panelX+12, yy); yy += 18;
+    ctx.fillText('正向上升时间序列 = 反向：', panelX+12, yy); yy += 14;
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 11px "Cambria Math",serif';
+    ctx.fillText('t₁ = (2−√3)/2 · T   (第 1 段)', panelX+18, yy); yy += 14;
+    ctx.fillText('t₂ = 1/2 · T          (第 4 段)', panelX+18, yy); yy += 18;
+  } else { yy += 110; }
+
+  if(state.showBars){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('4 段时间柱图（按真实比例）', panelX+12, yy); yy += 18;
+
+    const barX0 = panelX + 60;
+    const barW = panelW - 90;
+    const barH = 16;
+    const barGap = 5;
+
+    for(let s=0; s<4; s++){
+      const yyy = yy + s * (barH + barGap);
+      // 标签
+      ctx.fillStyle = '#5d6964';
+      ctx.font = '700 10.5px "Cambria Math",serif';
+      const lbl = s === 0 ? 't₁ ①' : s === 3 ? 't₂ ④' : `t·${'②③'[s-1]}`;
+      ctx.fillText(lbl, panelX + 12, yyy + 12);
+      // 柱
+      const ratio = T_RATIOS[s];
+      const w = ratio / 0.5 * barW;     // 用最大比 0.5 归一化
+      ctx.strokeStyle = '#d8d0bd'; ctx.lineWidth = 1;
+      ctx.strokeRect(barX0, yyy, barW, barH);
+      ctx.fillStyle = (s === 0) ? '#c2611f' : (s === 3) ? '#16613f' : '#94a09b';
+      ctx.fillRect(barX0+1, yyy+1, w-2, barH-2);
+      // 数值
+      ctx.fillStyle = '#1d1d1f';
+      ctx.font = '600 10px ui-monospace,monospace';
+      ctx.fillText(ratio.toFixed(3) + ' T', barX0 + w + 4, yyy + 12);
+    }
+    yy += 4 * (barH + barGap) + 10;
+  }
+
+  if(state.showAnswer){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('比值计算：', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('t₂/t₁ = (1/2) / ((2−√3)/2)', panelX+18, yy); yy += 14;
+    ctx.fillText('     = 1 / (2−√3)', panelX+18, yy); yy += 14;
+    ctx.fillText('     = (2+√3) / ((2−√3)(2+√3))', panelX+18, yy); yy += 14;
+    ctx.fillText('     = (2+√3) / (4−3) = 2+√3', panelX+18, yy); yy += 18;
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Cambria Math",serif';
+    ctx.fillText('t₂/t₁ = 2+√3 ≈ 3.732', panelX+18, yy); yy += 22;
+
+    // 4 选项
+    const opts = [
+      { tag:'A · 1<·<2', ok:false },
+      { tag:'B · 2<·<3', ok:false },
+      { tag:'C · 3<·<4', ok:true  },
+      { tag:'D · 4<·<5', ok:false }
+    ];
+    opts.forEach((o, i) => {
+      ctx.fillStyle = o.ok ? '#16613f' : '#b4442e';
+      ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(o.tag + (o.ok?' ✓':' ✗'), panelX + 18 + (i%2)*100, yy + Math.floor(i/2)*16);
+    });
+    yy += 36;
+
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-130, panelY+panelH-40, 118, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C · 2+√3', panelX+panelW-118, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2019 新课标Ⅰ卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '篮球扣篮上升 4 段时间比 t₂/t₁',
+  subtitle: '垂直起跳上升 H · 4 等分 H/4 · 第 1 段时间 t₁ · 第 4 段时间 t₂ · 求比值',
+  deliv: {
+    title: '逆向自由落体 · 等距时间比',
+    sub: '正向上升 = 顶端自由落体反向 · 1:(√2−1):(√3−√2):(2−√3) · t₂/t₁ = ?'
+  },
+  originalProblem: {
+    meta: '2019 新课标Ⅰ卷 · 单选 · 第 5 题 · 6 分',
+    text: `如图，篮球架下的运动员原地垂直起跳扣篮，离地后重心上升的最大高度为 H。上升第一个 H/4 所用的时间为 t₁，第四个 H/4 所用的时间为 t₂。不计空气阻力，则满足（    ）`,
+    image: '../../source/images/image10.png',
+    subQuestions: [
+      'A. 1 &lt; t₂/t₁ &lt; 2',
+      'B. 2 &lt; t₂/t₁ &lt; 3',
+      'C. 3 &lt; t₂/t₁ &lt; 4',
+      'D. 4 &lt; t₂/t₁ &lt; 5'
+    ],
+    officialAnswer: 'C · 上升过程为匀减速运动，可视为顶端自由落体的时间反向。从顶端 v=0 自由下落，连续相等位移 H/4 段时间比为 1 : (√2−1) : (√3−√2) : (2−√3)。正向上升的 4 段时间为这个序列的反向：t₁（0→H/4）= (2−√3)/2 · T，t₂（3H/4→H）= 1/2 · T，其中 T = √(2H/g) 为全程上升时间。比值 t₂/t₁ = (1/2) / ((2−√3)/2) = 1/(2−√3) = (2+√3)/((2−√3)(2+√3)) = (2+√3)/(4−3) = 2+√3 ≈ 3.732。介于 3 与 4 之间，故选 C。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 起跳上升', label_short:'上升',
+     formula_tex: String.raw`v_0 = \sqrt{2 g H},\;\; T = \sqrt{\dfrac{2H}{g}}`,
+     note:'运动员垂直起跳，离地后重心上升 H。匀减速运动，初速 v₀=√(2gH)，全程时间 T=√(2H/g)。'},
+    {label:'阶段 ② 4 等分标尺', label_short:'4 段',
+     formula_tex: String.raw`\text{逆向自由落体} \;\Rightarrow\; t_a : t_b : t_c : t_d = 1 : (\sqrt{2}-1) : (\sqrt{3}-\sqrt{2}) : (2-\sqrt{3})`,
+     note:'上升过程视为顶端自由落体的时间反向。从静止下落，连续相等位移时间比为 1:(√2−1):(√3−√2):(2−√3)。'},
+    {label:'阶段 ③ 时间比柱图', label_short:'柱图',
+     formula_tex: String.raw`t_1 = \tfrac{2-\sqrt{3}}{2}\,T,\;\; t_2 = \tfrac{1}{2}\,T`,
+     note:'正向上升 4 段时间序列 = 逆向反向。第 1 段（0→H/4）= 第 d 段反向 = (2−√3)/2 T；第 4 段（3H/4→H）= 第 a 段反向 = 1/2 T。'},
+    {label:'阶段 ④ 解 t₂/t₁', label_short:'解',
+     formula_tex: String.raw`\dfrac{t_2}{t_1} = \dfrac{1}{2-\sqrt{3}} = 2+\sqrt{3} \approx 3.732 \;(\boxed{C})`,
+     note:'比值 t₂/t₁ = (1/2)/((2−√3)/2) = 1/(2−√3) = (2+√3)/(4−3) = 2+√3 ≈ 3.732，介于 3 与 4 之间，故选 C。'}
+  ],
+  stats: [
+    {label:'最大高度',         fmt:()=>'H'},
+    {label:'初速度 v₀',         fmt:()=>'√(2gH)'},
+    {label:'全程时间 T',        fmt:()=>'√(2H/g)'},
+    {label:'第 1 段 t₁',       fmt:s=>s.showBars?'(2−√3)/2·T':'?'},
+    {label:'第 4 段 t₂',       fmt:s=>s.showBars?'(1/2)·T':'?'},
+    {label:'t₂/t₁',           fmt:s=>s.showAnswer?'2+√3 ≈ 3.732':'?'},
+    {label:'当前段',           fmt:s=>s.showSegments?'①②③④'[s.segIdx]:'?'},
+    {label:'当前高度 y/H',     fmt:s=>s.yNorm.toFixed(2)}
+  ],
+  conclusions: [
+    {label_text:'方法',        value_text:'逆向自由落体',          note:'匀变速反演'},
+    {label_text:'时间比',      value_text:'1:(√2−1):(√3−√2):(2−√3)', note:'连续相等位移'},
+    {label_text:'t₂/t₁',      value_text:'?（动画完毕揭晓）',      note:'第 4/第 1 段比'},
+    {label_text:'答案',        value_text:'?（动画完毕揭晓）',      note:'4 项判断'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#7a3a0e',type:'dot'},  text:'篮球（重心）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'运动员（起跳点）'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'篮筐（H 顶）'},
+    {swatch:{bg:'#94a09b',border:'#94a09b',type:'rect'}, text:'4 等分 H/4 标尺'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'t₁ 第 1 段（橙）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'t₂ 第 4 段（绿）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2019新课标I-Q5-篮球扣篮4段时间比'
+});
+</script>
+</body>
+</html>

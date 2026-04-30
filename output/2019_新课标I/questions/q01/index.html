@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2019 新课标Ⅰ · 第 1 题 · 氢原子能级跃迁可见光</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// ─── 物理 ──────────────────────────────────────────────────────────────
+// 氢原子能级 E_n = -13.6/n² eV
+// 可见光范围：1.63 eV ~ 3.10 eV
+//
+// 跃迁线系：
+//   n→1（莱曼）：2→1=10.2eV、3→1=12.09eV、... 全 > 3.10 → 紫外（不可见）
+//   n→2（巴尔末）：3→2=1.89eV、4→2=2.55eV、5→2=2.86eV、6→2=3.02eV、∞→2=3.4eV
+//                  3→2 至 6→2 都在 1.63~3.10 范围 → 可见光 ✓
+//   n→3（帕邢）：4→3=0.66eV、... < 1.63 → 红外（不可见）
+//
+// 故激发后辐射可见光，必须能跌到 n=2 → 至少跃迁到 n=3
+// 最少能量 = E_3 - E_1 = -1.51 - (-13.6) = 12.09 eV
+//
+// 答案 A · 12.09 eV
+// ─────────────────────────────────────────────────────────────────────
+
+const E1 = -13.6;
+const E2 = -3.40;
+const E3 = -1.51;
+const E4 = -0.85;
+const E5 = -0.544;
+const Einf = 0;
+
+const VIS_LO = 1.63;
+const VIS_HI = 3.10;
+
+const T_total = 9.0;
+// 阶段：① 能级图（u 0-0.20）② 试 n→1 紫外不行（u 0.20-0.45）
+//      ③ 试 n→2 可见光范围（u 0.45-0.75）④ 解最少 12.09 eV + 答案（u 0.75-1.00）
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){ /* nop */ }
+  lastT = t;
+  const u = Math.max(0, Math.min(1, t/T_total));
+  let phase, prog;
+  if(u < 0.20){ phase = 1; prog = u/0.20; }
+  else if(u < 0.45){ phase = 2; prog = (u-0.20)/0.25; }
+  else if(u < 0.75){ phase = 3; prog = (u-0.45)/0.30; }
+  else { phase = 4; prog = (u-0.75)/0.25; }
+
+  return {
+    phase, prog, u, t,
+    showLevels: true,                      // 能级始终显示
+    showLymanTry: phase >= 2,              // 试 n→1 紫外
+    showBalmer: phase >= 3,                // n→2 可见光族
+    showAnswer: phase >= 4
+  };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawEnergyLevels(ctx, 14, 14, W*0.55 - 21, H - 28, state);
+  drawAnalysis(ctx, W*0.55 + 7, 14, W*0.45 - 21, H - 28, state);
+}
+
+function drawEnergyLevels(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('氢原子能级图（基态 n=1，可见光 1.63~3.10 eV）', panelX+12, panelY+18);
+
+  const levels = [
+    { n: 1, E: E1 },
+    { n: 2, E: E2 },
+    { n: 3, E: E3 },
+    { n: 4, E: E4 },
+    { n: 5, E: E5 },
+    { n: 6, E: -13.6/36 },
+    { n: '∞', E: Einf }
+  ];
+
+  // 能级映射：E -13.6 → 屏幕底部，E 0 → 屏幕顶部
+  const padT = 36, padB = 60, padL = 50, padR = 30;
+  const yMax = panelY + padT;
+  const yMin = panelY + panelH - padB;
+  // y 像素 = lerp(yMax, yMin, (E - Einf) / (E1 - Einf))
+  const yOf = (E) => yMin + (E - E1) / (Einf - E1) * (yMax - yMin);
+  const xLeft = panelX + padL;
+  const xRight = panelX + panelW - padR;
+
+  // 画能级横线
+  levels.forEach((lv) => {
+    const y = yOf(lv.E);
+    ctx.strokeStyle = lv.n === 1 ? '#16613f' : '#5d6964';
+    ctx.lineWidth = lv.n === 1 ? 2.4 : 1.4;
+    ctx.beginPath();
+    ctx.moveTo(xLeft, y); ctx.lineTo(xRight, y);
+    ctx.stroke();
+    // 标 n
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '700 11px "Cambria Math",serif';
+    ctx.fillText(`n=${lv.n}`, panelX + 12, y + 4);
+    // 标 E
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '600 10px ui-monospace,monospace';
+    ctx.fillText(`${lv.E.toFixed(2)} eV`, xRight - 65, y - 4);
+  });
+
+  // 阶段 ② 演示莱曼系（n→1 紫外）—— 画 n=2→1 跃迁箭头
+  if(state.showLymanTry){
+    const x = xLeft + (xRight - xLeft) * 0.30;
+    const yFrom = yOf(E2);
+    const yTo = yOf(E1);
+    PPath.arrow(ctx, x, yFrom, x, yTo, '#9d3fbf', 2.4);     // 紫色（紫外不可见暗示）
+    ctx.fillStyle = '#9d3fbf';
+    ctx.font = '900 10.5px "Cambria Math",serif';
+    ctx.fillText('2→1: 10.2 eV', x + 6, (yFrom + yTo)/2);
+    ctx.font = '700 10px "Noto Sans SC",sans-serif';
+    ctx.fillText('紫外 ✗', x + 6, (yFrom + yTo)/2 + 14);
+  }
+
+  // 阶段 ③ 演示巴尔末系（n→2 可见光）—— 画 n=3→2 跃迁
+  if(state.showBalmer){
+    const x = xLeft + (xRight - xLeft) * 0.55;
+    const yFrom = yOf(E3);
+    const yTo = yOf(E2);
+    PPath.arrow(ctx, x, yFrom, x, yTo, '#16613f', 2.6);     // 绿色（可见光）
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 10.5px "Cambria Math",serif';
+    ctx.fillText('3→2: 1.89 eV', x + 6, (yFrom + yTo)/2);
+    ctx.font = '700 10px "Noto Sans SC",sans-serif';
+    ctx.fillText('可见光 ✓', x + 6, (yFrom + yTo)/2 + 14);
+
+    // 顺便画 4→2、5→2 浅色辅助线
+    const xx = xLeft + (xRight - xLeft) * 0.75;
+    PPath.arrow(ctx, xx, yOf(E4), xx, yOf(E2), 'rgba(22,97,63,0.4)', 1.5);
+    ctx.fillStyle = 'rgba(22,97,63,0.7)';
+    ctx.font = '600 9.5px "Cambria Math",serif';
+    ctx.fillText('4→2: 2.55', xx + 4, (yOf(E4) + yOf(E2))/2);
+  }
+
+  // 阶段 ④ 显示 1→3 激发箭头（向上）+ 标 12.09 eV
+  if(state.showAnswer){
+    const x = xLeft + (xRight - xLeft) * 0.18;
+    const yFrom = yOf(E1);
+    const yTo = yOf(E3);
+    PPath.arrow(ctx, x, yFrom, x, yTo, '#c2611f', 3);     // 橙色（吸收激发）
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Cambria Math",serif';
+    ctx.fillText('激发 1→3: 12.09 eV', x + 6, (yFrom + yTo)/2 + 4);
+  }
+
+  // 可见光范围带（在右下角小注）
+  const visBarY = panelY + panelH - 36;
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('可见光：1.63 eV ~ 3.10 eV', panelX + 12, visBarY);
+  // 颜色光谱条示意
+  const grad = ctx.createLinearGradient(panelX + 130, visBarY - 8, panelX + 230, visBarY - 8);
+  grad.addColorStop(0, '#9d3fbf');     // 紫
+  grad.addColorStop(0.3, '#3f6fbf');    // 蓝
+  grad.addColorStop(0.55, '#16a13f');    // 绿
+  grad.addColorStop(0.75, '#cfa835');    // 黄
+  grad.addColorStop(1, '#b4442e');       // 红
+  ctx.fillStyle = grad;
+  ctx.fillRect(panelX + 130, visBarY - 12, 100, 6);
+
+  // 阶段标
+  const phaseLabel = state.phase === 1 ? '阶段 ① 氢原子能级图（基态 n=1）'
+                    : state.phase === 2 ? '阶段 ② 试 n→1（莱曼系）→ 紫外不可见'
+                    : state.phase === 3 ? '阶段 ③ 试 n→2（巴尔末系）→ 可见光 ✓'
+                    : '阶段 ④ 解：最少激发到 n=3 → 12.09 eV';
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseLabel, panelX+12, panelY+panelH-10);
+}
+
+function drawAnalysis(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('跃迁线系筛选可见光', panelX+12, panelY+18);
+
+  let yy = panelY + 44;
+
+  if(state.showLymanTry){
+    ctx.fillStyle = '#9d3fbf';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('莱曼系 n→1（紫外）：', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('2→1: E = 3.40 − 13.6 = 10.20 eV', panelX+18, yy); yy += 14;
+    ctx.fillText('3→1: 12.09 eV   4→1: 12.75 eV', panelX+18, yy); yy += 14;
+    ctx.fillStyle = '#9d3fbf';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('全部 > 3.10 eV → 紫外 ✗', panelX+18, yy); yy += 22;
+  } else { yy += 80; }
+
+  if(state.showBalmer){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    ctx.fillText('巴尔末系 n→2（可见光）：', panelX+12, yy); yy += 16;
+    ctx.fillStyle = '#1d1d1f';
+    ctx.font = '600 10.5px ui-monospace,monospace';
+    ctx.fillText('3→2: 1.89 eV ✓', panelX+18, yy); yy += 13;
+    ctx.fillText('4→2: 2.55 eV ✓', panelX+18, yy); yy += 13;
+    ctx.fillText('5→2: 2.86 eV ✓', panelX+18, yy); yy += 13;
+    ctx.fillText('6→2: 3.02 eV ✓', panelX+18, yy); yy += 13;
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('在 1.63~3.10 eV 范围内 ✓', panelX+18, yy); yy += 22;
+  } else { yy += 110; }
+
+  if(state.showAnswer){
+    ctx.fillStyle = '#5d6964';
+    ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+    ctx.fillText('结论：要辐射可见光，', panelX+12, yy); yy += 14;
+    ctx.fillText('必须能跌到 n=2 → 至少激发到 n=3', panelX+12, yy); yy += 18;
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 12px "Cambria Math",serif';
+    ctx.fillText('E_min = E_3 − E_1', panelX+18, yy); yy += 16;
+    ctx.fillText('     = −1.51 − (−13.6)', panelX+18, yy); yy += 16;
+    ctx.fillText('     = 12.09 eV', panelX+18, yy); yy += 22;
+
+    // 4 选项
+    const opts = [
+      { tag:'A · 12.09 eV', ok:true  },
+      { tag:'B · 10.20 eV', ok:false },
+      { tag:'C · 1.89 eV',  ok:false },
+      { tag:'D · 1.51 eV',  ok:false }
+    ];
+    opts.forEach((o, i) => {
+      ctx.fillStyle = o.ok ? '#16613f' : '#b4442e';
+      ctx.font = '900 11.5px "Noto Sans SC",sans-serif';
+      ctx.fillText(o.tag + (o.ok?' ✓':' ✗'), panelX+18 + (i%2)*100, yy + Math.floor(i/2)*16);
+    });
+    yy += 34;
+
+    // 答案徽章
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){
+      ctx.beginPath();
+      ctx.roundRect(panelX+panelW-130, panelY+panelH-40, 118, 30, 8);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 A · 12.09 eV', panelX+panelW-122, panelY+panelH-20);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2019 新课标Ⅰ卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 1 题 · 6 分',
+  title: '氢原子能级跃迁 · 可见光最少激发能',
+  subtitle: '基态 n=1 · 可见光 1.63~3.10 eV · 求最少激发能',
+  deliv: {
+    title: '能级筛选 + 巴尔末系',
+    sub: '莱曼 n→1 紫外 · 帕邢 n→3 红外 · 巴尔末 n→2 可见光 · 求 E_min'
+  },
+  originalProblem: {
+    meta: '2019 新课标Ⅰ卷 · 单选 · 第 1 题 · 6 分',
+    text: `氢原子能级示意图如图所示。光子能量在 1.63 eV ~ 3.10 eV 的光为可见光。要使处于基态（n=1）的氢原子被激发后可辐射出可见光光子，最少应给氢原子提供的能量为（    ）`,
+    image: '../../source/images/image1.png',
+    subQuestions: [
+      'A. 12.09 eV',
+      'B. 10.20 eV',
+      'C. 1.89 eV',
+      'D. 1.51 eV'
+    ],
+    officialAnswer: 'A · 氢原子高能级跃迁到基态（莱曼系，n→1）所辐射光子能量最小为 E_2−E_1 = −3.40−(−13.6) = 10.20 eV，超出可见光上限 3.10 eV，故全是紫外。要产生可见光光子，必须能跌到 n=2（巴尔末系），其中 3→2: 1.89 eV、4→2: 2.55 eV、5→2: 2.86 eV、6→2: 3.02 eV 都在 1.63~3.10 eV 范围内。因此氢原子至少要被激发到 n=3 能级。最少应提供的能量 E_min = E_3 − E_1 = −1.51 − (−13.6) = 12.09 eV。故选 A。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 能级图', label_short:'能级',
+     formula_tex: String.raw`E_n = -\dfrac{13.6}{n^{2}}\;\text{eV},\;\; \text{基态 } E_1 = -13.6\;\text{eV}`,
+     note:'氢原子能级公式 E_n = −13.6/n² eV。基态 n=1 时 E_1 = −13.6 eV。可见光范围 1.63~3.10 eV。'},
+    {label:'阶段 ② n→1（莱曼系）', label_short:'莱曼',
+     formula_tex: String.raw`n\to 1:\;\; E_2-E_1 = 10.2,\;\; E_3-E_1 = 12.09,\;\dots\; > 3.10\;\text{eV}`,
+     note:'跌到基态 n=1 的光子能量都超过 3.10 eV，全是紫外光，不可见。'},
+    {label:'阶段 ③ n→2（巴尔末）', label_short:'巴尔末',
+     formula_tex: String.raw`n\to 2:\;\; 3\to 2 = 1.89,\;\; 4\to 2 = 2.55,\;\; \dots \in [1.63, 3.10]`,
+     note:'跌到 n=2 的光子能量都在 1.63~3.10 eV 范围内 → 可见光。所以要辐射可见光必须能跌到 n=2。'},
+    {label:'阶段 ④ 解 E_min', label_short:'解',
+     formula_tex: String.raw`E_{\min} = E_3 - E_1 = -1.51 - (-13.6) = 12.09\;\text{eV} \;(\boxed{A})`,
+     note:'要能跌到 n=2，氢原子至少要被激发到 n=3。最少能量 E_min = E_3 − E_1 = −1.51 − (−13.6) = 12.09 eV。答案 A。'}
+  ],
+  stats: [
+    {label:'E_1 基态',        fmt:()=>'−13.60 eV'},
+    {label:'E_2',             fmt:()=>'−3.40 eV'},
+    {label:'E_3',             fmt:()=>'−1.51 eV'},
+    {label:'可见光下限',       fmt:()=>'1.63 eV'},
+    {label:'可见光上限',       fmt:()=>'3.10 eV'},
+    {label:'2→1 莱曼',        fmt:s=>s.showLymanTry?'10.20 eV ✗':'?'},
+    {label:'3→2 巴尔末',      fmt:s=>s.showBalmer?'1.89 eV ✓':'?'},
+    {label:'最少激发',         fmt:s=>s.showAnswer?'1→3':'?'},
+    {label:'E_min',           fmt:s=>s.showAnswer?'12.09 eV':'?'}
+  ],
+  conclusions: [
+    {label_text:'莱曼系 n→1', value_text:'≥ 10.2 eV（紫外）',     note:'全部超 3.10 eV 上限'},
+    {label_text:'巴尔末 n→2', value_text:'1.89~3.4 eV',          note:'3→2..6→2 都可见'},
+    {label_text:'帕邢 n→3',   value_text:'&lt; 1.63 eV（红外）',     note:'全部低于下限'},
+    {label_text:'答案',        value_text:'?（动画完毕揭晓）',      note:'最少激发能'}
+  ],
+  legend: [
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'基态 n=1（绿粗线）'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'激发态 n≥2'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'吸收激发（向上）'},
+    {swatch:{bg:'#9d3fbf',border:'#9d3fbf',type:'rect'}, text:'紫外辐射（莱曼 n→1）'},
+    {swatch:{bg:'#16a13f',border:'#16a13f',type:'rect'}, text:'可见光辐射（巴尔末 n→2）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2019新课标I-Q1-氢原子能级可见光'
+});
+</script>
+</body>
+</html>

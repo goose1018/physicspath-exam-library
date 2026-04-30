@@ -193,6 +193,9 @@ const REAL_PROBLEMS = [
   // ── 2020 新课标 III 卷 ──
   { id:'2020-xkbIII-q01', year:2020, paper:'xkbIII', no:'1', module:'电磁学',  tplId:null, title:'玻璃棒线圈 + 金属圆环 · 楞次定律',                summary:'光滑玻璃棒左端线圈右端金属圆环。开关接通瞬间，I_线圈从 0 增大 → B↑ → Φ_环↑ → 楞次"增则斥" → 圆环受斥力远离线圈（向右）。M/N 端结果相同。答案 B。', diff:'易', heat:120, hasAnim:true, htmlPath:'2020_新课标III/questions/q01/index.html' },
   { id:'2020-xkbIII-q04', year:2020, paper:'xkbIII', no:'4', module:'力学',    tplId:null, title:'绳索 O 点平衡几何 · 求 β',                       summary:'墙左固定绳过 O 点接细线挂甲，另一端经光滑滑轮挂乙。甲乙等质量，α=70° 求 β。O 点 3 力平衡 → cot β=(1-cos α)/sin α=(1-cos 70°)/sin 70°≈0.700 → β≈55°。答案 B。', diff:'中', heat:125, hasAnim:true, htmlPath:'2020_新课标III/questions/q04/index.html' },
+  // ── 2019 新课标 I 卷 ──
+  { id:'2019-xkbI-q01', year:2019, paper:'xkbI', no:'1', module:'近代物理', tplId:null, title:'氢原子能级跃迁 · 可见光最少激发能',               summary:'E_n=-13.6/n² eV；可见光 1.63~3.10 eV。莱曼 n→1 全紫外、帕邢 n→3 全红外、巴尔末 n→2（3→2..6→2 都在范围）→ 必须激发到 n≥3。E_min=E_3-E_1=12.09 eV。答案 A。', diff:'中', heat:130, hasAnim:true, htmlPath:'2019_新课标I/questions/q01/index.html' },
+  { id:'2019-xkbI-q05', year:2019, paper:'xkbI', no:'5', module:'力学',    tplId:null, title:'篮球扣篮上升 4 段时间比 t₂/t₁',                  summary:'垂直起跳上升 H, 4 等分 H/4。逆向自由落体反向，等距时间比 1:(√2-1):(√3-√2):(2-√3)。t₁=(2-√3)/2·T, t₂=1/2·T → t₂/t₁=1/(2-√3)=2+√3≈3.732。3<·<4。答案 C。', diff:'中', heat:120, hasAnim:true, htmlPath:'2019_新课标I/questions/q05/index.html' },
   { id:'2023-xgk1-q07', year:2023, paper:'xgk1', no:'7',  module:'力学',    tplId:null, title:'W-x 图分段拉力 · 动能/功率/动量',                  summary:'½mv²=W−f·x，f=4N；F₁=6 加速 / F₂=3<f 减速；x=4 KE=2J；W_f(0→2)=8J；v_max=2√2 在 x=2m。答案 BC。', diff:'中', heat:130, hasAnim:true, htmlPath:'2023_新课标卷/questions/q07/index.html' },
   { id:'2023-xgk1-q08', year:2023, paper:'xgk1', no:'8',  module:'热学',    tplId:null, title:'三段绝热汽缸 + 弹簧 + 加热 f',                       summary:'加热 f → P₁ 推 g、弹簧推 P₂ 推 h；P₁ 平衡 P_f=P_g+F/A，P₂ 平衡 P_h=P_g+F/A → P_f=P_h；h 绝热被做正功 ΔU_h>0。答案 AD。', diff:'中', heat:135, hasAnim:true, htmlPath:'2023_新课标卷/questions/q08/index.html' },
   { id:'2023-xgk1-q11', year:2023, paper:'xgk1', no:'11', module:'力学',    tplId:null, title:'打水漂 · 最小水平抛速度',                            summary:'平抛 v_y=√(2gh)；落水夹角 tan α=v_y/v₀；α≤θ 临界条件 → v₀≥√(2gh)/tan θ；v₀_min=√(2gh)/tan θ。', diff:'中', heat:120, hasAnim:true, htmlPath:'2023_新课标卷/questions/q11/index.html' },
@@ -324,6 +327,9 @@ const PROBLEM_META = {
   // 2020 新课标 III 卷
   '2020-xkbIII-q01': { type:'choice-single', answer:'B' },
   '2020-xkbIII-q04': { type:'choice-single', answer:'B' },
+  // 2019 新课标 I 卷
+  '2019-xkbI-q01': { type:'choice-single', answer:'A' },
+  '2019-xkbI-q05': { type:'choice-single', answer:'C' },
   '2023-xgk1-q07': { type:'choice-multi',  answer:'BC' },
   '2023-xgk1-q08': { type:'choice-multi',  answer:'AD' },
   '2023-xgk1-q11': { type:'calc',          answer:[{sub:'v₀_min',val:'√(2gh)/tan θ'}] },
