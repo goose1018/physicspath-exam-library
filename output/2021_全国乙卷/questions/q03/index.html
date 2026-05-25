@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2021 全国乙 · 第 3 题 · 圆形磁场区粒子偏转</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理（独立推导）：
+// 圆形磁场区 半径 R，B 垂直纸面向里。质量 m / 电荷 q 的粒子从圆周点 M 沿"直径方向"
+// 射入（即 v 沿 M→O 方向），离开磁场后偏转角 θ。
+//
+// 粒子在磁场中做圆周运动：r = mv/(qB)。轨迹圆心 C 满足 CM⊥v_M，
+// 故 CM⊥OM（沿直径射入意味着 v_M 沿 OM）→ ∠OMC = 90°。
+//
+// 几何关系（独立推导，且数值代入两次验证）：
+//   弦 MP = 2R·cos(θ/2)（在磁场圆 O 中：等腰三角形 OMP，底角 ∠OMP=θ/2）
+//   弦 MP = 2r·sin(θ/2)（在轨迹圆 C 中：等腰三角形 CMP，圆心角 ∠MCP = θ）
+//   令两者相等：r = R·cos(θ/2)/sin(θ/2) = R·cot(θ/2)
+//
+// 数值代入：
+//   情况 ①  θ = 60°：r₁ = R·cot 30° = √3 R   ≈ 1.732 R（轨迹半径较大）
+//   情况 ②  θ = 120°：r₂ = R·cot 60° = R/√3   ≈ 0.577 R（轨迹半径较小）
+//
+// 由 r = mv/(qB)（q、B、m 不变）→ v ∝ r：
+//   v₁/v₂ = r₁/r₂ = √3 R / (R/√3) = 3   → 答案 B
+
+const T_TOTAL = 13.0;
+
+const THETA_1 = Math.PI/3;          // 60°
+const THETA_2 = 2*Math.PI/3;        // 120°
+const R_OVER_TAN_1 = 1/Math.tan(THETA_1/2);   // cot(30°) = √3
+const R_OVER_TAN_2 = 1/Math.tan(THETA_2/2);   // cot(60°) = 1/√3
+const RATIO = R_OVER_TAN_1 / R_OVER_TAN_2;    // = 3
+
+let lastT = 0;
+function evalState(t){
+  if(t < lastT - 0.05){}
+  lastT = t;
+  const u = t / T_TOTAL;
+  let phase = 0;
+  let sub1 = 0, sub2 = 0;
+  let showAnnot1 = false, showAnnot2 = false;
+  let showVerdict = false;
+
+  if(u < 0.06){
+    phase = 0;                          // 装置
+  } else if(u < 0.26){
+    phase = 1;                          // case 1 粒子运动
+    sub1 = (u - 0.06) / 0.20;
+  } else if(u < 0.46){
+    phase = 2;                          // case 1 标注
+    sub1 = 1; showAnnot1 = true;
+  } else if(u < 0.66){
+    phase = 3;                          // case 2 粒子运动
+    sub1 = 1; showAnnot1 = true;
+    sub2 = (u - 0.46) / 0.20;
+  } else if(u < 0.86){
+    phase = 4;                          // case 2 标注
+    sub1 = 1; showAnnot1 = true;
+    sub2 = 1; showAnnot2 = true;
+  } else {
+    phase = 5;                          // 综合
+    sub1 = 1; showAnnot1 = true;
+    sub2 = 1; showAnnot2 = true;
+    showVerdict = (u >= 0.92);
+  }
+  return { phase, u, t, sub1, sub2, showAnnot1, showAnnot2, showVerdict };
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+  drawSetup(ctx, 14, 14, W-28, H-28, state);
+}
+
+function drawSetup(ctx, panelX, panelY, panelW, panelH, state){
+  // 面板背景
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  // 顶端说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('圆形磁场区 · 粒子从 M 沿直径方向射入 · 偏转 60° / 120° 比较', panelX+12, panelY+18);
+
+  // 物理半径 R = R_MF 像素
+  const R_MF = Math.min(panelW * 0.13, panelH * 0.22);
+  const halfW = panelW / 2;
+  // 两半的中心：把磁场圆居中，留出空间画轨迹弧
+  const O1 = {x: panelX + halfW * 0.50, y: panelY + panelH * 0.42};
+  const O2 = {x: panelX + halfW + halfW * 0.50, y: panelY + panelH * 0.42};
+
+  // 中线
+  ctx.strokeStyle = '#e7dfcc'; ctx.lineWidth = 1;
+  ctx.setLineDash([3,5]);
+  ctx.beginPath();
+  ctx.moveTo(panelX + halfW, panelY + 30);
+  ctx.lineTo(panelX + halfW, panelY + panelH - 36);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 情况 ①
+  drawMagnetField(ctx, O1, R_MF, '情况 ①  v₁  偏转 60°');
+  drawCase(ctx, O1, R_MF, THETA_1, state.sub1, state.showAnnot1, '#1a73e8', '60°', 1);
+
+  // 情况 ②
+  drawMagnetField(ctx, O2, R_MF, '情况 ②  v₂  偏转 120°');
+  drawCase(ctx, O2, R_MF, THETA_2, state.sub2, state.showAnnot2, '#c2611f', '120°', 2);
+
+  // 答案徽章（u≥0.92 守卫）
+  if(state.showVerdict){
+    const bw = Math.min(panelW * 0.45, 360), bh = 50;
+    const bx = panelX + (panelW - bw)/2;
+    const by = panelY + panelH - bh - 28;
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.6;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx, by, bw, bh, 9);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 16px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案  B', bx + 14, by + 22);
+    ctx.fillStyle = '#5d4631';
+    ctx.font = 'italic 800 13px "Cambria Math",Georgia,serif';
+    ctx.fillText('v₁ / v₂ = r₁ / r₂ = √3 R ÷ (R/√3) = 3', bx + 100, by + 22);
+    ctx.fillStyle = '#86868b';
+    ctx.font = '600 11px "Noto Sans SC",sans-serif';
+    ctx.fillText('（r = mv/(qB) → v ∝ r；q, B, m 三者相同）', bx + 14, by + 40);
+  }
+
+  // 阶段标签
+  const phaseTexts = [
+    '阶段 ① 装置：圆形磁场区 (⊗ 表示 B 垂直纸面向里)',
+    '阶段 ② 情况 ① v₁ 沿直径射入 → 偏转 60° 离开',
+    '阶段 ③ 情况 ① 标注：r₁ = R·cot 30° = √3 R',
+    '阶段 ④ 情况 ② v₂ 沿直径射入 → 偏转 120° 离开',
+    '阶段 ⑤ 情况 ② 标注：r₂ = R·cot 60° = R/√3',
+    '阶段 ⑥ 综合：v ∝ r → v₁/v₂ = r₁/r₂'
+  ];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText(phaseTexts[Math.min(state.phase, 5)], panelX+12, panelY+panelH-12);
+}
+
+function drawMagnetField(ctx, O, R, label){
+  // 磁场圆边界
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.arc(O.x, O.y, R, 0, Math.PI*2);
+  ctx.stroke();
+
+  // 圆心 O
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath();
+  ctx.arc(O.x, O.y, 2.4, 0, Math.PI*2);
+  ctx.fill();
+  ctx.font = '700 11px "Cambria Math",Georgia,serif';
+  ctx.fillText('O', O.x - 12, O.y + 4);
+
+  // 半径 R 短标（朝右上）
+  ctx.strokeStyle = '#9b9486'; ctx.lineWidth = 1;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(O.x, O.y);
+  ctx.lineTo(O.x + R*0.72, O.y + R*0.45);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#86868b';
+  ctx.font = 'italic 700 10.5px "Cambria Math",Georgia,serif';
+  ctx.fillText('R', O.x + R*0.42, O.y + R*0.32);
+
+  // ⊗ 表示磁场向里（3 个标记，避开左侧 M 点和上方轨迹弧 / 出射区）
+  const dotPos = [
+    {dx:  0.55, dy:  0.42},
+    {dx:  0.55, dy: -0.42},
+    {dx: -0.10, dy:  0.55}
+  ];
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.1;
+  dotPos.forEach(p => {
+    const px = O.x + p.dx*R, py = O.y + p.dy*R;
+    const dr = 5.5;
+    ctx.beginPath(); ctx.arc(px, py, dr, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(px-dr*0.7, py-dr*0.7); ctx.lineTo(px+dr*0.7, py+dr*0.7);
+    ctx.moveTo(px-dr*0.7, py+dr*0.7); ctx.lineTo(px+dr*0.7, py-dr*0.7);
+    ctx.stroke();
+  });
+
+  // M 点（圆周左侧 — 与原题图一致：粒子沿直径方向向右射入磁场）
+  const Mx = O.x - R, My = O.y;
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath();
+  ctx.arc(Mx, My, 3.6, 0, Math.PI*2);
+  ctx.fill();
+  ctx.font = '900 12px "Cambria Math",Georgia,serif';
+  ctx.fillText('M', Mx - 14, My - 5);
+
+  // 情况标题（位于磁场圆上方）
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText(label, O.x - R - 4, O.y - R - 14);
+}
+
+// 入射 / 弧 / 出射 三段动画 + 标注
+function drawCase(ctx, O, R, theta, sub, showAnnot, color, thetaLabel, idx){
+  if(sub <= 0) return;
+
+  const r = R / Math.tan(theta/2);
+  // M 在 O 左侧（M=(O.x-R, O.y)）；v_M 沿 +x（向右朝 O，与原题图一致）
+  // 正电荷 + B 向里 + v 沿 +x → F=qv×B 沿 +y 物理（向上）→ C 在 M 物理 +y → canvas 中 -y → C 在 M 上方
+  const Cx = O.x - R, Cy = O.y - r;
+
+  // canvas 角度系：M 在 C 下方 → M-C canvas = (0, +r) → atan2(+r, 0) = +π/2
+  // 物理逆时针 ↔ canvas atan2 角度递减（y 翻转）→ anticlockwise=true 仍正确
+  const startAng = Math.PI/2;
+  const endAng   = Math.PI/2 - theta;      // anticlockwise=true 走法
+  const Px = Cx + r*Math.cos(endAng);
+  const Py = Cy + r*Math.sin(endAng);
+
+  // 入射段起点（M 左侧远处，沿 +x 飞向 M）
+  const enterStartX = O.x - R - R*1.55, enterStartY = O.y;
+
+  // 出射切线方向（canvas）：v ∝ (sin(ang_P), -cos(ang_P))
+  const tanX = Math.sin(endAng);
+  const tanY = -Math.cos(endAng);
+  const exitEndX = Px + tanX * R*1.55;
+  const exitEndY = Py + tanY * R*1.55;
+
+  // ===== 画过往轨迹（动画前进段 + 已完成段） =====
+  ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+
+  // sub 切到 3 段：[0, 0.18] 入射；[0.18, 0.82] 弧；[0.82, 1] 出射
+  ctx.beginPath();
+  // 入射段（M 在左侧 → 终点 = O.x - R）
+  if(sub > 0){
+    ctx.moveTo(enterStartX, enterStartY);
+    const subEnter = Math.min(sub / 0.18, 1);
+    const ex = enterStartX + ((O.x - R) - enterStartX) * subEnter;
+    ctx.lineTo(ex, enterStartY);
+  }
+  // 弧段
+  if(sub > 0.18){
+    const subArc = Math.min((sub - 0.18) / 0.64, 1);
+    const arcEnd = startAng + (endAng - startAng) * subArc;
+    // ctx.arc 的最后参数 anticlockwise=true 表示从 startAng 沿 atan2 递减方向到 arcEnd
+    ctx.arc(Cx, Cy, r, startAng, arcEnd, true);
+  }
+  // 出射段
+  if(sub > 0.82){
+    const subExit = Math.min((sub - 0.82) / 0.18, 1);
+    const px = Px + tanX * R*1.55 * subExit;
+    const py = Py + tanY * R*1.55 * subExit;
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // ===== 当前粒子位置 =====
+  let pX, pY, vAngCanvas; // vAngCanvas 用于速度箭头方向
+  if(sub <= 0.18){
+    const subEnter = sub / 0.18;
+    pX = enterStartX + ((O.x - R) - enterStartX) * subEnter;
+    pY = enterStartY;
+    vAngCanvas = 0; // 沿 +x（向右朝 O）
+  } else if(sub <= 0.82){
+    const subArc = (sub - 0.18) / 0.64;
+    const ang = startAng + (endAng - startAng) * subArc;
+    pX = Cx + r*Math.cos(ang);
+    pY = Cy + r*Math.sin(ang);
+    // 切向 (anticlockwise=true 方向): 等同 (sin(ang), -cos(ang))
+    vAngCanvas = Math.atan2(-Math.cos(ang), Math.sin(ang));
+  } else {
+    const subExit = (sub - 0.82) / 0.18;
+    pX = Px + tanX * R*1.55 * subExit;
+    pY = Py + tanY * R*1.55 * subExit;
+    vAngCanvas = Math.atan2(tanY, tanX);
+  }
+
+  // 速度箭头
+  const vLen = 18;
+  drawArrow(ctx, pX, pY, pX + vLen*Math.cos(vAngCanvas), pY + vLen*Math.sin(vAngCanvas), color, 1.8);
+  // 速度标签（入射段沿 +x 朝右；标签放粒子上方避免与箭头重叠）
+  ctx.fillStyle = color;
+  ctx.font = 'italic 800 12px "Cambria Math",Georgia,serif';
+  if(sub < 0.5){
+    ctx.fillText(idx===1 ? 'v₁' : 'v₂', pX - 6, pY - 9);
+  }
+
+  // 粒子点
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(pX, pY, 5, 0, Math.PI*2); ctx.fill();
+
+  // ===== showAnnot 时：画 C / P / r / 偏转角弧标 =====
+  if(showAnnot){
+    // 轨迹圆心 C
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(Cx, Cy, 2.6, 0, Math.PI*2); ctx.fill();
+    ctx.font = '900 11px "Cambria Math",Georgia,serif';
+    ctx.fillText(idx===1 ? 'C₁' : 'C₂', Cx + 6, Cy + 12);
+
+    // CM 与 CP 半径虚线（M 在 O 左侧 → CM 终点 = O.x - R）
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(Cx, Cy); ctx.lineTo(O.x-R, O.y);
+    ctx.moveTo(Cx, Cy); ctx.lineTo(Px, Py);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // r 短数值标（在 CM 中点偏左，避开磁场圆）
+    const rTxt = idx===1 ? 'r₁ = √3 R' : 'r₂ = R/√3';
+    ctx.fillStyle = color;
+    ctx.font = 'italic 800 11px "Cambria Math",Georgia,serif';
+    const midX = (Cx + O.x - R)/2 - 56;
+    const midY = (Cy + O.y)/2 + 4;
+    ctx.fillText(rTxt, midX, midY);
+
+    // 出射点 P（在磁场圆上方）
+    ctx.fillStyle = '#1d1d1f';
+    ctx.beginPath(); ctx.arc(Px, Py, 3.6, 0, Math.PI*2); ctx.fill();
+    ctx.font = '900 11px "Cambria Math",Georgia,serif';
+    // P 标位置：P 在上方 → 标签放 P 上方
+    const Plx = (Px < O.x) ? Px - 18 : Px + 6;
+    const Ply = Py - 8;
+    ctx.fillText(idx===1 ? 'P₁' : 'P₂', Plx, Ply);
+
+    // 偏转角短标（紧贴 P 上方单行）
+    ctx.fillStyle = color;
+    ctx.font = '900 12px "Noto Sans SC",sans-serif';
+    const labXOff = (Px < O.x) ? -18 : 8;
+    ctx.fillText('θ = ' + thetaLabel, Px + labXOff, Py - 22);
+  }
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, lw){
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  const ang = Math.atan2(y2-y1, x2-x1);
+  const al = 7;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - al*Math.cos(ang - 0.4), y2 - al*Math.sin(ang - 0.4));
+  ctx.lineTo(x2 - al*Math.cos(ang + 0.4), y2 - al*Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fill();
+}
+
+PathQuestion({
+  paperTitle: '2021 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '圆形磁场区粒子偏转 · 速度比 v₁/v₂',
+  subtitle: '从圆周 M 点沿直径射入；偏转 60° vs 120° 时，求 v₁/v₂',
+  deliv: {
+    title: '比值 v₁/v₂',
+    sub: '由 r=mv/(qB) → v∝r；几何 r=R·cot(θ/2) → v 比 = cot 比'
+  },
+  originalProblem: {
+    meta: '2021 全国乙卷 · 单选 · 第 3 题 · 6 分',
+    image: '../../source/images/image22.png',
+    text: `如图，圆形区域内有垂直纸面向里的匀强磁场，质量为 m、电荷量为 q 的带电粒子从圆周上的 M 点沿直径方向射入磁场。若粒子射入磁场时的速度大小为 v₁，离开磁场时速度方向偏转 60°；若射入磁场时的速度大小为 v₂，离开磁场时速度方向偏转 120°，不计重力，则 v₁/v₂ 为（  ）`,
+    subQuestions: [
+      'A. 1/3',
+      'B. 3',
+      'C. √3 / 3',
+      'D. √3'
+    ],
+    officialAnswer: 'B · 设磁场圆半径 R。粒子沿直径方向射入意味着 v_M 沿 OM，故 CM⊥OM（C 为轨迹圆心），∠OMC=90°。在等腰 △OMP 中（OM=OP=R）底角 ∠OMP=θ/2，故弦 MP=2R·cos(θ/2)；同时在轨迹圆 C 中 △CMP（CM=CP=r、圆心角 ∠MCP=θ）有弦 MP=2r·sin(θ/2)。两式相等得 r=R·cot(θ/2)。代入 θ₁=60°、θ₂=120°：r₁=√3 R、r₂=R/√3。由 r=mv/(qB) 知 v∝r（q、B、m 均相同），故 v₁/v₂=r₁/r₂=3。故选 B。'
+  },
+  totalT: T_TOTAL,
+  speedFactor: 0.55,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 装置',label_short:'装',
+     formula_tex: String.raw`\text{圆形磁场区域 半径 } R;\;\;\vec{B}\;\text{垂直纸面向里}`,
+     note:'磁场圆心 O；M 在圆周上；粒子从 M 沿直径方向射入（v 沿 M→O）'},
+    {label:'阶段 ② 情况 ① v₁ 偏转 60°',label_short:'①',
+     formula_tex: String.raw`\theta_1 = 60^\circ;\;\;v_M\perp CM \;\Rightarrow\; \angle OMC = 90^\circ`,
+     note:'轨迹圆心 C₁ 满足 CM⊥v；几何对照磁场圆 → 弦关系'},
+    {label:'阶段 ③ 几何关系 → r₁',label_short:'r₁',
+     formula_tex: String.raw`\text{弦 } MP = 2R\cos(\theta/2) = 2r\sin(\theta/2)\;\Rightarrow\;r=R\cot(\theta/2)`,
+     note:'等腰 △OMP 底角 = θ/2 + 等腰 △CMP 圆心角 = θ → 联立得 r₁ = R·cot 30° = √3 R'},
+    {label:'阶段 ④ 情况 ② v₂ 偏转 120°',label_short:'②',
+     formula_tex: String.raw`\theta_2 = 120^\circ;\;\;\text{同样几何}\;\;r=R\cot(\theta/2)`,
+     note:'同一公式代入 θ₂ → r₂ = R·cot 60° = R/√3（轨迹半径较小）'},
+    {label:'阶段 ⑤ 数值代入',label_short:'r₂',
+     formula_tex: String.raw`r_1 = \sqrt{3}\,R,\;\;r_2 = \dfrac{R}{\sqrt{3}}`,
+     note:'两轨迹半径成反比 → r₁/r₂ = 3'},
+    {label:'阶段 ⑥ 比值 v ∝ r',label_short:'比',
+     formula_tex: String.raw`\dfrac{v_1}{v_2} = \dfrac{r_1}{r_2} = \dfrac{\sqrt{3}\,R}{R/\sqrt{3}} = 3`,
+     note:'由 r = mv/(qB)（q、B、m 均相同）→ v∝r，故 v₁/v₂ = r₁/r₂ = 3'}
+  ],
+  stats: [
+    {label:'磁场半径', fmt:()=>'R'},
+    {label:'θ₁',     fmt:()=>'60°'},
+    {label:'θ₂',     fmt:()=>'120°'},
+    {label:'r₁',     fmt:s=>(s.showAnnot1 ? '√3 R' : '?')},
+    {label:'r₂',     fmt:s=>(s.showAnnot2 ? 'R/√3' : '?')},
+    {label:'v₁/v₂',  fmt:s=>(s.showVerdict ? '3' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'1/3',     note:'若错把 r 与 cot(θ/2) 反比理解'},
+    {label_text:'B 对', value_text:'3 ✓',     note:'r₁/r₂ = √3 R ÷ (R/√3) = 3'},
+    {label_text:'C 错', value_text:'√3 / 3', note:'对应 r₁/r₂ = 1/√3 的错误几何'},
+    {label_text:'D 错', value_text:'√3',     note:'对应单步几何错误'}
+  ],
+  legend: [
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'磁场圆边界 / O / M'},
+    {swatch:{bg:'#1a73e8',border:'#1a73e8',type:'rect'}, text:'情况 ① v₁ 轨迹（θ=60°，r₁=√3R）'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'情况 ② v₂ 轨迹（θ=120°，r₂=R/√3）'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'⊗ 磁场垂直纸面向里'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:false},
+  fileName: '2021全国乙-Q3-圆形磁场区粒子偏转'
+});
+</script>
+</body>
+</html>

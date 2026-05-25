@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 题 · 卷轴 + 弹簧 + 插销</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 卷轴半径 r 在水平面绕 O 转动。细管沿半径方向固定，长 l。
+// 管内弹簧原长 l₀，劲度 k，底端固定。顶端连质量 m 插销。
+// 当以 v 匀速拉绳时，插销做匀速圆周运动（半径 = 卷轴半径 r 即角速度 ω·r = v）
+// v 过大 → 插销卡进端盖
+// 求最大 v
+//
+// 物理：插销做圆周运动 → 半径 = 卷轴上插销位置（沿管方向）
+// 设弹簧伸长 x，插销距 O 距离 = l₀ + x（如果端盖在管口，l₀ + x ≤ l）
+// 圆周运动半径 R = l₀ + x
+// 向心力 = 弹簧弹力 k·x = m·ω²·R = m·ω²·(l₀ + x)
+// k·x = m·ω²·(l₀ + x) → x = m·ω²·l₀ / (k - m·ω²)
+// 临界：x = l - l₀（弹簧伸到 l 长 → 插销到管口端盖）
+// l - l₀ = m·ω²·l₀ / (k - m·ω²)
+// (l - l₀)(k - m·ω²) = m·ω²·l₀
+// k(l - l₀) - m·ω²·(l - l₀) = m·ω²·l₀
+// k(l - l₀) = m·ω²·l
+// ω² = k(l - l₀)/(m·l)
+// 又 v = ω·r → ω = v/r → v² = r²·k(l - l₀)/(m·l)
+// v_max = r·√(k(l - l₀)/(m·l))
+
+const T_total = 6;
+
+function evalState(t){
+  const u = (t/T_total) % 1;
+  const phaseAng = u * 2*Math.PI;
+  return {phase:1, phaseAng, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const cx = W*0.4, cy = H*0.5;
+  const R_spool = 75;     // 卷轴半径
+
+  // 卷轴
+  ctx.fillStyle = 'rgba(195, 165, 110, 0.3)';
+  ctx.beginPath(); ctx.arc(cx, cy, R_spool, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, R_spool, 0, Math.PI*2); ctx.stroke();
+  // 中心
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Cambria Math",serif';
+  ctx.fillText('O', cx-12, cy-8);
+
+  // 细管（沿径向，长度 l + 突出卷轴的部分）
+  const tubeAng = state.phaseAng;
+  const tubeLen = R_spool - 5;     // 管在卷轴内
+  const cosA = Math.cos(tubeAng), sinA = Math.sin(tubeAng);
+  // 管壁
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  // 双线表示管
+  const perp = [-sinA, cosA];
+  ctx.beginPath();
+  ctx.moveTo(cx + perp[0]*4, cy + perp[1]*4);
+  ctx.lineTo(cx + cosA*tubeLen + perp[0]*4, cy + sinA*tubeLen + perp[1]*4);
+  ctx.moveTo(cx - perp[0]*4, cy - perp[1]*4);
+  ctx.lineTo(cx + cosA*tubeLen - perp[0]*4, cy + sinA*tubeLen - perp[1]*4);
+  ctx.stroke();
+  // 端盖
+  ctx.fillStyle = '#b4442e';
+  ctx.fillRect(cx + cosA*(tubeLen-2) - 4, cy + sinA*(tubeLen-2) - 4, 8, 8);
+
+  // 弹簧（管底到插销）
+  const insertX_default = tubeLen * 0.65;     // 插销默认位置
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.05){
+    const r_at = s * insertX_default;
+    const offsetPerp = Math.sin(s*Math.PI*8)*4;
+    ctx.lineTo(cx + cosA*r_at + perp[0]*offsetPerp, cy + sinA*r_at + perp[1]*offsetPerp);
+  }
+  ctx.stroke();
+
+  // 插销
+  const insertX = cx + cosA*insertX_default;
+  const insertY = cy + sinA*insertX_default;
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(insertX, insertY, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('插销 m', insertX+12, insertY-4);
+
+  // 圆周运动轨迹
+  ctx.strokeStyle = 'rgba(194,97,31,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.arc(cx, cy, insertX_default, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 拉绳箭头
+  PPath.arrow(ctx, cx + R_spool + 30, cy + 30, cx + R_spool + 70, cy + 30, '#16613f', 2);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('v 拉绳', cx + R_spool + 38, cy + 22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-160, 460, 140, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('插销在管内做圆周运动 → 弹簧弹力 = 向心力', 32, H-138);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('设伸长 x，插销距 O = l₀ + x（小于 l 才不卡盖）', 32, H-118);
+  ctx.fillText('k·x = m·ω²·(l₀ + x)  ⇒  x = m·ω²·l₀ / (k − m·ω²)', 32, H-100);
+  ctx.fillText('临界 x = l − l₀ → ω² = k(l − l₀)/(m·l)', 32, H-82);
+  ctx.fillText('v = ω·r → v² = r²·k(l − l₀)/(m·l)', 32, H-62);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('v_max = r·√[ k(l − l₀) / (m·l) ]', 32, H-38);
+
+  // 顶部
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('卷轴 + 细管 + 弹簧 + 插销 — 圆周运动临界', 24, 22);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, 16, 208, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 A · v=r√(k(l−l₀)/ml)', W-208, 36);
+}
+
+PathQuestion({
+  paperTitle: '2024 广东卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 6 分',
+  title: '卷轴 + 弹簧 + 插销 · 圆周运动临界',
+  subtitle: '卷轴绕 O 转动，管内弹簧 + 插销做圆周运动。求不卡死的最大 v。',
+  deliv: {
+    title: '圆周运动 + 弹簧',
+    sub: 'v_max = r·√(k(l−l₀)/ml) · 答案 A'
+  },
+  originalProblem: {
+    meta: '2024 广东卷 · 第 5 题 · 6 分',
+    text: `在细绳的拉动下，半径为 <b>r</b> 的卷轴可绕其固定的中心点 O 在水平面内转动。卷轴上沿半径方向固定着长度为 <b>l</b> 的细管，管底在 O 点。细管内有一根原长为 <b>l₀</b>、劲度系数为 <b>k</b> 的轻质弹簧，弹簧底端固定在管底，顶端连接质量为 <b>m</b>、可视为质点的插销。当以速度 v 匀速拉动细绳时，插销做匀速圆周运动。若 <b>v 过大，插销会卡进固定的端盖</b>，使卷轴转动停止。求 v 的最大值。`,
+    subQuestions: [],
+    officialAnswer: 'A · 圆周运动 ω = v/r。弹簧弹力 = 向心力：k·x = m·ω²·(l₀ + x) → x = m·ω²·l₀/(k − m·ω²)。临界条件 x = l − l₀（弹簧伸到管口）。代入解出 ω² = k(l − l₀)/(m·l)，故 v_max = r·√(k(l − l₀)/(m·l))。'
+  },
+  totalT: T_total,
+  speedFactor: 1.0,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'弹簧 = 向心力', label_short:'平衡',
+     formula_tex: String.raw`k\,x = m\omega^2(l_0+x),\;\; v_{\max} = r\sqrt{\dfrac{k(l-l_0)}{ml}}`,
+     note:'弹簧弹力提供向心力。临界：弹簧伸长到 l-l₀ → 插销恰好到端盖。'}
+  ],
+  stats: [
+    {label:'卷轴半径 r',     fmt:()=>'r'},
+    {label:'管长 l',         fmt:()=>'l'},
+    {label:'弹簧原长 l₀',    fmt:()=>'l₀'},
+    {label:'劲度 k',         fmt:()=>'k'},
+    {label:'插销 m',         fmt:()=>'m'},
+    {label:'临界 x',         fmt:()=>'l - l₀'},
+    {label:'v_max',          fmt:()=>'r·√(k(l-l₀)/(ml))'}
+  ],
+  conclusions: [
+    {label_text:'答案', value_text:'A', note:'圆周临界'}
+  ],
+  legend: [
+    {swatch:{bg:'rgba(195,165,110,0.3)',border:'#86868b',type:'rect'}, text:'卷轴（半径 r）'},
+    {swatch:{bg:'#5d6964',border:'#5d6964',type:'rect'}, text:'弹簧'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'插销 m'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'端盖（临界）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024广东-Q5-卷轴弹簧'
+});
+</script>
+</body>
+</html>

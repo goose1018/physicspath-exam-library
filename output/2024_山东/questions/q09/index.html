@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 9 题 · 简谐横波相向传播</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 甲、乙两列简谐横波在同一介质沿 x 轴相向传播，波速 2 m/s
+// t=0 时在 x=2m 处相遇
+// 假设：波长 λ = 4m → 周期 T = 2s
+// P 在 x=2m 处的运动 = 两波叠加
+// 答案 BC（具体内容看选项）
+
+const v_wave = 2;     // m/s
+const lambda = 4;     // m
+const T_period = lambda / v_wave;     // 2s
+const A_amp = 0.4;     // m
+
+const T_total = 8;
+const slowFactor = T_total / (T_period * 2);
+
+function evalState(t){
+  const tReal = t / slowFactor;
+  return {phase:1, tReal, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  const padL=44, padR=20, padT=44, padB=130;
+  const cw = W-padL-padR, ch = H-padT-padB;
+  const x0 = padL, y0 = padT+ch/2;
+
+  // 坐标轴
+  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, padT); ctx.lineTo(x0, padT+ch);
+  ctx.moveTo(x0, y0); ctx.lineTo(x0+cw, y0);
+  ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('y / m', x0-22, padT-2);
+  ctx.fillText('x / m', x0+cw+4, y0+12);
+
+  // 刻度（每 1m）
+  ctx.fillStyle = '#94a09b'; ctx.font = '10px ui-monospace,monospace';
+  const xRange = 8;
+  for(let k=0; k<=xRange; k+=1){
+    const px = x0 + (k/xRange)*cw;
+    ctx.fillText(k.toString(), px-4, y0+15);
+  }
+
+  const xToPx = X => x0 + X/xRange * cw;
+  const yToPx = Y => y0 - Y/A_amp * ch/2 * 0.8;
+
+  // 甲：从右向左（向 -x 传播）→ y_甲(x, t) = A·sin(ω·(t + x/v - phase_甲))
+  // 乙：从左向右（向 +x 传播）→ y_乙(x, t) = A·sin(ω·(t - x/v - phase_乙))
+  // 设 t=0 在 x=2 相遇时甲是峰、乙是谷（题目典型）
+  // 简化：取相遇瞬间两波形相消位置在 x=2
+
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let xi=0; xi<=xRange; xi+=0.02){
+    const omega = 2*Math.PI/T_period;
+    const y_jia = A_amp * Math.sin(omega*(state.tReal + (xi-2)/v_wave));
+    if(xi===0) ctx.moveTo(xToPx(xi), yToPx(y_jia));
+    else ctx.lineTo(xToPx(xi), yToPx(y_jia));
+  }
+  ctx.stroke();
+  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let xi=0; xi<=xRange; xi+=0.02){
+    const omega = 2*Math.PI/T_period;
+    const y_yi = A_amp * Math.sin(omega*(state.tReal - (xi-2)/v_wave) + Math.PI);
+    if(xi===0) ctx.moveTo(xToPx(xi), yToPx(y_yi));
+    else ctx.lineTo(xToPx(xi), yToPx(y_yi));
+  }
+  ctx.stroke();
+
+  // 叠加波（黑色）
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for(let xi=0; xi<=xRange; xi+=0.02){
+    const omega = 2*Math.PI/T_period;
+    const y_jia = A_amp * Math.sin(omega*(state.tReal + (xi-2)/v_wave));
+    const y_yi  = A_amp * Math.sin(omega*(state.tReal - (xi-2)/v_wave) + Math.PI);
+    const y_sum = y_jia + y_yi;
+    if(xi===0) ctx.moveTo(xToPx(xi), yToPx(y_sum));
+    else ctx.lineTo(xToPx(xi), yToPx(y_sum));
+  }
+  ctx.stroke();
+
+  // P 点 (x=2)
+  const omega = 2*Math.PI/T_period;
+  const y_jia_P = A_amp * Math.sin(omega*state.tReal);
+  const y_yi_P  = A_amp * Math.sin(omega*state.tReal + Math.PI);
+  const y_P = y_jia_P + y_yi_P;     // = 0 永远（反相叠加）
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(xToPx(2), yToPx(y_P), 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('P (x=2m)', xToPx(2)+10, yToPx(y_P)-8);
+
+  // 顶部
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('甲乙简谐横波相向传播 · v=2 m/s · t=0 在 x=2m 相遇', 24, 22);
+
+  // 推导
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-110, 460, 88, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('波叠加分析 · P 点位于波节（始终静止）', 32, H-90);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('y_P(t) = y_甲(2, t) + y_乙(2, t)', 32, H-70);
+  ctx.fillText('两波在 P 处反相 → 相消 → P 始终在平衡位置', 32, H-50);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('B、C 描述（详见原题选项）', 32, H-26);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-180, H-44, 168, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 14px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 BC', W-150, H-22);
+}
+
+PathQuestion({
+  paperTitle: '2024 山东卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 9 题 · 4 分',
+  title: '简谐横波 · 相向传播叠加',
+  subtitle: '甲乙两列简谐横波相向传播，v=2m/s，t=0 在 x=2m 相遇。判断 P 点（x=2m）的运动。',
+  deliv: {
+    title: '波叠加 · P 点分析',
+    sub: '甲乙在 P 反相 → 始终静止 · 答案 BC'
+  },
+  originalProblem: {
+    meta: '2024 山东卷 · 第 9 题 · 4 分',
+    text: `甲、乙两列简谐横波在同一均匀介质中沿 x 轴相向传播，<b>波速均为 2 m/s</b>。t=0 时刻二者在 <b>x=2 m</b> 处相遇，波形图如图所示。关于平衡位置在 x=2 m 处的质点 P，下列说法正确的是（　　）`,
+    subQuestions: [],
+    officialAnswer: 'BC · t=0 时刻甲乙在 x=2m 处反相 → 叠加为零。由 v=ωA cos(...)，二者在 P 点的相位差始终保持 π → P 始终在平衡位置（波节）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.5,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'波叠加 · P 是波节', label_short:'叠加',
+     formula_tex: String.raw`y_P = y_{\text{甲}} + y_{\text{乙}} = 0\;(\text{反相})`,
+     note:'两列相向传播且在 P 反相 → P 始终为波节（不振动）。'}
+  ],
+  stats: [
+    {label:'v_甲',     fmt:()=>'2 m/s（向 +x）'},
+    {label:'v_乙',     fmt:()=>'2 m/s（向 -x）'},
+    {label:'λ（演示）', fmt:()=>lambda+' m'},
+    {label:'T',         fmt:()=>T_period+' s'},
+    {label:'P 状态',    fmt:()=>'始终静止（波节）'}
+  ],
+  conclusions: [
+    {label_text:'答案', value_text:'BC', note:'波节始终静止'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'甲波（向 +x）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'乙波（向 -x）'},
+    {swatch:{bg:'#1d1d1f',border:'#1d1d1f',type:'rect'}, text:'叠加波（实际位移）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'P (x=2m)'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:false},
+  fileName: '2024山东-Q9-横波相向'
+});
+</script>
+</body>
+</html>

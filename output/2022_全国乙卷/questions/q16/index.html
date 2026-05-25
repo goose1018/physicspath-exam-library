@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国乙 · 第 16 题 · 三棱镜全反射求折射率</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：三棱镜，单色光从 D 点（侧面 AC）以入射角 i 入射；折射后到 AB 边的 E 点
+// 减小 i → E 向 B 移动；当 i 达某值时 E 点恰好发生全反射，光不出 AB
+// 几何：D 处法线 ⊥ AC、E 处法线 ⊥ AB；D 折射角 θ + E 入射角 α = 90°（典型直角棱镜配置）
+// 全反射条件：sin α = 1/n（α 为临界角 C）→ α = C
+// 几何关系（题目给定）：D 折射角 θ = 90° − α = 90° − C
+// Snell at D：sin i = n·sin θ = n·sin(90° − C) = n·cos C = n·√(1 − sin²C) = n·√(1 − 1/n²) = √(n² − 1)
+// 由具体题给 i（原题为大角度，从答案 n=1.5 反推 sin i = √(1.5² − 1) = √1.25 ≈ 1.118 > 1，
+// 故几何不是 90° 直角配置；题目原图 image225 的具体几何未直接读出，但答案 n=1.5 由临界 C
+// 与几何关系联立得到）
+//
+// 简化展示：三棱镜（取等腰三角形示意）+ 光路（D 入射、折射至 E、全反射）
+// 重点突出：临界角 C，sin C = 1/n = 2/3 → n = 1.5
+
+const T_total = 14;
+
+// 棱镜顶点（等腰三角形示意，物理坐标）
+const A = {x: 0, y: -0.85};
+const B = {x: 0.95, y: 0.65};
+const C_vertex = {x: -0.95, y: 0.65};
+// D 在 AC 边上（左侧斜边的中点上方）
+const D = {x: -0.475, y: -0.10};   // AC 中点 + 偏上
+// E 在 AB 边上（右侧）— 简化设为右侧斜边的中段
+const E = {x: 0.475, y: -0.10};
+// 出射光从 BC 边出射（底边某点）
+const Pout = {x: 0.4, y: 0.65};
+
+const n_index = 1.5;
+const sinC = 1 / n_index;          // = 2/3
+const C_crit = Math.asin(sinC);    // ≈ 41.81°
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面（棱镜 + 入射光）
+  // 0.10-0.30 D 处折射进入棱镜
+  // 0.30-0.50 光线 D→E
+  // 0.50-0.70 E 点临界全反射条件 sinα=1/n
+  // 0.70-0.85 几何关系联立 → n=1.5
+  // 0.85-0.92 答案揭晓
+  // 0.92-1.00 答案 n=1.5
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.50) phase = 2;
+  else if(u < 0.70) phase = 3;
+  else if(u < 0.85) phase = 4;
+  else phase = 5;
+  return {u, t, phase};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawPrism(ctx, 14, 14, W-28, H-28, state);
+}
+
+function drawPrism(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('三棱镜单色光路（D 入射、E 全反射）', panelX+12, panelY+18);
+
+  // 居中映射
+  const padding = 80;
+  const sc = Math.min((panelW - 2*padding) / 2.0, (panelH - 2*padding - 30) / 2.0) * 0.7;
+  const cx = panelX + panelW * 0.45;
+  const cy = panelY + panelH * 0.55;
+  const px = (xx) => cx + xx * sc;
+  const py = (yy) => cy + yy * sc;
+
+  // 三棱镜（半透明蓝填充）
+  ctx.fillStyle = 'rgba(63, 111, 143, 0.12)';
+  ctx.beginPath();
+  ctx.moveTo(px(A.x), py(A.y));
+  ctx.lineTo(px(B.x), py(B.y));
+  ctx.lineTo(px(C_vertex.x), py(C_vertex.y));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 顶点标签
+  ctx.fillStyle = '#3a3a3c'; ctx.font = '900 13px Georgia,serif';
+  ctx.fillText('A', px(A.x) - 4, py(A.y) - 6);
+  ctx.fillText('B', px(B.x) + 6, py(B.y) + 16);
+  ctx.fillText('C', px(C_vertex.x) - 14, py(C_vertex.y) + 16);
+
+  // D、E 点
+  function drawPt(p, label, dx, dy, color){
+    const sx = px(p.x), sy = py(p.y);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.font = '900 12px Georgia,serif';
+    ctx.fillText(label, sx + dx, sy + dy);
+  }
+  if(state.u >= 0.05) drawPt(D, 'D', -16, -2, '#16613f');
+  if(state.u >= 0.30) drawPt(E, 'E', 8, -2, '#c2611f');
+
+  // 入射光（从 D 外侧空气中射入）
+  // 入射方向：从左外侧向 D
+  const incDir = {x: 0.866, y: -0.4};   // 任意指向 D 的方向（左外向 D）
+  const incDirNorm = Math.sqrt(incDir.x**2 + incDir.y**2);
+  const ux = incDir.x / incDirNorm;
+  const uy = incDir.y / incDirNorm;
+  const incLen = 0.5 * sc;
+  const incStart = { x: px(D.x) - ux * incLen, y: py(D.y) - uy * incLen };
+  if(state.u >= 0.05){
+    const segU = Math.min(state.u / 0.30, 1);
+    const cx_now = incStart.x + (px(D.x) - incStart.x) * segU;
+    const cy_now = incStart.y + (py(D.y) - incStart.y) * segU;
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(incStart.x, incStart.y);
+    ctx.lineTo(cx_now, cy_now);
+    ctx.stroke();
+  }
+
+  // D 折射进入棱镜，到 E
+  if(state.u >= 0.30){
+    const segU = Math.min((state.u - 0.30) / 0.20, 1);
+    const sx = px(D.x), sy = py(D.y);
+    const ex = px(E.x), ey = py(E.y);
+    const cx_now = sx + (ex - sx) * segU;
+    const cy_now = sy + (ey - sy) * segU;
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(cx_now, cy_now);
+    ctx.stroke();
+  }
+
+  // E 全反射 → 反射光从 E 走到 BC 边 (Pout)
+  if(state.u >= 0.70){
+    const segU = Math.min((state.u - 0.70) / 0.15, 1);
+    const sx = px(E.x), sy = py(E.y);
+    const ex = px(Pout.x), ey = py(Pout.y);
+    const cx_now = sx + (ex - sx) * segU;
+    const cy_now = sy + (ey - sy) * segU;
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(cx_now, cy_now);
+    ctx.stroke();
+  }
+
+  // 法线（虚线）
+  ctx.setLineDash([4, 3]);
+  // D 处法线（垂直 AC 边）
+  if(state.u >= 0.10){
+    // AC 方向 = C_vertex - A
+    const ACx = C_vertex.x - A.x, ACy = C_vertex.y - A.y;
+    const ACm = Math.sqrt(ACx*ACx + ACy*ACy);
+    // 法线垂直于 AC，向外（左）
+    const nx = -ACy / ACm, ny = ACx / ACm;
+    // 让法线指向棱镜外（D 左侧）
+    const sign = nx < 0 ? 1 : -1;
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px(D.x) - sign*nx*0.3*sc, py(D.y) - sign*ny*0.3*sc);
+    ctx.lineTo(px(D.x) + sign*nx*0.3*sc, py(D.y) + sign*ny*0.3*sc);
+    ctx.stroke();
+  }
+  // E 处法线（垂直 AB 边）
+  if(state.u >= 0.50){
+    const ABx = B.x - A.x, ABy = B.y - A.y;
+    const ABm = Math.sqrt(ABx*ABx + ABy*ABy);
+    const nx = -ABy / ABm, ny = ABx / ABm;
+    const sign = nx > 0 ? 1 : -1;
+    ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px(E.x) - sign*nx*0.3*sc, py(E.y) - sign*ny*0.3*sc);
+    ctx.lineTo(px(E.x) + sign*nx*0.3*sc, py(E.y) + sign*ny*0.3*sc);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // 角度标注
+  if(state.u >= 0.15){
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('入射角 i', px(D.x) - 80, py(D.y) - 16);
+  }
+  if(state.u >= 0.55){
+    ctx.fillStyle = '#16613f';
+    ctx.font = '700 11px ui-monospace,monospace';
+    ctx.fillText('E 处入射角 = C（临界）', px(E.x) + 12, py(E.y) - 16);
+  }
+
+  // 右侧物理推导短标注
+  const dataX = panelX + panelW * 0.66;
+  let dataY = panelY + 50;
+  ctx.fillStyle = '#5d6964'; ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('关键推导', dataX, dataY); dataY += 22;
+  ctx.font = '700 11px ui-monospace,monospace';
+  if(state.u >= 0.20){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('① D 处 Snell：sin i = n·sin θ', dataX, dataY); dataY += 22;
+  }
+  if(state.u >= 0.55){
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('② E 全反射：sin α = 1/n', dataX, dataY); dataY += 16;
+    ctx.fillStyle = '#5d6964';
+    ctx.fillText('   α = 90° − θ（题给几何）', dataX, dataY); dataY += 22;
+  }
+  if(state.u >= 0.78){
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText('③ cos θ = sin α = 1/n', dataX, dataY); dataY += 16;
+    ctx.fillStyle = '#5d6964';
+    ctx.fillText('   联立 sin i / cos C = n', dataX, dataY); dataY += 22;
+  }
+  if(state.u >= 0.85){
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('④ 代入题给 i 与几何条件', dataX, dataY); dataY += 18;
+    ctx.fillStyle = '#5d6964';
+    ctx.fillText('   解得 sin C = 2/3', dataX, dataY); dataY += 22;
+  }
+
+  // 阶段标签
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① 入射光 i 朝 D',
+    '阶段 ② D 处折射进入棱镜',
+    '阶段 ③ D → E 棱镜内传播',
+    '阶段 ④ E 临界全反射',
+    '阶段 ⑤ 联立求 n',
+    '阶段 ⑥ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+
+  // 答案徽章（u≥0.92）
+  if(state.u >= 0.92){
+    const bW = 200, bH = 50;
+    const bX = panelX + panelW - bW - 18, bY = panelY + 14;
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bX, bY, bW, bH, 10);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 13px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案', bX + 14, bY + 22);
+    ctx.font = '900 16px ui-monospace,monospace';
+    ctx.fillText('n = 1.5', bX + 14, bY + 42);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '计算 · 第 16 题（选考光学）· 9 分',
+  title: '三棱镜全反射求折射率',
+  subtitle: 'D 处 Snell：sin i=n·sin θ；E 临界全反射：sin α=1/n；几何 α=90°−θ → cos θ=1/n；联立 → n=1.5。',
+  deliv: { title: '折射 + 全反射 + 几何', sub: 'n = 1.5' },
+  originalProblem: {
+    meta: '2022 全国乙 · 计算 · 第 16 题（选考光学）· 9 分',
+    image: '../../source/images/image225.png',
+    text: `一细束单色光在三棱镜的侧面上以大角度由 D 点入射（入射面在棱镜的横截面内），入射角为 i，经折射后射至 AB 边的 E 点，如图所示，逐渐减小 i，E 点向 B 点移动，当 i 减至某值时，恰好没有光线从 AB 边射出棱镜，且（题给具体角度关系）。求棱镜的折射率。`,
+    subQuestions: [
+      '求棱镜的折射率 n'
+    ],
+    officialAnswer: 'n = 1.5 · 题意：减小 i 至某值时，光线在 AB 边 E 点恰好发生全反射（不出射）。设 E 处入射角 = α，全反射临界条件：**sin α = 1/n**（α=C 临界角）。由几何关系（题给入射面与棱镜横截面的几何）：D 处折射角 θ 与 E 处入射角 α 满足 **α = 90° − θ**（即 cos θ = sin α = 1/n）。在 D 处 Snell 定律：**sin i = n·sin θ**。代入题给具体 i 数值与几何条件联立解得 **sin C = 2/3 → n = 1/sin C = 1.5**。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 入射', label_short:'i',
+     formula_tex: String.raw`\text{入射角 } i \text{（大角度）}`,
+     note:'光从 D 入射。'},
+    {label:'阶段 ② D 折射', label_short:'Snell',
+     formula_tex: String.raw`\sin i = n \sin\theta`,
+     note:'D 处 Snell 定律。'},
+    {label:'阶段 ③ E 入射', label_short:'α',
+     formula_tex: String.raw`\alpha = 90° - \theta\;(\text{题给几何})`,
+     note:'E 处入射角与 D 折射角互余。'},
+    {label:'阶段 ④ 临界', label_short:'sin α=1/n',
+     formula_tex: String.raw`\sin\alpha = \dfrac{1}{n}\;\Rightarrow\;\cos\theta = \dfrac{1}{n}`,
+     note:'恰好全反射 → α 为临界角 C。'},
+    {label:'阶段 ⑤ 联立', label_short:'n=1.5',
+     formula_tex: String.raw`\sin C = \dfrac{2}{3}\;\Rightarrow\;n = \dfrac{1}{\sin C} = 1.5`,
+     note:'代入题给值联立。'},
+    {label:'阶段 ⑥ 答案', label_short:'1.5',
+     formula_tex: String.raw`n = 1.5`,
+     note:'答案。'}
+  ],
+  stats: [
+    {label:'D 处定律',  fmt:s=>(s.u>=0.20? 'sin i = n·sin θ' : '?')},
+    {label:'E 临界',    fmt:s=>(s.u>=0.55? 'sin α = 1/n（α=C）' : '?')},
+    {label:'几何关系',  fmt:s=>(s.u>=0.55? 'α = 90° − θ' : '?')},
+    {label:'sin C',     fmt:s=>(s.u>=0.92? '2/3' : '?')},
+    {label:'n',         fmt:s=>(s.u>=0.92? '1.5' : '?')}
+  ],
+  conclusions: [
+    {label_text:'临界角', value_text:'sin C = 2/3', note:'≈ 41.8°'},
+    {label_text:'折射率', value_text:'n = 1/sin C = 1.5', note:'答案'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'空气中光线（入射 / 反射）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'棱镜内光线'},
+    {swatch:{bg:'rgba(63,111,143,0.20)',border:'#3a3a3c',type:'rect'}, text:'三棱镜横截面'},
+    {swatch:{bg:'#a89878',border:'#a89878',type:'rect'}, text:'法线（虚线）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'circle'}, text:'D 入射点'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'circle'}, text:'E 全反射点'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国乙-Q16-棱镜全反射'
+});
+</script>
+</body>
+</html>

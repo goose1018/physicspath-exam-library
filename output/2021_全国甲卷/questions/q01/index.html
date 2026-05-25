@@ -75,8 +75,7 @@ function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
   ctx.fillStyle = '#fffdf9';
   ctx.fillRect(0,0,W,H);
-  drawApparatus(ctx, 14, 14, W*0.46-21, H-28, state);
-  drawCurve   (ctx, W*0.46+7, 14, W*0.54-21, H-28, state);
+  drawApparatus(ctx, 14, 14, W-28, H-28, state);
 }
 
 function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
@@ -202,134 +201,18 @@ function drawApparatus(ctx, panelX, panelY, panelW, panelH, state){
   ctx.fillStyle = '#5d6964';
   ctx.font = '600 10.5px ui-monospace,monospace';
   ctx.fillText(`板长 = L/cosθ = ${(L/Math.cos(theta*Math.PI/180)).toFixed(3)} m  ·  a = g·sinθ = ${(g*Math.sin(theta*Math.PI/180)).toFixed(2)} m/s²`, panelX+12, panelY+panelH-6);
-}
 
-function drawCurve(ctx, panelX, panelY, panelW, panelH, state){
-  ctx.fillStyle = '#fffdf9';
-  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
-  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
-
-  ctx.fillStyle = '#5d6964';
-  ctx.font = '800 12px "Noto Sans SC",sans-serif';
-  ctx.fillText('t-θ 曲线  t(θ) = 2·√( L / (g·sin 2θ) )', panelX+12, panelY+18);
-
-  // 坐标轴
-  const padL=46, padR=18, padT=32, padB=190;
-  const cw = panelW - padL - padR, ch = panelH - padT - padB;
-  const x0 = panelX + padL, y0 = panelY + padT;
-  const thMin = 20, thMax = 70;
-  const tMinP = 0.55, tMaxP = 1.10;
-  const X = th => x0 + (th-thMin)/(thMax-thMin)*cw;
-  const Y = tt => y0 + (tt-tMinP)/(tMaxP-tMinP)*ch;
-
-  ctx.strokeStyle = '#86868b'; ctx.lineWidth = 1.3;
-  ctx.beginPath();
-  ctx.moveTo(x0, y0); ctx.lineTo(x0, y0+ch);
-  ctx.moveTo(x0, y0+ch); ctx.lineTo(x0+cw, y0+ch);
-  ctx.stroke();
-  ctx.fillStyle = '#1d1d1f';
-  ctx.font = 'italic 700 13px Georgia,serif';
-  ctx.fillText('t', x0-12, y0+10);
-  ctx.fillText('θ', x0+cw+4, y0+ch+12);
-
-  // x 刻度 30/45/60
-  ctx.fillStyle = '#5d6964';
-  ctx.font = '600 10.5px ui-monospace,monospace';
-  [30,45,60].forEach(thv => {
-    const px = X(thv);
-    ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(px, y0+ch); ctx.lineTo(px, y0+ch+4); ctx.stroke();
-    ctx.fillText(thv+'°', px-9, y0+ch+16);
-  });
-
-  // 曲线
-  ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 2.4;
-  ctx.beginPath();
-  let first = true;
-  for(let th = thMin+0.2; th <= thMax; th += 0.4){
-    const tv = tOf(th);
-    if(tv < tMinP || tv > tMaxP){ first = true; continue; }
-    const px = X(th), py = Y(tv);
-    if(first){ ctx.moveTo(px, py); first = false; } else { ctx.lineTo(px, py); }
-  }
-  ctx.stroke();
-
-  // 曲线最低点 θ=45°（u>=0.30 守卫，到达阶段② 时再亮，防剧透）
-  const u_phase = state.t / T_TOTAL;
-  const px45 = X(45), py45 = Y(tOf(45));
-  if(u_phase >= 0.30){
-    ctx.fillStyle = '#16613f';
-    ctx.beginPath(); ctx.arc(px45, py45, 4, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#16613f';
-    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
-    ctx.fillText('θ=45° t_min='+tOf(45).toFixed(3)+'s', px45-58, py45-8);
-  }
-
-  // 30° 与 60° 同 t 标记（u>=0.55 守卫，与 B 选项 verdict 同步，防"对称→D"剧透）
-  if(u_phase >= 0.55){
-    [30,60].forEach(thv => {
-      const px = X(thv), py = Y(tOf(thv));
-      ctx.fillStyle = '#c2611f';
-      ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fill();
-    });
-    ctx.fillStyle = '#c2611f';
-    ctx.font = '700 10.5px "Noto Sans SC",sans-serif';
-    ctx.fillText('30°/60° t≈'+tOf(30).toFixed(3)+'s', X(30)-12, Y(tOf(30))-8);
-  }
-
-  // 当前 θ 的位置点
-  const thNow = state.theta;
-  const tNow = state.labelTime;
-  const cpx = X(thNow), cpy = Y(tNow);
-  ctx.fillStyle = '#b4442e';
-  ctx.beginPath(); ctx.arc(cpx, cpy, 6.5, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-  // 投影虚线
-  ctx.strokeStyle = '#b4442e'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
-  ctx.beginPath();
-  ctx.moveTo(cpx, cpy); ctx.lineTo(cpx, y0+ch);
-  ctx.moveTo(cpx, cpy); ctx.lineTo(x0, cpy);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // 4 选项判定（u 渐进显示）
+  // 答案徽章（u ≥ 0.92 守卫；右上角紧贴几何）
   const u = state.t / T_TOTAL;
-  const judgments = [
-    {opt:'A · 逐渐增大',          verdict:'错（30°→45° t 减小）',   correct:false, showAt:0.30},
-    {opt:'B · 逐渐减小',          verdict:'错（45°→60° t 增大）',   correct:false, showAt:0.55},
-    {opt:'C · 先增大后减小',      verdict:'错（U 形朝下，反了）',    correct:false, showAt:0.70},
-    {opt:'D · 先减小后增大',      verdict:'对 ✓（最低点 θ=45°）',     correct:true,  showAt:0.80}
-  ];
-  let yy = y0 + ch + 36;
-  judgments.forEach(j => {
-    if(u < j.showAt){
-      ctx.fillStyle = '#bdb6a4';
-      ctx.font = '700 11.5px "Noto Sans SC",sans-serif';
-      ctx.fillText(j.opt + '  ?', panelX+14, yy);
-    } else {
-      ctx.fillStyle = j.correct ? '#16613f' : '#5d6964';
-      ctx.font = `${j.correct?900:700} 11.5px "Noto Sans SC",sans-serif`;
-      ctx.fillText(j.opt, panelX+14, yy);
-      ctx.fillStyle = j.correct ? '#16613f' : '#b4442e';
-      ctx.font = '600 10.5px "Noto Sans SC",sans-serif';
-      ctx.fillText(j.verdict, panelX+14, yy+15);
-    }
-    yy += 32;
-  });
-
-  // 答案徽章（u≥0.85）
-  if(u >= 0.85){
+  if(u >= 0.92){
+    const bw = 230, bh = 36;
+    const bx = panelX + panelW - bw - 12, by = panelY + 8;
     ctx.fillStyle = '#fdf3e6';
-    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
-    if(ctx.roundRect){
-      ctx.beginPath();
-      ctx.roundRect(panelX+panelW-150, panelY+panelH-44, 138, 32, 8);
-      ctx.fill(); ctx.stroke();
-    }
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.6;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx,by,bw,bh,8);ctx.fill();ctx.stroke();}
     ctx.fillStyle = '#c2611f';
-    ctx.font = '900 13px "Noto Sans SC",sans-serif';
-    ctx.fillText('答案 D · 先减小后增大', panelX+panelW-142, panelY+panelH-22);
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 D · 先减小后增大', bx+12, by+23);
   }
 }
 

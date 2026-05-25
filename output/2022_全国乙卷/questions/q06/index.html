@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国乙 · 第 6 题 · 正方形顶点等量异号电荷</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：正方形 4 顶点电荷布局（顶上一对异号 + 底下一对异号）
+//   A=(-d, +d)+q, B=(+d, +d)-q, C=(+d, -d)+q, D=(-d, -d)-q（间隔布局，两对等量异号）
+//   两正连线 = 对角线 AC（左上↔右下）；两负连线 = 对角线 BD（右上↔左下）
+//   两条对角线互相垂直
+// L 在对角线 BD（负电荷连线）上 → 在两正电荷的中垂线上（对称分量沿 OL）
+// N 在对角线 AC（正电荷连线）上 → 在两负电荷的中垂线上（对称分量沿 NO）
+// 由对称性：L 处合场方向 O→L、N 处合场方向 N→O
+// 两条对角线垂直 → L 与 N 处场互相垂直 → A 对
+//
+// M 是内切圆与底边的切点 (0, -d)；底边异号对在 M 处合场向左、上边异号对在 M 处合场向右
+// 因 M 远离上边对 → 上边场弱、底边场强 → 合场方向向左 → B 对
+//
+// C 错：M 与 O 不在同一等势线上（关键说明：M 与 O 沿底边切点法线方向不同等势）
+//   实际：M=(0,-d) 与 O=(0,0) 之间，由对称性可证 V(M) = V(O) 仅当电荷布局完全对称；
+//   但本布局中 V(M) 与 V(O) 是否相等取决于具体几何
+//   按官答：M 和 O 位于"两等量异号电荷的等势线上"——即沿 y 轴对称轴 V=0
+//   所以 W_电=0 → C 选项"做正功"错（应为做功为零）
+//   等等！再读题：C. 将一带正电的点电荷从M点移动到O点，电场力做正功
+//   官答说 "M 和 O 电势相等→ 电场力做功为零，故 C 错误"
+//   即 V(M)=V(O)=0（对称面 y 轴），所以做功 = 0 而非正功 → C 错
+// D 错：L 和 N 不同电势（L 处 V > N 处 V 或反），故 W ≠ 0
+//   按官答：L 电势低于 N → 从 L 到 N 电场力做功不为零 → D 错（D 选项称"做功为零"错）
+//
+// 答案 AB
+
+const T_total = 14;
+const d_half = 1.0;   // 正方形半边长（电荷位置 ±d_half）
+
+// 电荷位置 + 符号（间隔布局：A+,B-,C+,D-）
+const charges = [
+  {label:'A', pos:{x:-d_half, y:-d_half}, q:+1, color:'#b4442e'},  // 左上 +q（canvas y 反转：物理上 → 屏幕上）
+  {label:'B', pos:{x:+d_half, y:-d_half}, q:-1, color:'#3f6f8f'},  // 右上 -q
+  {label:'C', pos:{x:+d_half, y:+d_half}, q:+1, color:'#b4442e'},  // 右下 +q
+  {label:'D', pos:{x:-d_half, y:+d_half}, q:-1, color:'#3f6f8f'},  // 左下 -q
+];
+
+// 关键点
+const O = {x:0, y:0};
+// 内切圆半径 = d_half（边长 2d_half 的正方形内切圆半径 d_half）
+// L 在对角线 BD（右上-左下）上 OR 取 L = (-d_half/√2, +d_half/√2)（沿 BD 方向距 O=d_half）
+// 等等：对角线 BD 端点 B=(+d, -d)、D=(-d, +d)，方向 (-1, 1)/√2
+// 内切圆与 BD 交点：参数 t∈[-d, +d]（沿 BD 单位方向 (-1,1)/√2 走 t），即 (−t/√2, t/√2)
+// 在 t=±d_half 处距 O 为 d_half（在内切圆上）
+// 取 L = (-d_half/√2·, d_half/√2·)·... 等等让我重算
+// L 在 BD 上、与内切圆交点：内切圆方程 x²+y²=d_half²
+// BD 直线 y = -x（在 canvas y 反转下，物理 BD 是 y=-x，但 canvas y 翻转后看屏幕也是 y=-x 但反向）
+// 实际我用屏幕坐标即可：内切圆与"屏幕对角线 / 反对角线"的交点
+const Linner = {x: -d_half/Math.sqrt(2), y: d_half/Math.sqrt(2)};   // 屏幕左下方向（在 BD 对角线上）
+const Ninner = {x: -d_half/Math.sqrt(2), y: -d_half/Math.sqrt(2)};  // 屏幕左上方向（在 AC 对角线上）
+// M：底边切点（0, +d_half）（屏幕底边）
+const Mp = {x:0, y:+d_half};
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面（4 顶点电荷布局）
+  // 0.10-0.30 L、N 处电场方向（A 选项）
+  // 0.30-0.50 M 处电场方向（B 选项）
+  // 0.50-0.70 等势分析（M 与 O 同势 → C 错）
+  // 0.70-0.85 L 与 N 不同势 → D 错
+  // 0.85-0.92 4 选项判定
+  // 0.92-1.00 答案 AB
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.30) phase = 1;
+  else if(u < 0.50) phase = 2;
+  else if(u < 0.70) phase = 3;
+  else if(u < 0.85) phase = 4;
+  else if(u < 0.92) phase = 5;
+  else phase = 6;
+  return {u, t, phase};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  drawSquare(ctx, 14, 14, W-28, H-28, state);
+}
+
+function drawSquare(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('正方形 4 顶点等量异号电荷（间隔 +/-/+/-）', panelX+12, panelY+18);
+
+  // 居中映射
+  const padding = 70;
+  const sc = Math.min((panelW - 2*padding) / (2 * d_half), (panelH - 2*padding - 30) / (2 * d_half)) * 0.85;
+  const cx = panelX + panelW * 0.45;
+  const cy = panelY + panelH * 0.55;
+  const px = (xx) => cx + xx * sc;
+  const py = (yy) => cy + yy * sc;
+
+  // 正方形（细灰色）
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.rect(px(-d_half), py(-d_half), 2*d_half*sc, 2*d_half*sc);
+  ctx.stroke();
+
+  // 内切圆（细虚线）
+  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, d_half*sc, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 两条对角线（细虚线，u≥0.10 揭晓）
+  if(state.u >= 0.10){
+    ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 0.8; ctx.setLineDash([2,4]);
+    ctx.beginPath();
+    ctx.moveTo(px(-d_half), py(-d_half)); ctx.lineTo(px(d_half), py(d_half));    // AC
+    ctx.moveTo(px(+d_half), py(-d_half)); ctx.lineTo(px(-d_half), py(+d_half));  // BD
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // 4 顶点电荷
+  charges.forEach(c => {
+    const ccx = px(c.pos.x), ccy = py(c.pos.y);
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.arc(ccx, ccy, 11, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '900 13px Georgia,serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(c.q > 0 ? '+' : '−', ccx, ccy + 4);
+    ctx.textAlign = 'start';
+    // 顶点字母
+    ctx.fillStyle = c.color; ctx.font = '900 13px Georgia,serif';
+    const labelOff = c.pos.x < 0 ? -22 : 16;
+    const labelOffY = c.pos.y < 0 ? -8 : 18;
+    ctx.fillText(c.label, ccx + (c.pos.x < 0 ? -18 : 14), ccy + labelOffY);
+  });
+
+  // O、L、N、M 关键点（u≥0.10）
+  if(state.u >= 0.10){
+    function drawPt(p, label, dx, dy, color){
+      const sx = px(p.x), sy = py(p.y);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI*2);
+      ctx.fill();
+      ctx.font = '900 12px Georgia,serif';
+      ctx.fillText(label, sx + dx, sy + dy);
+    }
+    drawPt(O, 'O', 6, 4, '#5d6964');
+    drawPt(Linner, 'L', -16, -4, '#16613f');
+    drawPt(Ninner, 'N', -16, -4, '#c2611f');
+    drawPt(Mp, 'M', 6, 14, '#7d2f1f');
+  }
+
+  // L 处场强方向（u≥0.15，沿 OL 方向）
+  if(state.u >= 0.15){
+    const arrLen = sc * 0.30;
+    // OL 方向 = (Linner - O) 单位化
+    const olx = Linner.x, oly = Linner.y;
+    const olm = Math.sqrt(olx*olx + oly*oly);
+    const ux = olx/olm, uy = oly/olm;
+    const sx = px(Linner.x), sy = py(Linner.y);
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, sx, sy, sx + ux * arrLen, sy + uy * arrLen, '#16613f', 2);
+    ctx.fillStyle = '#16613f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('E_L', sx + ux*arrLen + 4, sy + uy*arrLen + 4);
+  }
+  // N 处场强方向（u≥0.20，沿 NO 方向，即 -ON 方向）
+  if(state.u >= 0.20){
+    const arrLen = sc * 0.30;
+    const ox = -Ninner.x, oy = -Ninner.y;       // NO 方向
+    const om = Math.sqrt(ox*ox + oy*oy);
+    const ux = ox/om, uy = oy/om;
+    const sx = px(Ninner.x), sy = py(Ninner.y);
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, sx, sy, sx + ux * arrLen, sy + uy * arrLen, '#c2611f', 2);
+    ctx.fillStyle = '#c2611f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('E_N', sx + ux*arrLen + 4, sy + uy*arrLen + 4);
+  }
+  // M 处场强方向（u≥0.35，向左）
+  if(state.u >= 0.35){
+    const arrLen = sc * 0.30;
+    const sx = px(Mp.x), sy = py(Mp.y);
+    ctx.strokeStyle = '#7d2f1f'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, sx, sy, sx - arrLen, sy, '#7d2f1f', 2);
+    ctx.fillStyle = '#7d2f1f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('E_M', sx - arrLen - 18, sy + 4);
+  }
+
+  // 等势分析（M 与 O 在 y 轴对称面上 V=0；u≥0.55 揭晓）
+  if(state.u >= 0.55){
+    // y 轴对称面（粉色虚线）
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 0.8; ctx.setLineDash([2,5]);
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(-d_half * 1.1));
+    ctx.lineTo(px(0), py(+d_half * 1.1));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#c2611f'; ctx.font = '700 10px ui-monospace,monospace';
+    ctx.fillText('对称面 V=0', px(0) + 8, py(-d_half * 1.05));
+  }
+
+  // 阶段标签
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① 4 顶点电荷布局',
+    '阶段 ② L、N 处场方向（A 选项）',
+    '阶段 ③ M 处场方向（B 选项）',
+    '阶段 ④ 等势面分析（C 选项）',
+    '阶段 ⑤ L→N 电势比较（D 选项）',
+    '阶段 ⑥ 选项判定',
+    '阶段 ⑦ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+
+  // 右侧短标注（关键结论分阶段）
+  const dataX = panelX + panelW * 0.66;
+  let dataY = panelY + 50;
+  ctx.fillStyle = '#5d6964'; ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('关键观察', dataX, dataY); dataY += 22;
+  ctx.font = '700 10px ui-monospace,monospace';
+  if(state.u >= 0.20){
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('E_L 方向：O→L（沿 BD）', dataX, dataY); dataY += 16;
+    ctx.fillStyle = '#c2611f';
+    ctx.fillText('E_N 方向：N→O（沿 AC）', dataX, dataY); dataY += 16;
+    ctx.fillStyle = '#3a3a3c';
+    ctx.fillText('AC ⊥ BD（几何事实）', dataX, dataY); dataY += 22;
+  }
+  // A 选项结论延后到 u≥0.85（阶段 ⑥ 选项判定）
+  if(state.u >= 0.85){
+    ctx.fillStyle = '#16613f';
+    ctx.fillText('⇒ E_L ⊥ E_N（A 对）', dataX, dataY); dataY += 22;
+  }
+  if(state.u >= 0.40){
+    ctx.fillStyle = '#7d2f1f';
+    ctx.fillText('E_M 方向：向左', dataX, dataY); dataY += 16;
+    ctx.fillStyle = '#5d6964';
+    ctx.fillText('（底边对场强 > 上边对）', dataX, dataY); dataY += 22;
+  }
+  if(state.u >= 0.60){
+    ctx.fillStyle = '#c2611f';
+    ctx.fillText('M、O 在 y 对称面 V=0', dataX, dataY); dataY += 16;
+    ctx.fillStyle = '#5d6964';
+    ctx.fillText('⇒ W(M→O) = 0', dataX, dataY); dataY += 22;
+  }
+  if(state.u >= 0.75){
+    ctx.fillStyle = '#3a3a3c';
+    ctx.fillText('V_L ≠ V_N（不同等势线）', dataX, dataY); dataY += 16;
+    ctx.fillStyle = '#5d6964';
+    ctx.fillText('⇒ W(L→N) ≠ 0', dataX, dataY); dataY += 22;
+  }
+
+  // 答案徽章（u≥0.92）
+  if(state.u >= 0.92){
+    const bW = 220, bH = 38;
+    const bX = panelX + panelW - bW - 18, bY = panelY + 14;
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bX, bY, bW, bH, 10);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 AB（场垂直 + M 向左）', bX + 12, bY + 24);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '多选 · 第 6 题 · 6 分',
+  title: '正方形顶点等量异号电荷',
+  subtitle: '4 顶点 +/-/+/- 间隔布局；对称性 → L 与 N 处场垂直；M 处场向左；M、O 同势 → 做功为 0；L、N 不同势。',
+  deliv: { title: '点电荷场叠加 + 对称分析', sub: 'AB：E_L⊥E_N + E_M 向左' },
+  originalProblem: {
+    meta: '2022 全国乙 · 多选 · 第 6 题 · 6 分',
+    image: '../../source/images/image38.png',
+    text: `如图，两对等量异号点电荷固定于正方形的 4 个顶点上。L、N 是该正方形两条对角线与其内切圆的交点，O 为内切圆的圆心，M 为切点。则（    ）`,
+    subQuestions: [
+      'A. L 和 N 两点处的电场方向相互垂直',
+      'B. M 点的电场方向平行于该点处的切线，方向向左',
+      'C. 将一带正电的点电荷从 M 点移动到 O 点，电场力做正功',
+      'D. 将一带正电的点电荷从 L 点移动到 N 点，电场力做功为零'
+    ],
+    officialAnswer: 'AB · 4 顶点电荷为 +/-/+/- 间隔布局（两正在 AC 对角线上、两负在 BD 对角线上）。**A 对**：两正电荷在 N 处产生场强方向 N→O（N 处于两负电荷连线 BD 的中垂线 AC 上，对称分量沿 AC 方向）；同理两负电荷在 N 处产生 N→O；故 E_N 沿 N→O。同理 E_L 沿 O→L 方向（沿 BD）。两条对角线垂直 → **E_L ⊥ E_N**。**B 对**：M 是底边切点，底边异号对在 M 处合场向左（近距离主导），上边异号对在 M 处合场向右但距离远（弱）→ **合场向左**。**C 错**：M 与 O 都位于 y 轴（两异号对的对称面 V=0）上 → V(M)=V(O)=0 → **电场力做功 = 0**（非"正功"）。**D 错**：L 在 BD 对角线、N 在 AC 对角线，两点电势不相等 → **W(L→N) ≠ 0**（非零）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 布局', label_short:'+/-/+/-',
+     formula_tex: String.raw`\text{两正电荷沿 AC，两负电荷沿 BD}`,
+     note:'两对等量异号 + 间隔布局。'},
+    {label:'阶段 ② L、N 场', label_short:'A',
+     formula_tex: String.raw`\vec{E}_L \parallel OL,\;\;\vec{E}_N \parallel NO,\;\;AC \perp BD`,
+     note:'两条对角线垂直 → E_L ⊥ E_N。'},
+    {label:'阶段 ③ M 场', label_short:'B',
+     formula_tex: String.raw`\vec{E}_M \;\text{向左}\;(\text{底边对主导})`,
+     note:'近距离对场强大。'},
+    {label:'阶段 ④ M 与 O 同势', label_short:'C 错',
+     formula_tex: String.raw`V(M)=V(O)=0\;\Rightarrow\;W(M\to O)=0`,
+     note:'对称面 V=0。'},
+    {label:'阶段 ⑤ L 与 N', label_short:'D 错',
+     formula_tex: String.raw`V_L \ne V_N \;\Rightarrow\; W(L\to N) \ne 0`,
+     note:'L、N 不同等势线。'},
+    {label:'阶段 ⑥ 选项', label_short:'A/B/C/D',
+     formula_tex: String.raw`A\;\checkmark\;\;B\;\checkmark\;\;C\;\times\;\;D\;\times`,
+     note:'AB 对。'},
+    {label:'阶段 ⑦ 答案', label_short:'AB',
+     formula_tex: String.raw`\text{答案}\;AB`,
+     note:'答案 AB。'}
+  ],
+  stats: [
+    {label:'布局',     fmt:s=>(s.u>=0.05? '4 顶点 +/-/+/-' : '?')},
+    {label:'E_L 方向', fmt:s=>(s.u>=0.20? '沿 OL（对角 BD）' : '?')},
+    {label:'E_N 方向', fmt:s=>(s.u>=0.20? '沿 NO（对角 AC）' : '?')},
+    {label:'E_L⊥E_N', fmt:s=>(s.u>=0.92? '✓（A 对）' : '?')},
+    {label:'E_M 方向', fmt:s=>(s.u>=0.40? '向左（B 对）' : '?')},
+    {label:'V(M),V(O)', fmt:s=>(s.u>=0.60? '0（对称面）→ W=0' : '?')},
+    {label:'V_L,V_N',  fmt:s=>(s.u>=0.75? '不等 → W≠0' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 对', value_text:'E_L ⊥ E_N ✓',         note:'AC⊥BD'},
+    {label_text:'B 对', value_text:'E_M 向左 ✓',           note:'底边对主导'},
+    {label_text:'C 错', value_text:'W(M→O)=0（非正功）',  note:'V(M)=V(O)=0'},
+    {label_text:'D 错', value_text:'W(L→N)≠0（非零）',   note:'V_L≠V_N'}
+  ],
+  legend: [
+    {swatch:{bg:'#b4442e',border:'#7d2f1f',type:'circle'}, text:'+q（正电荷）'},
+    {swatch:{bg:'#3f6f8f',border:'#1f4f6f',type:'circle'}, text:'−q（负电荷）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'},   text:'L 点 + E_L'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'},   text:'N 点 + E_N / 对称面 V=0'},
+    {swatch:{bg:'#7d2f1f',border:'#7d2f1f',type:'rect'},   text:'M 点 + E_M（向左）'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国乙-Q6-点电荷正方形'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 题 · 鹊桥二号 · 月地质量比</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 鹊桥二号绕月椭圆轨道：T_鹊 = 24h，半长轴 a
+// 地球同步卫星：T_地 = 24h，半径 r
+// 由开普勒第三定律：T² = 4π²·a³/(GM)
+// T_鹊² = 4π²·a³/(GM_月) → M_月 = 4π²·a³/(G·T²)
+// T_地² = 4π²·r³/(GM_地) → M_地 = 4π²·r³/(G·T²)
+// M_月/M_地 = a³ / r³
+// 答案 D
+
+const T_total = 6;
+
+function evalState(t){
+  const u = (t/T_total) % 1;
+  const phaseAng_q = u * 2*Math.PI;     // 鹊桥
+  const phaseAng_e = u * 2*Math.PI;     // 同步卫星（同周期）
+  return {phase:1, phaseAng_q, phaseAng_e, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 星空
+  for(let i=0; i<40; i++){
+    const x = (Math.sin(i*7.3)*0.5+0.5)*W;
+    const y = (Math.cos(i*5.1)*0.5+0.5)*H;
+    ctx.fillStyle = `rgba(150,160,175,${0.3+(Math.sin(i*2.7)*0.5+0.5)*0.4})`;
+    ctx.beginPath(); ctx.arc(x,y, Math.random()*1.2+0.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  // 左：月球+鹊桥 / 右：地球+同步卫星
+  const cy = H*0.5;
+  const cxM = W*0.27, cxE = W*0.73;
+
+  // 椭圆 (鹊桥) — 半长轴 a 像素
+  const a_px = 110;
+  const e = 0.4;
+  const b_px = a_px * Math.sqrt(1 - e*e);
+  // 椭圆中心相对月球（焦点）偏移 ae
+  const c_offset = a_px * e;
+  drawEllipse(ctx, cxM + c_offset, cy, a_px, b_px, '#94a09b');
+  // 圆 (同步卫星)
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.arc(cxE, cy, a_px, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 月球
+  ctx.fillStyle = '#a8a8a8';
+  ctx.beginPath(); ctx.arc(cxM, cy, 28, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#5d6964'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('月 (M_月)', cxM, cy+44);
+  ctx.textAlign = 'left';
+
+  // 地球
+  const grdE = ctx.createRadialGradient(cxE, cy, 5, cxE, cy, 32);
+  grdE.addColorStop(0, '#3f6f8f');
+  grdE.addColorStop(1, '#1f3a2e');
+  ctx.fillStyle = grdE;
+  ctx.beginPath(); ctx.arc(cxE, cy, 32, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('地 (M_地)', cxE, cy+50);
+  ctx.textAlign = 'left';
+
+  // 鹊桥位置（椭圆轨道）
+  const ang_q = state.phaseAng_q;
+  const xq = (cxM + c_offset) + a_px*Math.cos(ang_q);
+  const yq = cy + b_px*Math.sin(ang_q);
+  ctx.fillStyle = '#c2611f';
+  ctx.beginPath(); ctx.arc(xq, yq, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('鹊桥二号', xq+8, yq);
+
+  // 同步卫星
+  const ang_e = state.phaseAng_e;
+  const xe = cxE + a_px*Math.cos(ang_e);
+  const ye = cy + a_px*Math.sin(ang_e);
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath(); ctx.arc(xe, ye, 6, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('同步卫星', xe+8, ye);
+
+  // 标半长轴 a 和半径 r
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(cxM + c_offset - a_px, cy); ctx.lineTo(cxM + c_offset + a_px, cy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#c2611f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('半长轴 a', cxM-30, cy-b_px-8);
+
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(cxE - a_px, cy); ctx.lineTo(cxE + a_px, cy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#16613f';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('半径 r', cxE-15, cy-a_px-8);
+
+  // T = 24h 标
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText('T_鹊 = 24 h', cxM-40, cy+62);
+  ctx.fillText('T_地 = 24 h', cxE-30, cy+68);
+
+  // 顶部
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('鹊桥二号绕月 (椭圆) 与同步卫星绕地 (圆) 周期均 24h', 24, 22);
+
+  // 推导
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-100, 380, 80, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('开普勒第三定律 (椭圆用半长轴)', 32, H-80);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('T² = 4π²·a³/(GM) → M ∝ a³/T²', 32, H-60);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('M_月/M_地 = a³/r³（同周期 → T 抵消）', 32, H-36);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, H-44, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 D · M_月/M_地 = a³/r³', W-188, H-22);
+}
+
+function drawEllipse(ctx, cx, cy, a, b, color){
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.ellipse(cx, cy, a, b, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+PathQuestion({
+  paperTitle: '2024 山东卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 5 题 · 4 分',
+  title: '鹊桥二号 · 月地质量比',
+  subtitle: '鹊桥绕月椭圆 (半长轴 a, T=24h)，同步卫星绕地圆 (r, T=24h)。求月地质量比。',
+  deliv: {
+    title: '开普勒第三定律应用',
+    sub: 'M_月/M_地 = a³/r³ · 答案 D'
+  },
+  originalProblem: {
+    meta: '2024 山东卷 · 第 5 题 · 4 分',
+    text: `"鹊桥二号"中继星环绕月球运行，其 24 小时椭圆轨道的半长轴为 <b>a</b>。已知地球同步卫星的轨道半径为 <b>r</b>，则月球与地球质量之比可表示为（　　）`,
+    subQuestions: ['A. r/a','B. a/r','C. r³/a³','D. a³/r³'],
+    officialAnswer: 'D · 由开普勒第三定律 T² = 4π²·a³/(GM)，对椭圆用半长轴。两者周期均 24h → T 抵消。M_月/M_地 = (a³/T²) / (r³/T²) = a³/r³。'
+  },
+  totalT: T_total,
+  speedFactor: 0.7,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'同周期对比', label_short:'对比',
+     formula_tex: String.raw`\dfrac{M_{\text{月}}}{M_{\text{地}}} = \dfrac{a^3}{r^3}`,
+     note:'开普勒第三定律给出 M ∝ a³/T²。两轨道周期相等 → 仅尺寸比的立方决定质量比。'}
+  ],
+  stats: [
+    {label:'T_鹊',       fmt:()=>'24 h'},
+    {label:'T_地',       fmt:()=>'24 h'},
+    {label:'a 半长轴',    fmt:()=>'a'},
+    {label:'r 半径',     fmt:()=>'r'},
+    {label:'M_月/M_地',  fmt:()=>'a³/r³'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'r/a',   note:'忘开方'},
+    {label_text:'B 错', value_text:'a/r',   note:''},
+    {label_text:'C 错', value_text:'r³/a³', note:'分母弄反'},
+    {label_text:'D 对', value_text:'a³/r³', note:'M ∝ a³'}
+  ],
+  legend: [
+    {swatch:{bg:'#a8a8a8',border:'#5d6964',type:'dot'}, text:'月球'},
+    {swatch:{bg:'#3f6f8f',border:'#1f3a2e',type:'dot'}, text:'地球'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'dot'}, text:'鹊桥二号（椭圆轨道）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'dot'}, text:'同步卫星（圆轨道）'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:false, guide:true},
+  fileName: '2024山东-Q5-鹊桥二号'
+});
+</script>
+</body>
+</html>

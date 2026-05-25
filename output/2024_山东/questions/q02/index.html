@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 2 题 · 机器人斜坡 · 静摩擦</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 30° 斜坡稳定站立（不滑） → μ ≥ tan30° = √3/3 ≈ 0.577
+// 答案 B（√3/3）
+
+const theta = 30 * Math.PI/180;
+const mu_min = Math.tan(theta);     // √3/3 ≈ 0.577
+const T_total = 4;
+
+function evalState(t){
+  // 演示 4 阶段：μ 从 0 → 0.5 → mu_min → 1
+  const phase = Math.floor((t/T_total)*4) % 4 + 1;
+  const u = (t/T_total) % 1;
+  return {phase, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 斜坡
+  const cx = W/2, cy = H*0.65;
+  const slopeLen = 280;
+  const slopeX0 = cx - slopeLen*Math.cos(theta)/2;
+  const slopeY0 = cy - slopeLen*Math.sin(theta)/2;
+  const slopeX1 = cx + slopeLen*Math.cos(theta)/2;
+  const slopeY1 = cy + slopeLen*Math.sin(theta)/2;
+  // 三角斜面
+  ctx.fillStyle = '#dad6c8';
+  ctx.beginPath();
+  ctx.moveTo(slopeX0, slopeY0);
+  ctx.lineTo(slopeX1, slopeY1);
+  ctx.lineTo(slopeX0, slopeY1);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 2;
+  ctx.stroke();
+  // 角度标
+  ctx.strokeStyle = '#94a09b'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(slopeX1, slopeY1, 24, Math.PI, Math.PI - theta, true);
+  ctx.stroke();
+  ctx.fillStyle = '#5d6964';
+  ctx.font = 'italic 700 13px Georgia,serif';
+  ctx.fillText('30°', slopeX1 - 38, slopeY1 - 6);
+
+  // 机器人位置：斜坡中部
+  const robX = (slopeX0 + slopeX1)/2;
+  const robY = (slopeY0 + slopeY1)/2 - 25;     // 站在斜面上
+
+  // 机器人简图
+  ctx.fillStyle = '#3f6f8f';
+  ctx.fillRect(robX-12, robY-30, 24, 30);     // 身体
+  ctx.fillStyle = '#fdfaf2';
+  ctx.beginPath(); ctx.arc(robX, robY-40, 9, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1;
+  ctx.stroke();
+  // 眼睛
+  ctx.fillStyle = '#1d1d1f';
+  ctx.beginPath(); ctx.arc(robX-3, robY-41, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(robX+3, robY-41, 1.5, 0, Math.PI*2); ctx.fill();
+  // 标
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  ctx.fillText('天工', robX-12, robY-50);
+
+  // 受力分析（沿斜面 + 垂直斜面）
+  const pxAxis = robX, pyAxis = robY+10;
+  // mg 向下
+  PPath.arrow(ctx, pxAxis, pyAxis, pxAxis, pyAxis+50, '#b4442e', 2);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('mg', pxAxis+5, pyAxis+40);
+  // mg sinθ 沿斜面（向下）
+  const sx = Math.cos(theta), sy = Math.sin(theta);     // 斜面方向（沿坡向下）
+  PPath.arrow(ctx, pxAxis, pyAxis, pxAxis + 40*sx, pyAxis + 40*sy, '#a85219', 1.8);
+  ctx.fillStyle = '#a85219';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('mg·sinθ', pxAxis+20, pyAxis+30);
+  // 摩擦力 f（沿斜面向上，反向）
+  PPath.arrow(ctx, pxAxis, pyAxis, pxAxis - 40*sx, pyAxis - 40*sy, '#16613f', 2);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 10px "Cambria Math",serif';
+  ctx.fillText('f = μN', pxAxis-58, pyAxis-25);
+
+  // 平衡条件
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, 16, 320, 90, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('稳定站立条件：摩擦 ≥ 沿坡分量', 32, 38);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('μ·N ≥ mg·sinθ，N = mg·cosθ', 32, 60);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('μ ≥ tan(30°) = √3/3 ≈ 0.577', 32, 84);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-200, 16, 188, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · μ ≥ √3/3', W-188, 36);
+
+  // μ 演示条
+  const muVals = [0.3, 0.5, mu_min, 0.8];
+  const mu_now = muVals[state.phase-1];
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '700 11px ui-monospace,monospace';
+  ctx.fillText(`μ = ${mu_now.toFixed(3)}  ${mu_now < mu_min ? '→ 滑动 ✗' : '→ 稳定 ✓'}`, 24, H-24);
+}
+
+PathQuestion({
+  paperTitle: '2024 山东卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 2 题 · 4 分',
+  title: '机器人斜坡 · 静摩擦临界',
+  subtitle: '"天工"机器人在 ≤ 30° 斜坡稳定站立。求最小动摩擦因数。',
+  deliv: {
+    title: '斜坡静摩擦临界',
+    sub: 'μ ≥ tan30° = √3/3 · 答案 B'
+  },
+  originalProblem: {
+    meta: '2024 山东卷 · 第 2 题 · 4 分',
+    text: `国产人形机器人"天工"能平稳通过斜坡。若它可以在<b>倾角不大于 30°</b> 的斜坡上稳定地站立和行走，且最大静摩擦力等于滑动摩擦力，则它的脚和斜面间的<b>动摩擦因数不能小于</b>（　　）`,
+    subQuestions: ['A. √2/2','B. √3/3','C. √3/2','D. 1'],
+    officialAnswer: 'B · 稳定站立条件：μ·N ≥ mg·sinθ，N = mg·cosθ → μ ≥ tanθ。最大角 30° → μ_min = tan30° = √3/3 ≈ 0.577。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'稳定条件', label_short:'稳定',
+     formula_tex: String.raw`\mu \ge \tan\theta = \tan 30° = \dfrac{\sqrt{3}}{3}`,
+     note:'静摩擦力 f = μN ≥ mg sinθ → μ ≥ tanθ。30° 临界 μ = √3/3 ≈ 0.577。'}
+  ],
+  stats: [
+    {label:'最大倾角',  fmt:()=>'30°'},
+    {label:'tan(30°)',  fmt:()=>'√3/3 ≈ 0.577'},
+    {label:'临界 μ',    fmt:()=>'≥ √3/3'}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'√2/2', note:'对应 45°'},
+    {label_text:'B 对', value_text:'√3/3', note:'tan30°'},
+    {label_text:'C 错', value_text:'√3/2', note:''},
+    {label_text:'D 错', value_text:'1',    note:'对应 45°'}
+  ],
+  legend: [
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'机器人（重力 mg）'},
+    {swatch:{bg:'#a85219',border:'#a85219',type:'rect'}, text:'mg sinθ（下滑分量）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'静摩擦 f = μN'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024山东-Q2-机器人斜坡'
+});
+</script>
+</body>
+</html>

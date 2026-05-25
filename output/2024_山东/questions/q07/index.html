@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 7 题 · 双人双绳弹性 · 摩擦 + 弹性势能</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 甲乙等质量 m，坐木板上，弹性绳原长 l，初始距 d (d<l) 等高
+// μ 摩擦系数，k 劲度，弹性势能 E = ½kx²（x 是伸长量）
+// 缓慢拉乙 → 直至甲刚要离开原位置（即弹力 = 静摩擦极限）
+// F·dx_乙 转化为：弹性势能增量 + 摩擦热（仅乙底下因为甲不动）
+// 甲刚要离开 → 弹力 = μmg → 伸长量 x = μmg/k → 总长 = l + μmg/k
+// 乙位移 = (l + μmg/k) - d (从初始 d 拉到 l + μmg/k)
+// 但绳原长 l > d，所以初始绳已松弛（伸长 0）
+// 拉到伸长 μmg/k 时，伸长量 = μmg/k，但此前要先 "拉满到 l 再拉伸"
+// 乙位移 = (l - d) + μmg/k   (从 d 拉到 l 是无张力，从 l 拉到 l+x 才有弹力)
+// 摩擦力 = μmg（恒定）
+// 摩擦消耗 = μmg · 乙位移 = μmg · (l - d + μmg/k)
+// 弹性势能 = ½k·(μmg/k)² = (μmg)²/(2k)
+// F 做功 = 弹性势能 + 摩擦消耗
+//        = (μmg)²/(2k) + μmg·(l-d) + (μmg)²/k
+//        = 3(μmg)²/(2k) + μmg·(l-d)
+// 答案 B：（化简后形式可能不同）
+
+const T_total = 5;
+
+function evalState(t){
+  const u = (t/T_total) % 1;
+  return {phase:1, u, t};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 地面
+  const yFloor = H*0.65;
+  ctx.fillStyle = '#dad6c8';
+  ctx.fillRect(20, yFloor, W-40, 6);
+
+  // 甲（左，固定）+ 乙（右，向右拉）
+  const jiaX = 100;
+  const yiX = jiaX + 200 + state.u * 120;
+  // 甲木板
+  drawPersonOnBoard(ctx, jiaX, yFloor, '甲', '#c2611f');
+  // 乙木板
+  drawPersonOnBoard(ctx, yiX, yFloor, '乙', '#3f6f8f');
+
+  // 弹性绳
+  const ropeY = yFloor - 10;
+  const stretch = state.u;
+  ctx.strokeStyle = '#16613f'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let s=0; s<=1; s+=0.05){
+    const xx = jiaX + 30 + s*(yiX - jiaX - 60);
+    const yy = ropeY + Math.sin(s*Math.PI*8)*(stretch < 0.3 ? 4 : 2*(1-stretch));
+    if(s===0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#16613f';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('弹性绳 (k, l)', (jiaX + yiX)/2 - 30, ropeY - 12);
+
+  // F 拉力
+  PPath.arrow(ctx, yiX + 50, yFloor - 25, yiX + 90, yFloor - 25, '#b4442e', 2.5);
+  ctx.fillStyle = '#b4442e';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('F (拉)', yiX + 60, yFloor - 30);
+
+  // 摩擦力（仅乙）
+  PPath.arrow(ctx, yiX, yFloor - 8, yiX - 30, yFloor - 8, '#a85219', 1.8);
+  ctx.fillStyle = '#a85219';
+  ctx.font = '700 11px "Cambria Math",serif';
+  ctx.fillText('f = μmg', yiX - 40, yFloor + 18);
+
+  // 顶部说明
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12.5px "Noto Sans SC",sans-serif';
+  ctx.fillText('缓慢拉乙木板 → 至甲刚要离开（弹力 = μmg）', 24, 22);
+
+  // 推导卡
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(20, H-160, 460, 140, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#a85219';
+  ctx.font = '900 13px "Noto Sans SC",sans-serif';
+  ctx.fillText('能量法分析', 32, H-138);
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '700 12px "Cambria Math",serif';
+  ctx.fillText('① 甲离开瞬间：弹力 = μmg → 伸长 x = μmg/k', 32, H-118);
+  ctx.fillText('② 乙位移 s = (l−d) + μmg/k （先拉满松弛再拉伸）', 32, H-100);
+  ctx.fillText('③ 弹性势能 E_p = ½k·x² = (μmg)² / (2k)', 32, H-82);
+  ctx.fillText('④ 摩擦消耗 W_f = μmg · s = μmg(l−d) + (μmg)²/k', 32, H-64);
+  ctx.fillStyle = '#16613f';
+  ctx.font = '900 13px "Cambria Math",serif';
+  ctx.fillText('W_F = E_p + W_f = 3(μmg)²/(2k) + μmg(l−d)', 32, H-40);
+
+  // 答案
+  ctx.fillStyle = '#fdf3e6';
+  ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(W-220, H-44, 208, 32, 8);ctx.fill();ctx.stroke();}
+  ctx.fillStyle = '#c2611f';
+  ctx.font = '900 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('答案 B · 3(μmg)²/(2k)+μmg(l−d)', W-208, H-22);
+}
+
+function drawPersonOnBoard(ctx, cx, yFloor, label, color){
+  // 木板
+  ctx.fillStyle = '#86868b';
+  ctx.fillRect(cx-30, yFloor-4, 60, 4);
+  // 人
+  ctx.fillStyle = color;
+  ctx.fillRect(cx-10, yFloor-26, 20, 22);
+  ctx.fillStyle = '#fdfaf2';
+  ctx.beginPath(); ctx.arc(cx, yFloor-34, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#1d1d1f'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = '900 11px "Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, cx, yFloor-46);
+  ctx.textAlign = 'left';
+}
+
+PathQuestion({
+  paperTitle: '2024 山东卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 7 题 · 4 分',
+  title: '双人双绳 · 弹性 + 摩擦能量分析',
+  subtitle: '甲乙坐木板，弹性绳连接。缓拉乙至甲刚要离开。求 F 做的功。',
+  deliv: {
+    title: '能量法 · F 做的功',
+    sub: 'W_F = 3(μmg)²/(2k) + μmg(l−d) · 答案 B'
+  },
+  originalProblem: {
+    meta: '2024 山东卷 · 第 7 题 · 4 分',
+    text: `质量均为 m 的甲、乙两同学，分别坐在水平放置的轻木板上，木板通过一根原长为 l 的轻质弹性绳连接，连接点等高且间距 <b>d (d&lt;l)</b>。两木板与地面间动摩擦因数 μ，弹性绳劲度系数 k，弹性势能 <b>E = ½kx²</b>（x 是伸长量）。用水平力 F 缓慢拉乙木板，直至甲刚要离开原位置。最大静摩擦 = 滑动摩擦。求 F 做的功。`,
+    subQuestions: [],
+    officialAnswer: 'B · 甲离开条件：弹力 = μmg → 伸长 x = μmg/k。乙位移 s = (l−d) + x = (l−d) + μmg/k。摩擦做功（仅乙底下，因甲不动）= μmg·s = μmg(l−d) + (μmg)²/k。弹性势能 E_p = ½k·x² = (μmg)²/(2k)。能量守恒：W_F = E_p + W_f = (μmg)²/(2k) + μmg(l−d) + (μmg)²/k = 3(μmg)²/(2k) + μmg(l−d)。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'缓拉 · 临界条件', label_short:'临界',
+     formula_tex: String.raw`x = \dfrac{\mu m g}{k},\;\; s = (l-d) + \dfrac{\mu mg}{k}`,
+     note:'乙先拉到绳松弛端 (l-d) → 然后伸长 μmg/k 直到弹力 = 摩擦极限。'}
+  ],
+  stats: [
+    {label:'伸长量 x',     fmt:()=>'μmg/k'},
+    {label:'乙位移 s',     fmt:()=>'(l-d) + μmg/k'},
+    {label:'弹性势能 E_p', fmt:()=>'(μmg)²/(2k)'},
+    {label:'摩擦消耗 W_f', fmt:()=>'μmg(l-d) + (μmg)²/k'},
+    {label:'F 做功 W_F',   fmt:()=>'3(μmg)²/(2k) + μmg(l-d)'}
+  ],
+  conclusions: [
+    {label_text:'答案 B', value_text:'3(μmg)²/(2k)+μmg(l−d)', note:'能量守恒'}
+  ],
+  legend: [
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'}, text:'甲（左侧不动）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'}, text:'乙（被拉移动）'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'rect'}, text:'弹性绳'},
+    {swatch:{bg:'#b4442e',border:'#b4442e',type:'rect'}, text:'拉力 F'}
+  ],
+  defaults: {speed:1.0, lineW:3.5, vec:true, guide:true},
+  fileName: '2024山东-Q7-双绳弹性'
+});
+</script>
+</body>
+</html>

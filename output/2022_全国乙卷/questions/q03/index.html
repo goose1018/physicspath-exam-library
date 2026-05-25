@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2022 全国乙 · 第 3 题 · 圆环上小环自由下滑</title>
+<link rel="stylesheet" href="../../../_shared/q-shell.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script src="../../../_shared/q-shell.js"></script>
+<script>
+// 物理：竖直平面光滑大圆环（半径 R），小环从顶端 P 静止下滑
+// 取圆心 O = (0, R) 物理坐标（y 向下），P = (0, 0)
+// 小环位置：与 OP 夹角 θ（顺时针从 OP 量，θ ∈ [0, 2π]）
+//   pos = (R sin θ, R - R cos θ)
+// 下降高度 h = R(1 - cos θ)
+// 机械能守恒 → v = √(2g·h) = √(2gR(1 - cos θ))
+// 到 P 距离 d = √((R sin θ)² + (R - R cos θ)²) = R·√(2 − 2cos θ) = R√2·√(1 − cos θ)
+// 比 v/d = √(2gR(1−cos θ)) / (R√2·√(1−cos θ)) = √(g/R) 恒为常数
+// 故 **v ∝ d**（C 对）；A 错（弧长 ∝ θ）/ B 错（高度 ∝ 1-cosθ，与 v² 成比）/ D 错（扇形面积非线性）
+
+const T_total = 14;
+const R = 1.0;       // 圆半径（任意单位）
+const g = 1.0;       // 重力加速度
+
+function evalState(t){
+  const u = Math.max(0, Math.min(t/T_total, 1));
+  // 阶段：
+  // 0.00-0.10 题面（小环静止于 P）
+  // 0.10-0.50 下滑（θ: 0 → 2π/3 ≈ 120°，避免转太低看不见）
+  // 0.50-0.75 显示 d / v 同步关系（v∝d 验证）
+  // 0.75-0.92 4 选项判定
+  // 0.92-1.00 答案 C
+  let phase = 0;
+  if(u < 0.10) phase = 0;
+  else if(u < 0.50) phase = 1;
+  else if(u < 0.75) phase = 2;
+  else if(u < 0.92) phase = 3;
+  else phase = 4;
+
+  // theta 进度
+  let theta = 0;
+  if(u >= 0.10){
+    const localU = (u - 0.10) / 0.65;       // 0..1 到 phase 2 末
+    const tau = Math.max(0, Math.min(localU, 1));
+    theta = tau * (2 * Math.PI / 3);        // 0 → 120°
+  }
+
+  // 当前位置（物理坐标 y 向下，O=(0,R), P=(0,0)）
+  const pos = {
+    x: R * Math.sin(theta),
+    y: R - R * Math.cos(theta)
+  };
+  // 高度（从 P 算下降）
+  const h = R * (1 - Math.cos(theta));
+  // 速度大小
+  const v = Math.sqrt(2 * g * h);
+  // 到 P 距离
+  const d = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+  // 弧长（沿圆环走过的）
+  const arcLen = R * theta;
+
+  return {u, t, phase, theta, pos, h, v, d, arcLen};
+}
+
+function drawScene(ctx, view, state, t, opts){
+  const W = view.w, H = view.h;
+  ctx.fillStyle = '#fffdf9';
+  ctx.fillRect(0,0,W,H);
+
+  // 全宽：圆环主图（含 v∝d 比例条）
+  drawRing(ctx, 14, 14, W-28, H-28, state);
+}
+
+function drawRing(ctx, panelX, panelY, panelW, panelH, state){
+  ctx.fillStyle = '#fffdf9';
+  ctx.strokeStyle = '#eadfce'; ctx.lineWidth = 1;
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(panelX,panelY,panelW,panelH,12);ctx.fill();ctx.stroke();}
+
+  ctx.fillStyle = '#5d6964';
+  ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('竖直平面光滑大圆环（小环从 P 静止下滑）', panelX+12, panelY+18);
+
+  // 物理 (0,0) 在屏幕 P 位置，y 向下
+  // 圆环半径 sc · R
+  const padding = 56;
+  const sc = Math.min((panelW - 2*padding) / (2 * R), (panelH - 2*padding - 30) / (2 * R));
+  // P 在面板上侧，圆心 O 在 P 下方 R·sc
+  const cxScreen = panelX + panelW * 0.40;     // 圆心 x（左侧便于右侧放置数据）
+  const Py_screen = panelY + 50;
+  const Ox_screen = cxScreen;
+  const Oy_screen = Py_screen + R * sc;
+  const phys2px = (xp, yp) => ({ x: cxScreen + xp * sc, y: Py_screen + yp * sc });
+
+  // 大圆环
+  ctx.strokeStyle = '#3a3a3c'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(Ox_screen, Oy_screen, R * sc, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // P 点（顶端）
+  const Pscr = phys2px(0, 0);
+  ctx.fillStyle = '#16613f';
+  ctx.beginPath();
+  ctx.arc(Pscr.x, Pscr.y, 5, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#16613f'; ctx.font = '900 13px Georgia,serif';
+  ctx.fillText('P', Pscr.x + 8, Pscr.y);
+
+  // 圆心 O
+  ctx.fillStyle = '#a89878';
+  ctx.beginPath();
+  ctx.arc(Ox_screen, Oy_screen, 3, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#a89878'; ctx.font = '700 11px Georgia,serif';
+  ctx.fillText('O', Ox_screen + 6, Oy_screen + 4);
+
+  // 小环位置
+  const ballScr = phys2px(state.pos.x, state.pos.y);
+  ctx.fillStyle = '#b4442e';
+  ctx.beginPath();
+  ctx.arc(ballScr.x, ballScr.y, 6, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = '#7d2f1f'; ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  // PR 连线（虚线，u≥0.50 揭晓）
+  if(state.u >= 0.50 && state.theta > 0.05){
+    ctx.strokeStyle = '#3f6f8f'; ctx.lineWidth = 1.6; ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.moveTo(Pscr.x, Pscr.y);
+    ctx.lineTo(ballScr.x, ballScr.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // d 标注（中点偏左）
+    ctx.fillStyle = '#3f6f8f'; ctx.font = '700 11px ui-monospace,monospace';
+    const midx = (Pscr.x + ballScr.x)/2 - 16;
+    const midy = (Pscr.y + ballScr.y)/2 - 4;
+    ctx.fillText('d', midx, midy);
+  }
+
+  // 速度向量（沿切线方向）
+  if(state.theta > 0.05){
+    // 切线方向：垂直于 OR 半径，沿运动方向（顺时针下滑）
+    // OR 方向 = (sin θ, -cos θ)（O 指向小环：x 增、y 减小（y 是 R-Rcosθ-R = -R cos θ））
+    // wait, 物理坐标 y 向下，O=(0,R), 小环=(R sinθ, R-R cosθ)，OR = 小环-O = (R sinθ, -R cosθ)
+    // 切线（顺时针下滑方向）= 旋转 OR 90° 顺时针 = (-(-R cosθ), R sinθ)/R = (cosθ, sinθ)
+    // 物理 +x 右、+y 下；小环顺时针下滑：起初向右下，θ 增大 → 切线指向 +x +y
+    // 切线 = (cos θ, sin θ) ✓
+    const tangentPhys = { x: Math.cos(state.theta), y: Math.sin(state.theta) };
+    const vScale = sc * 0.35;
+    const arrowEndX = ballScr.x + tangentPhys.x * state.v * vScale;
+    const arrowEndY = ballScr.y + tangentPhys.y * state.v * vScale;
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 2;
+    PPath.arrow(ctx, ballScr.x, ballScr.y, arrowEndX, arrowEndY, '#c2611f', 2);
+    ctx.fillStyle = '#c2611f'; ctx.font = '700 11px Georgia,serif';
+    ctx.fillText('v', arrowEndX + 4, arrowEndY + 4);
+  }
+
+  // 弧长（沿圆环画过的路径，绿色弧）
+  if(state.theta > 0.02){
+    ctx.strokeStyle = '#16613f'; ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    // 弧起点 P=(0,0) 即圆环顶点；从 -π/2 角度起按顺时针走 theta
+    const angStart = -Math.PI / 2;             // P 在圆环最高点
+    const angEnd = angStart + state.theta;     // canvas y 向下，圆心 O 下方 → 顺时针 = angle 增加
+    ctx.arc(Ox_screen, Oy_screen, R * sc, angStart, angEnd, false);
+    ctx.stroke();
+  }
+
+  // 数据面板（右侧）
+  const dataX = panelX + panelW * 0.62;
+  let dataY = panelY + 50;
+  ctx.fillStyle = '#5d6964'; ctx.font = '800 12px "Noto Sans SC",sans-serif';
+  ctx.fillText('实时物理量（v 与各候选量比较）', dataX, dataY); dataY += 22;
+
+  ctx.font = '700 11px ui-monospace,monospace';
+  if(state.u >= 0.10){
+    ctx.fillStyle = '#3a3a3c';
+    ctx.fillText(`θ = ${(state.theta * 180 / Math.PI).toFixed(1)}°`, dataX, dataY); dataY += 18;
+    ctx.fillText(`h（下降高度）= ${state.h.toFixed(3)}`, dataX, dataY); dataY += 18;
+    ctx.fillText(`v（速度）    = ${state.v.toFixed(3)}`, dataX, dataY); dataY += 18;
+    ctx.fillStyle = '#3f6f8f';
+    ctx.fillText(`d（到 P 距离）= ${state.d.toFixed(3)}`, dataX, dataY); dataY += 18;
+    ctx.fillStyle = '#3a3a3c';
+    ctx.fillText(`s（弧长）   = ${state.arcLen.toFixed(3)}`, dataX, dataY); dataY += 22;
+  }
+
+  // 关键比例（v∝d 验证）— u≥0.50 揭晓
+  if(state.u >= 0.50){
+    if(state.d > 1e-3){
+      ctx.fillStyle = '#16613f';
+      ctx.font = '700 11px ui-monospace,monospace';
+      ctx.fillText(`v / d = ${(state.v / state.d).toFixed(3)}（恒定）`, dataX, dataY); dataY += 18;
+    }
+    if(state.arcLen > 1e-3){
+      ctx.fillStyle = '#b4442e';
+      ctx.fillText(`v / s = ${(state.v / state.arcLen).toFixed(3)}（变化）`, dataX, dataY); dataY += 18;
+    }
+    if(state.h > 1e-3){
+      ctx.fillStyle = '#b4442e';
+      ctx.fillText(`v / h = ${(state.v / state.h).toFixed(3)}（变化）`, dataX, dataY); dataY += 18;
+    }
+  }
+
+  // 阶段标签
+  ctx.fillStyle = '#5d6964'; ctx.font = '700 11px "Noto Sans SC",sans-serif';
+  const stageNames = [
+    '阶段 ① 小环静止于 P',
+    '阶段 ② 沿圆环下滑',
+    '阶段 ③ 探索 v 与各候选量的比例',
+    '阶段 ④ 选项判定',
+    '阶段 ⑤ 答案'
+  ];
+  ctx.fillText(stageNames[state.phase], panelX + 12, panelY + panelH - 12);
+
+  // 答案徽章（u≥0.92）
+  if(state.u >= 0.92){
+    const bW = 220, bH = 38;
+    const bX = panelX + panelW - bW - 18, bY = panelY + 14;
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.5;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bX, bY, bW, bH, 10);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 C：v ∝ d（到 P 距离）', bX + 14, bY + 24);
+  }
+}
+
+PathQuestion({
+  paperTitle: '2022 全国乙卷',
+  paperHref: '../../index.html',
+  eyebrow: '单选 · 第 3 题 · 6 分',
+  title: '圆环上小环自由下滑',
+  subtitle: '机械能守恒 → v=√(2gh)；几何 d=R√(2−2cosθ)；v/d=√(g/R) 恒定 → v 正比于到 P 距离 d。',
+  deliv: { title: '机械能守恒 + 圆几何', sub: 'C：v ∝ 它到 P 点距离' },
+  originalProblem: {
+    meta: '2022 全国乙 · 单选 · 第 3 题 · 6 分',
+    image: '../../source/images/image18.png',
+    text: `固定于竖直平面内的光滑大圆环上套有一个小环，小环从大圆环顶端 P 点由静止开始自由下滑，在下滑过程中，小环的速率正比于（    ）`,
+    subQuestions: [
+      'A. 它滑过的弧长',
+      'B. 它下降的高度',
+      'C. 它到 P 点的距离',
+      'D. 它与 P 点的连线扫过的面积'
+    ],
+    officialAnswer: 'C · 设大圆半径 R，小环位置以从最高点 P 起算的圆心角 θ 为参数。下降高度 h = R(1 − cos θ)，由机械能守恒：½m·v² = m·g·h → **v = √(2gR(1 − cos θ))**。到 P 点的弦长 d = √(R²sin²θ + R²(1−cos θ)²) = R·√(2 − 2cos θ) = **R√2·√(1 − cos θ)**。两式对比：**v / d = √(g/R) 恒定** → v ∝ d ✓（C 对）。其余：弧长 s = R·θ 与 v 不成线性比（A 错）；高度 h = R(1−cos θ) 与 v² 成正比，故 v ∝ √h（B 错）；扫过面积约为 ½R²(θ − sin θ)，非线性比（D 错）。'
+  },
+  totalT: T_total,
+  speedFactor: 0.6,
+  evalState,
+  drawScene,
+  phases: [
+    {label:'阶段 ① 静止', label_short:'init',
+     formula_tex: String.raw`v_0 = 0,\;\;h = 0,\;\;d = 0`,
+     note:'P 点静止释放。'},
+    {label:'阶段 ② 下滑', label_short:'energy',
+     formula_tex: String.raw`h = R(1 - \cos\theta),\;\;v = \sqrt{2gR(1-\cos\theta)}`,
+     note:'机械能守恒。'},
+    {label:'阶段 ③ 几何', label_short:'弦长',
+     formula_tex: String.raw`d = R\sqrt{2-2\cos\theta} = R\sqrt{2}\,\sqrt{1-\cos\theta}`,
+     note:'到 P 弦长。'},
+    {label:'阶段 ④ 比例', label_short:'v/d',
+     formula_tex: String.raw`\dfrac{v}{d} = \sqrt{\dfrac{g}{R}}\;(\text{恒定})\;\Rightarrow\; v \propto d`,
+     note:'核心关系：v 与 d 比恒定。'},
+    {label:'阶段 ⑤ 答案', label_short:'C',
+     formula_tex: String.raw`v \propto d\;\;(\text{C 对})`,
+     note:'答案 C。'}
+  ],
+  stats: [
+    {label:'h ∝ ', fmt:s=>(s.u>=0.20? '1−cos θ' : '?')},
+    {label:'v² ∝', fmt:s=>(s.u>=0.20? '1−cos θ（即 ∝ h）' : '?')},
+    {label:'d ∝',  fmt:s=>(s.u>=0.30? '√(1−cos θ)' : '?')},
+    {label:'v/d',  fmt:s=>(s.u>=0.92? '√(g/R)（恒定）' : '?')}
+  ],
+  conclusions: [
+    {label_text:'A 错', value_text:'v 不正比 弧长 s=Rθ', note:'非线性'},
+    {label_text:'B 错', value_text:'v ∝ √h（非 v∝h）',  note:'h ∝ v²'},
+    {label_text:'C 对', value_text:'v ∝ d ✓',           note:'v/d 恒定'},
+    {label_text:'D 错', value_text:'扫过面积非线性',     note:'≈ ½R²(θ−sin θ)'}
+  ],
+  legend: [
+    {swatch:{bg:'#3a3a3c',border:'#3a3a3c',type:'circle'}, text:'大圆环'},
+    {swatch:{bg:'#16613f',border:'#16613f',type:'circle'}, text:'P 顶端起点'},
+    {swatch:{bg:'#b4442e',border:'#7d2f1f',type:'circle'}, text:'小环（下滑）'},
+    {swatch:{bg:'#3f6f8f',border:'#3f6f8f',type:'rect'},   text:'PR 弦 d'},
+    {swatch:{bg:'#c2611f',border:'#c2611f',type:'rect'},   text:'速度 v（沿切线）'}
+  ],
+  defaults: {speed:1.0, lineW:2.0, vec:false, guide:true},
+  fileName: '2022全国乙-Q3-圆环小环'
+});
+</script>
+</body>
+</html>

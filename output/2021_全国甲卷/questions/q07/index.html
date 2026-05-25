@@ -98,8 +98,7 @@ function drawScene(ctx, view, state, t, opts){
   const W = view.w, H = view.h;
   ctx.fillStyle = '#fffdf9';
   ctx.fillRect(0,0,W,H);
-  drawSlope(ctx, 14, 14, W*0.50-21, H-28, state);
-  drawCalc (ctx, W*0.50+7, 14, W*0.50-21, H-28, state);
+  drawSlope(ctx, 14, 14, W-28, H-28, state);
 }
 
 function drawSlope(ctx, panelX, panelY, panelW, panelH, state){
@@ -217,6 +216,18 @@ function drawSlope(ctx, panelX, panelY, panelW, panelH, state){
   ctx.fillStyle = '#86868b';
   ctx.font = '600 10.5px ui-monospace,monospace';
   ctx.fillText(`pos = ${state.pos_along.toFixed(3)} m · v = ${state.v_now.toFixed(2)} m/s`, panelX+12, panelY+panelH-10);
+
+  // 答案徽章（u≥0.92 守卫；右上角紧贴几何）
+  if(state.u >= 0.92){
+    const bw = 130, bh = 36;
+    const bx = panelX + panelW - bw - 12, by = panelY + 8;
+    ctx.fillStyle = '#fdf3e6';
+    ctx.strokeStyle = '#c2611f'; ctx.lineWidth = 1.6;
+    if(ctx.roundRect){ctx.beginPath();ctx.roundRect(bx,by,bw,bh,8);ctx.fill();ctx.stroke();}
+    ctx.fillStyle = '#c2611f';
+    ctx.font = '900 14px "Noto Sans SC",sans-serif';
+    ctx.fillText('答案 BC', bx+12, by+23);
+  }
 }
 
 function drawCalc(ctx, panelX, panelY, panelW, panelH, state){

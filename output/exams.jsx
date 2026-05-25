@@ -224,6 +224,9 @@ const REAL_PROBLEMS = [
   { id:'2022-gk1-q13', year:2022, paper:'gk1',  no:'13', module:'热学',    tplId:null, title:'p-T 图 a→b 过原点等容过程',                            summary:'p-T 图过原点 → p/T=const → V=nRT/p 不变 → 等容；W=0、ΔU>0、Q=ΔU。答案 BCE。', diff:'中', heat:115, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q13/index.html' },
   { id:'2022-gk1-q15', year:2022, paper:'gk1',  no:'15', module:'振动波动', tplId:null, title:'横波 v=2 m/s 填空（λ/f/A 点方向）',                  summary:'A 点 y(0,0)=−1 cm + 图像识别 → λ=4 m；f=v/λ=0.5 Hz、T=2 s；t=2s=T 振动同 t=0；左邻近波谷 → A 向下运动。', diff:'中', heat:105, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q15/index.html' },
   { id:'2022-gk1-q16', year:2022, paper:'gk1',  no:'16', module:'光学',    tplId:null, title:'正方形棱镜折射 + 全反射',                              summary:'M 入射 60° → sin θ=√3/(2n)；N 全反射 α=90°−θ → cos θ=1/n；联立 sin²+cos² → n²=7/4；几何 PC=a·(tan θ−1/2)。答案 n=√7/2、PC=a(√3−1)/2。', diff:'难', heat:140, hasAnim:true, htmlPath:'2022_全国甲卷/questions/q16/index.html' },
+  // ── 2022 全国乙卷 ──
+  { id:'2022-gk2-q03', year:2022, paper:'gk2',  no:'3',  module:'力学',    tplId:null, title:'圆环上小环自由下滑',                                summary:'机械能守恒 v=√(2gR(1−cos θ))；几何 d=R√(2−2cos θ)；v/d=√(g/R) 恒定 → v ∝ d（到 P 距离）。答案 C。', diff:'中', heat:120, hasAnim:true, htmlPath:'2022_全国乙卷/questions/q03/index.html' },
+  { id:'2022-gk2-q06', year:2022, paper:'gk2',  no:'6',  module:'电磁学',  tplId:null, title:'正方形顶点等量异号电荷',                            summary:'4 顶点 +/-/+/- 间隔布局；E_L⊥E_N（A）；E_M 向左（B）；M、O 在 V=0 对称面 → W=0；V_L≠V_N → W≠0。答案 AB。', diff:'难', heat:130, hasAnim:true, htmlPath:'2022_全国乙卷/questions/q06/index.html' },
 ];
 
 PROBLEMS.push(...REAL_PROBLEMS);
@@ -391,6 +394,8 @@ const PROBLEM_META = {
   '2022-gk1-q13':  { type:'choice-multi',  answer:['B','C','E'] },
   '2022-gk1-q15':  { type:'calc',          answer:[{sub:'λ',val:'4 m'},{sub:'f',val:'0.5 Hz'},{sub:'t=2s 时 A',val:'向下运动'}] },
   '2022-gk1-q16':  { type:'calc',          answer:[{sub:'n',val:'√7/2'},{sub:'PC',val:'a(√3−1)/2'}] },
+  '2022-gk2-q03':  { type:'choice-single', answer:'C' },
+  '2022-gk2-q06':  { type:'choice-multi',  answer:['A','B'] },
 };
 
 // 按 year×paper 计数
